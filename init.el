@@ -8,6 +8,7 @@
 	     (expand-file-name "~/emacs"))
 
 (server-start)
+(require 'cl)
 
 ;; edit server for Chrome (browser extension):
 (when (require 'edit-server nil t)
@@ -50,33 +51,38 @@
 	 (find-first-font (cdr list)))
 	))
 ; set default font attributes (for all frames)
-(set-face-attribute 'default nil :font (find-first-font preferred-fonts))
+(if window-system
+    (progn
+      (set-face-attribute 'default nil :font (find-first-font preferred-fonts))
 
-(cond ((> (x-display-pixel-height) 1000)
-       (setq initial-frame-alist (list
-				  '(top . 15)
-				  '(left . 1000)
-				  '(width . 98)
-				  '(height . 64)
-				  )))
-      (t
-       (setq initial-frame-alist (list
-				  '(top . 15)
-				  '(left . 20)
-				  '(width . 98)
-				  '(height . 40)
-				  ))))
-
+      (cond ((> (x-display-pixel-height) 1000)
+	     (setq initial-frame-alist (list
+					'(top . 15)
+					'(left . 1000)
+					'(width . 98)
+					'(height . 64)
+					)))
+	    (t
+	     (setq initial-frame-alist (list
+					'(top . 15)
+					'(left . 20)
+					'(width . 98)
+					'(height . 40)
+					))))
+      ))
 
 ;;; TMC Completion
 (setq *cdabbrev-radius* nil		; search whole buffer
       *print-next-completion-does-cdabbrev-search-p* t ;show next even if cdabbrev
       *separator-character-uses-completion-p* t	       ; save after typing separator
       )
-(condition-case nil
-  (load-library "completion-11-4")
-  (error (load-library "completion-11-2")))
-(initialize-completions)
+(ignore-errors
+ (condition-case nil
+     (load-library "completion-11-4")
+   (error
+    (load-library "completion-11-2")))
+ (initialize-completions)
+ )
 
 ;; use zsh or bash.  Do this early on before loading any git stuff,
 ;; otherwise that will try to use cmdproxy.exe.
@@ -86,9 +92,11 @@
 (load-library "paren")
 (show-paren-mode)
 (recentf-mode t)
-(visual-line-mode nil) ; next-line go to real next line, see also line-move-visual
-(global-visual-line-mode 0)
-(setq line-move-visual nil)
+(if (> emacs-major-version 22)
+    (progn
+      (visual-line-mode nil) ; next-line go to real next line, see also line-move-visual
+      (global-visual-line-mode 0)
+      (setq line-move-visual nil)))
 
 ;;; as of 21-Oct-10, git as a vc backend makes saving files really slow (a second or more).
 ;;; I think egg is fine, don't really need vc.
@@ -139,50 +147,52 @@
 ;;; (add-to-list 'org-modules 'org-odt) not needed?
 
 ;; org-mode color
-(org-add-link-type
-  "color"
-  ;; follow-link function:
-  (lambda (path)
-    (message (concat "color "
-		     (progn (add-text-properties
-			     0 (length path)
-			     (list 'face `((t (:foreground ,path))))
-			     path) path))))
-  ;; export function:
-  (lambda (path desc format) ; desc is the text, path is the color, and format is html/latex/odt
-   (cond
-    ((eq format 'html)
-     (format"<span style=\"color:%s;\">%s</span>"  path desc))
-    ((eq format 'latex)
-     (format"{\\color{%s}%s}"  path desc))
-    ((eq format 'odt)
-     (format"<text:span text:style-name=\"%sColor\">%s</text:span>" path desc)) ; see ~/ooo-template.ott
-    (t
-     (format"%s{%s}" desc path)))))
+(if (boundp 'org-add-link-type)
+    (progn
+      (org-add-link-type
+       "color"
+       ;; follow-link function:
+       (lambda (path)
+	 (message (concat "color "
+			  (progn (add-text-properties
+				  0 (length path)
+				  (list 'face `((t (:foreground ,path))))
+				  path) path))))
+       ;; export function:
+       (lambda (path desc format) ; desc is the text, path is the color, and format is html/latex/odt
+	 (cond
+	  ((eq format 'html)
+	   (format"<span style=\"color:%s;\">%s</span>"  path desc))
+	  ((eq format 'latex)
+	   (format"{\\color{%s}%s}"  path desc))
+	  ((eq format 'odt)
+	   (format"<text:span text:style-name=\"%sColor\">%s</text:span>" path desc)) ; see ~/ooo-template.ott
+	  (t
+	   (format"%s{%s}" desc path)))))
 
-(org-add-link-type
-  "bgcolor"
-  ;; follow-link function:
-  (lambda (path)
-    (message (concat "background color "
-		     (progn (add-text-properties
-			     0 (length path)
-			     (list 'face `((t (:background ,path))))
-			     path) path))))
-  ;; export function:
-  (lambda (path desc format)
-   (cond
-    ((eq format 'html)
-     (format"<span style=\"background-color:%s;\">%s</span>"  path desc))
-    ((eq format 'latex)
-     (format"\\colorbox{%s}{%s}"  path desc))
-    ((eq format 'odt)
-     (format"<text:span text:style-name=\"%sBg\">%s</text:span>" path desc))
-    (t
-     (format"%s{%s}" desc path)))))
+      (org-add-link-type
+       "bgcolor"
+       ;; follow-link function:
+       (lambda (path)
+	 (message (concat "background color "
+			  (progn (add-text-properties
+				  0 (length path)
+				  (list 'face `((t (:background ,path))))
+				  path) path))))
+       ;; export function:
+       (lambda (path desc format)
+	 (cond
+	  ((eq format 'html)
+	   (format"<span style=\"background-color:%s;\">%s</span>"  path desc))
+	  ((eq format 'latex)
+	   (format"\\colorbox{%s}{%s}"  path desc))
+	  ((eq format 'odt)
+	   (format"<text:span text:style-name=\"%sBg\">%s</text:span>" path desc))
+	  (t
+	   (format"%s{%s}" desc path)))))
 
-(setq org-export-html-style
-"   <style type=\"text/css\">
+      (setq org-export-html-style
+	    "   <style type=\"text/css\">
     <![CDATA[
       .title { font-size: 1.3em; }
        h1 { font-size: 1.3em; }
@@ -196,7 +206,7 @@
     ]]>
    </style>
 ")
-
+      ))
 
 ;; Emacs Speaks Statistics (for R):
 (ignore-errors
@@ -217,7 +227,8 @@
   (require 'templates)
   )
 
-(tool-bar-mode 0)
+(if window-system
+    (tool-bar-mode 0))
 (blink-cursor-mode -1)	;this is annoying
 ;;(mouse-avoidance-mode 'animate)
 (global-font-lock-mode 1)
