@@ -4,6 +4,9 @@
 
 ;; For this to work, HOME must be set to the dir of this file.
 
+(add-to-list 'load-path
+	     (expand-file-name "~/emacs"))
+
 (server-start)
 
 ;; edit server for Chrome (browser extension):
