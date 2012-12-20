@@ -38,7 +38,8 @@
 	;; (17 pixels height) and not as smooth lines.  Feels chunky.
 	"Inconsolata-12"
 	;; default
-	"Courier New-10.5"))
+	"Courier New-10.5"
+        "Courier-10"))
 (defun find-first-font (list)
   (cond ((null list)
 	 nil)
@@ -72,7 +73,9 @@
       *print-next-completion-does-cdabbrev-search-p* t ;show next even if cdabbrev
       *separator-character-uses-completion-p* t	       ; save after typing separator
       )
-(load-library "completion-11-4")
+(condition-case nil
+  (load-library "completion-11-4")
+  (error (load-library "completion-11-2")))
 (initialize-completions)
 
 ;; use zsh or bash.  Do this early on before loading any git stuff,
@@ -92,12 +95,14 @@
 (setq vc-handled-backends (remq 'Git vc-handled-backends))
 (setq vc-handled-backends (remq 'git vc-handled-backends))
 
-(require 'git-emacs-autoloads) ; an emacs GIT interface (one of many); try M-x git-status
-(require 'git-emacs)
-(require 'git-status)
-(autoload 'mo-git-blame-file "mo-git-blame" nil t)
-(autoload 'mo-git-blame-current "mo-git-blame" nil t)
-(require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
+(ignore-errors
+    (require 'git-emacs-autoloads) ; an emacs GIT interface (one of many); try M-x git-status
+    (require 'git-emacs)
+    (require 'git-status)
+    (autoload 'mo-git-blame-file "mo-git-blame" nil t)
+    (autoload 'mo-git-blame-current "mo-git-blame" nil t)
+    (require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
+  )
 
 (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
 ; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
@@ -107,21 +112,26 @@
 (add-to-list 'exec-path "c:/Program Files/R/R-2.14.0/bin") ; for R (statistics pkg)
 
 (defvar dc-auto-insert-directory "~/.emacs.d/Insert/")
-(require 'defaultcontent)
-(require 'filladapt)			;adaptive fill mode
+(ignore-errors
+  (require 'defaultcontent)
+  (require 'filladapt)			;adaptive fill mode
+)
 (setq-default filladapt-mode t)
 
 (autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
 
 ;;; C-c C-e to edit right in a grep buffer, C-c C-s to save.  Nice!
-(load-library "grep-ed")
+(ignore-errors
+  (load-library "grep-ed"))
 
 ;; Org-mode
 ;;; see also customizations at end of this file
 
-(require 'org)
-(require 'hideshow-org)			; smarter hideshow-mode; TAB hides/shows
-(global-set-key "\C-ch" 'hs-org/minor-mode) ; turn it on with this key
+(ignore-errors
+  (require 'org)
+  (require 'hideshow-org)			; smarter hideshow-mode; TAB hides/shows
+  (global-set-key "\C-ch" 'hs-org/minor-mode) ; turn it on with this key
+)
 ;; My org notes go in Dropbox so I can access them anywhere
 (setq org-directory "c:/Users/garyo/Documents/My Dropbox/org")
 (setq org-default-notes-file (concat org-directory "/notes.org"))
@@ -189,8 +199,10 @@
 
 
 ;; Emacs Speaks Statistics (for R):
-(require 'ess-site)
-(ess-toggle-underscore nil)		; no annoying magic underscore
+(ignore-errors
+  (require 'ess-site)
+  (ess-toggle-underscore nil)		; no annoying magic underscore
+)
 
 ;; use M-x idb to run the Intel debugger inside emacs (looks like 'dbx')
 (setq idbpath "c:/Program Files/Intel/IDB/10.0/IA32/Bin")
@@ -201,7 +213,9 @@
 
 ;; This makes [f8] insert a template in the current mode for a new (empty) file
 ;; and binds some C-c cmds in C and C++ mode.  (Try C-c SPC after "if" etc.)
-(require 'templates)
+(ignore-errors
+  (require 'templates)
+  )
 
 (tool-bar-mode 0)
 (blink-cursor-mode -1)	;this is annoying
@@ -227,7 +241,9 @@
           (lambda ()
             (font-lock-add-keywords nil my-shell-extra-keywords)))
 (add-hook 'shell-mode-hook 'ansi-color-for-comint-mode-on)
-(pcomplete-shell-setup)	; set up emacs24 programmable completion for shell mode; not that great but OK
+(ignore-errors
+  (pcomplete-shell-setup)	; set up emacs24 programmable completion for shell mode; not that great but OK
+  )
 
 ;;; whitespace and blank lines:
 (add-hook 'before-save-hook 'delete-trailing-whitespace)
@@ -895,8 +911,11 @@ nil otherwise."
 (put 'narrow-to-region 'disabled nil)
 
 ;;; Initial default directory
-(setq default-directory "c:/genarts/sapphire")
-(cd "c:/genarts/sapphire")
+(if (file-exists-p "c:/genarts/sapphire/SConstruct")
+  (progn
+    (setq default-directory "c:/genarts/sapphire")
+    (cd "c:/genarts/sapphire")
+  ))
 
 (put 'narrow-to-page 'disabled nil)
 
