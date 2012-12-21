@@ -86,7 +86,7 @@
 
 ;; use zsh or bash.  Do this early on before loading any git stuff,
 ;; otherwise that will try to use cmdproxy.exe.
-(setq explicit-shell-file-name "c:/bin/zsh")
+(setq explicit-shell-file-name "zsh")
 (setq shell-file-name explicit-shell-file-name)
 
 (load-library "paren")
