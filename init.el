@@ -147,7 +147,7 @@
 ;;; (add-to-list 'org-modules 'org-odt) not needed?
 
 ;; org-mode color
-(if (boundp 'org-add-link-type)
+(if (fboundp 'org-add-link-type)
     (progn
       (org-add-link-type
        "color"
@@ -957,7 +957,7 @@ nil otherwise."
  '(ido-use-filename-at-point (quote guess))
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
  '(org-alphabetical-lists t)
- '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (ditaa . t) (latex . t) (sql . t))))
+ '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (dot . t) (ditaa . t) (latex . t) (sql . t))))
  '(org-confirm-babel-evaluate nil)
  '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
  '(org-export-latex-packages-alist (quote (("cm" "fullpage" nil) ("compact" "titlesec" nil) ("" "paralist" nil) ("" "color" nil))))
