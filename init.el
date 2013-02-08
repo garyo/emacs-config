@@ -123,6 +123,7 @@
 (add-to-list 'exec-path "c:/bin")
 (add-to-list 'exec-path "c:/bin2")
 (add-to-list 'exec-path "c:/Program Files/R/R-2.14.0/bin") ; for R (statistics pkg)
+(setq python-command (or (executable-find "python") "c:/Python27/python"))
 
 (defvar dc-auto-insert-directory "~/.emacs.d/Insert/")
 (ignore-errors
@@ -397,6 +398,10 @@
   (let ((buffer-read-only t)
 	(kill-read-only-ok t))
     (kill-line arg)))
+
+(add-hook 'text-mode-hook
+	  (lambda ()
+	    (auto-fill-mode)))
 
 (defun bf-pretty-print-xml-region (begin end)
   "Pretty format XML markup in region. You need to have nxml-mode
