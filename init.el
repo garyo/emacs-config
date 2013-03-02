@@ -1,3 +1,4 @@
+;;; -*-mode: emacs-lisp-*-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Gary's .emacs file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -146,7 +147,22 @@
   (require 'hideshow-org)			; smarter hideshow-mode; TAB hides/shows
   (global-set-key "\C-ch" 'hs-org/minor-mode) ; turn it on with this key
 )
-;; My org notes go in Dropbox so I can access them anywhere
+
+;; to use koma-article formatting (more modern than default LaTeX),
+;; put this in org-mode file:
+;;  #+LaTeX_CLASS: koma-article
+; (add-hook 'org-mode-hook
+;   (lambda ()
+;     (add-to-list 'org-export-latex-classes
+; 		 '("koma-article"
+; 		   "\\documentclass{scrartcl}"
+; 		   ("\\section{%s}" . "\\section*{%s}")
+; 		   ("\\subsection{%s}" . "\\subsection*{%s}")
+; 		   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+; 		   ("\\paragraph{%s}" . "\\paragraph*{%s}")
+; 		   ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))))
+
+;;; My org notes go in Dropbox so I can access them anywhere
 (setq org-directory "c:/Users/garyo/Documents/My Dropbox/org")
 (setq org-default-notes-file (concat org-directory "/notes.org"))
 (global-set-key "\C-cc" 'org-capture)
@@ -970,6 +986,7 @@ nil otherwise."
  '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (dot . t) (ditaa . t) (latex . t) (sql . t))))
  '(org-confirm-babel-evaluate nil)
  '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
+ '(org-export-latex-listings t)
  '(org-export-latex-packages-alist (quote (("cm" "fullpage" nil) ("compact" "titlesec" nil) ("" "paralist" nil) ("" "color" nil))))
  '(org-export-odt-preferred-output-format "docx")
  '(org-export-taskjuggler-default-reports (quote ("taskreport \"Gantt Chart\" {
