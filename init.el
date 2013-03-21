@@ -891,7 +891,6 @@ nil otherwise."
 (put 'def 'lisp-indent-function 1)
 
 ;;; We use .cp for C source files, but emacs ignores them by default.
-(message "completion-ignored-extensions starts as %s" completion-ignored-extensions)
 (setq completion-ignored-extensions
       (remove nil
 	      (remove ".log"
@@ -938,7 +937,7 @@ nil otherwise."
 					; since it's partial width.
  vc-make-backup-files t			; Make emacs backups even for
 					; version-controlled files
- vc-path '("c:/gnu/wincvs1.3" "c:/bin" "c:/mingw/bin")
+ vc-path '("c:/bin" "c:/mingw/bin")
  version-control t
  visible-bell t
  )
@@ -984,32 +983,6 @@ nil otherwise."
  '(ido-enable-flex-matching t)
  '(ido-use-filename-at-point (quote guess))
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
- '(org-alphabetical-lists t)
- '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (dot . t) (ditaa . t) (latex . t) (sql . t) (sh . t))))
- '(org-confirm-babel-evaluate nil)
- '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
- '(org-export-latex-listings t)
- '(org-export-latex-packages-alist (quote (("cm" "fullpage" nil) ("compact" "titlesec" nil) ("" "paralist" nil) ("" "color" nil))))
- '(org-export-odt-preferred-output-format "docx")
- '(org-export-taskjuggler-default-reports (quote ("taskreport \"Gantt Chart\" {
-  headline \"Project Gantt Chart\"
-  columns hierarchindex, name, start, end, effort, duration, completed, chart
-  timeformat \"%Y-%m-%d\"
-  hideresource 1
-  formats html
-  loadunit shortauto
-}" "resourcereport \"Resource Graph\" {
-  headline \"Resource Allocation Graph\"
-  columns no, name, effortleft, freetime, chart
-  loadunit shortauto
-  formats html
-  hidetask ~isleaf()
-}")))
- '(org-export-taskjuggler-target-version 3.0)
- '(org-export-with-LaTeX-fragments (quote dvipng))
- '(org-export-with-toc nil)
- '(org-startup-folded nil)
- '(org-startup-indented nil)
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python25/python")
