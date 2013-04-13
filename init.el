@@ -7,6 +7,8 @@
 
 (add-to-list 'load-path
 	     (expand-file-name "~/emacs"))
+(add-to-list 'load-path
+	     (expand-file-name "~/emacs/org-mode/lisp"))
 
 (server-start)
 (require 'cl)
@@ -983,7 +985,7 @@ nil otherwise."
  '(ido-use-filename-at-point (quote guess))
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
  '(org-alphabetical-lists t)
- '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (dot . t) (ditaa . t) (latex . t) (sql . t))))
+ '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (dot . t) (ditaa . t) (latex . t) (sql . t) (sh . t))))
  '(org-confirm-babel-evaluate nil)
  '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
  '(org-export-latex-listings t)
