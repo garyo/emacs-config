@@ -1,9 +1,24 @@
 ;;; -*-mode: emacs-lisp-*-
 ;;; Set up emacs for org-mode
 ;;; This can be loaded from .emacs, or used as the value of org-export-async-init-file.
-(add-to-list 'load-path
-	     (expand-file-name "c:/emacs/site-lisp/org-mode/lisp"))
+
+;; Set up dirs
+(dolist (filename '("~/emacs/org-mode"
+		    "c:/emacs/site-lisp/org-mode"))
+  (let ((f (expand-file-name filename)))
+    (cond ((file-directory-p f)
+	   (add-to-list 'load-path (concat f "/lisp"))
+	   (add-to-list 'load-path (concat f "/contrib/lisp"))
+	   (add-to-list 'Info-default-directory-list (concat f "/info"))
+	   ))))
+
 (require 'org)
+(condition-case ex
+    (progn
+      (require 'ox-reveal)
+      (setq org-reveal-root "file:///c:/emacs/site-lisp/reveal.js-master")
+      )
+  ('error (message "No org-mode ox-reveal; OK, but no reveal.js presentation export available.")))
 
 (custom-set-variables
  '(org-alphabetical-lists t)
@@ -31,6 +46,7 @@
  '(org-latex-listings t)
  '(org-latex-packages-alist (quote (("cm" "fullpage" nil) ("compact" "titlesec" nil) ("" "paralist" nil) ("" "color" nil))))
  '(org-list-allow-alphabetical t)
+ '(org-src-fontify-natively t)
  '(org-startup-folded nil)
  '(org-startup-indented nil)
  '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (dot . t) (ditaa . t) (latex . t) (sql . t))))
@@ -39,16 +55,16 @@
 ;; to use koma-article formatting (more modern than default LaTeX),
 ;; put this in org-mode file:
 ;;  #+LaTeX_CLASS: koma-article
-; (add-hook 'org-mode-hook
-;   (lambda ()
-;     (add-to-list 'org-export-latex-classes
-; 		 '("koma-article"
-; 		   "\\documentclass{scrartcl}"
-; 		   ("\\section{%s}" . "\\section*{%s}")
-; 		   ("\\subsection{%s}" . "\\subsection*{%s}")
-; 		   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-; 		   ("\\paragraph{%s}" . "\\paragraph*{%s}")
-; 		   ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))))
+(add-hook 'org-export-first-hook
+  (lambda ()
+    (add-to-list 'org-latex-classes
+		 '("koma-article"
+		   "\\documentclass{scrartcl}"
+		   ("\\section{%s}" . "\\section*{%s}")
+		   ("\\subsection{%s}" . "\\subsection*{%s}")
+		   ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+		   ("\\paragraph{%s}" . "\\paragraph*{%s}")
+		   ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))))
 
 ;; org-mode color
 (if (fboundp 'org-add-link-type)
