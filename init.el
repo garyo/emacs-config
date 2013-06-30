@@ -139,7 +139,9 @@
 (ignore-errors
   (load-library "grep-ed"))
 
-(load-file "~/.emacs-orgmode")
+(ignore-errors
+ (load-file "~/.emacs-orgmode")
+)
 
 ;; Emacs Speaks Statistics (for R):
 (ignore-errors
