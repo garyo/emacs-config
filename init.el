@@ -8,6 +8,10 @@
 (add-to-list 'load-path
 	     (expand-file-name "~/emacs"))
 
+(when (file-accessible-directory-p "c:/emacs/site-lisp")
+  (let ((default-directory "c:/emacs/site-lisp"))
+    (normal-top-level-add-subdirs-to-load-path)))
+
 (server-start)
 (require 'cl)
 
@@ -525,9 +529,19 @@ nil otherwise."
 ;;; just to expand the current window.  Right now, make it just beep.
 ;;; Ideally, could check if any side-by-side windows exist, and do nothing only
 ;;; in that case.
+(defun count-windows ()
+  (let ((nwindows 0))
+    (walk-windows (lambda (w) (setq nwindows (+ nwindows 1))))
+    nwindows)
+  )
+
 (global-set-key "\C-x1" (lambda ()
 			  (interactive)
-			  (beep)))
+			  (if (<= (count-windows) 2)
+			      (delete-other-windows)
+			    (message "Not deleting other windows; too many windows open.")
+			    (beep)
+			    )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; GenArts tools
