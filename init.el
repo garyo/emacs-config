@@ -7,10 +7,16 @@
 
 (add-to-list 'load-path
 	     (expand-file-name "~/emacs"))
+(add-to-list 'load-path
+	     (expand-file-name "c:/emacs/site-lisp/org-mode"))
+(add-to-list 'load-path
+	     (expand-file-name "c:/emacs/site-lisp/egg"))
+(add-to-list 'load-path
+	     (expand-file-name "c:/emacs/site-lisp/git-emacs"))
 
-(when (file-accessible-directory-p "c:/emacs/site-lisp")
-  (let ((default-directory "c:/emacs/site-lisp"))
-    (normal-top-level-add-subdirs-to-load-path)))
+;;(when (file-accessible-directory-p "c:/emacs/site-lisp")
+;;  (let ((default-directory "c:/emacs/site-lisp"))
+;;    (normal-top-level-add-subdirs-to-load-path)))
 
 (server-start)
 (require 'cl)
@@ -235,68 +241,80 @@
 ;(autoload 'mo-git-blame-current "mo-git-blame" nil t)
 
 ;;; CEDET: emacs tools for C development
-;; ;(ignore-errors
-;;   (load-file "c:/emacs/site-lisp/cedet/common/cedet.el")
-;;   (require 'semanticdb)			;save parse tree to file
-;;   (global-semanticdb-minor-mode 1)
-;;   ;; new suggestions
-;;   ;;(global-ede-mode 1)                      ; Enable the Project management system
-;;   ;;(semantic-load-enable-code-helpers)      ; Enable prototype help and smart completion
-;;   ;;(global-srecode-minor-mode 1)            ; Enable template insertion menu
+;; (ignore-errors
+;;   (load-file "/emacs/site-lisp/cedet-trunk/cedet-devel-load.el")
 
-;;   (semantic-load-enable-minimum-features)
-;;   ;;(semantic-idle-summary-mode) ; show doc for token at point in modeline
-;;   (semantic-load-enable-code-helpers)
-;;   ;;(semantic-idle-completions-mode)	;may be too weird?
-;;   ;;(global-semantic-stickyfunc-mode 1)     ;header line in buffer w/ current func's header
+;;   (add-to-list 'load-path
+;; 	       (expand-file-name "/emacs/site-lisp/cedet-trunk/contrib"))
+;;   (require 'semantic-tag-folding)
+;;   ;; Add further minor-modes to be enabled by semantic-mode.
+;;   ;; See doc-string of `semantic-default-submodes' for other things
+;;   ;; you can use here.
+;;   (add-to-list 'semantic-default-submodes 'global-semantic-idle-summary-mode t)
+;;   (add-to-list 'semantic-default-submodes 'global-semantic-idle-completions-mode t)
+;;   (add-to-list 'semantic-default-submodes 'global-cedet-m3-minor-mode t)
+
+;;   ;; Enable Semantic
+;;   (semantic-mode 1)
+
+;;   ;; Enable EDE (Project Management) features
+;;   (global-ede-mode 1)
+
 ;;   (which-function-mode 1)		;show func name in modeline
 
+;;   ;; (require 'semanticdb)			;save parse tree to file
+;;   ;; (global-semanticdb-minor-mode 1)
+;;   ;; (semantic-load-enable-minimum-features)
+;;   ;; ;;(semantic-idle-summary-mode) ; show doc for token at point in modeline
+;;   ;; (semantic-load-enable-code-helpers)
+;;   ;; (semantic-load-enable-code-helpers) ; Enable prototype help and smart completion
+;;   ;; ;;(semantic-idle-completions-mode)	;may be too weird?
+;;   ;; ;;(global-semantic-stickyfunc-mode 1)     ;header line in buffer w/ current func's header
+
+
 ;;   ;; to get Intellisense completion:
-;;   (global-ede-mode 1)		; Enable the Project management system
-;;   (semantic-load-enable-code-helpers) ; Enable prototype help and smart completion
+;; 					;(global-ede-mode 1)		; Enable the Project management system
 ;;   ;; then in C mode, turn on global-semantic-idle-completions-mode
 
-;;   (defun my-semantic-hook ()
-;;     "Don't parse really large buffers"
-;;     (cond ((string-match "^/usr/include" (buffer-file-name))
-;; 	   nil)
-;; 	  ((string-match "^/Progra" (buffer-file-name))
-;; 	   nil)
-;; 	  ((string-match "^c:/Progra" (buffer-file-name))
-;; 	   nil)
-;; 	  ((> (point-max) 1000000)
-;; 	   nil)
-;; 	  ;; only parse C and h files
-;; 	  ((string-match "\\(\\.c\\|\\.cxx\\|\\.cpp\\|\\.h\\)$" (buffer-file-name))
-;; 					;(message (concat "my-semantic-hook: OK to parse " (buffer-file-name)))
-;; 	   t)
-;; 	  (t
-;; 					; (message (concat "my-semantic-hook: unknown file: " (buffer-file-name)))
-;; 	   t)))
-;;   (add-hook 'semantic--before-fetch-tags-hook
-;; 	    'my-semantic-hook)
+;;   ;; (defun my-semantic-hook ()
+;;   ;;   "Don't parse really large buffers"
+;;   ;;   (cond ((string-match "^/usr/include" (buffer-file-name))
+;;   ;; 	   nil)
+;;   ;; 	  ((string-match "^/Progra" (buffer-file-name))
+;;   ;; 	   nil)
+;;   ;; 	  ((string-match "^c:/Progra" (buffer-file-name))
+;;   ;; 	   nil)
+;;   ;; 	  ((> (point-max) 1000000)
+;;   ;; 	   nil)
+;;   ;; 	  ;; only parse C and h files
+;;   ;; 	  ((string-match "\\(\\.c\\|\\.cxx\\|\\.cpp\\|\\.h\\)$" (buffer-file-name))
+;;   ;; 					;(message (concat "my-semantic-hook: OK to parse " (buffer-file-name)))
+;;   ;; 	   t)
+;;   ;; 	  (t
+;;   ;; 					; (message (concat "my-semantic-hook: unknown file: " (buffer-file-name)))
+;;   ;; 	   t)))
+;;   ;; (add-hook 'semantic--before-fetch-tags-hook
+;;   ;; 	    'my-semantic-hook)
 
 ;;   ;; ECB: Emacs Code Browser
-;;   ;(add-to-list 'load-path "c:/Program Files/emacs/site-lisp/ecb-2.40")
-;;   ;(require 'ecb)
-;; ;  )
+;; 					;(add-to-list 'load-path "c:/Program Files/emacs/site-lisp/ecb-2.40")
+;; 					;(require 'ecb)
+;;   )
 
-;; ;(ignore-errors
+;; (ignore-errors
 ;;   (require 'ede-load)
 ;;   (global-ede-mode t)
 ;;   (ede-cpp-root-project "Sapphire"
-;; 		      :name "GenArts Sapphire"
-;; 		      :file "/genarts/sapphire/SConstruct"
-;; 		      :include-path '("/")
-;; 		      :spp-table '(("WIN32" . "1")
-;; 				   ("_WIN32" . "1")))
-;; ;  )
-
-
-;; (custom-set-variables
-;;  '(global-semantic-stickyfunc-mode t nil (semantic-util-modes))
-;;  '(semantic-default-c-path (quote ("c:/genarts/sapphire")))
-;; )
+;; 			:name "GenArts Sapphire"
+;; 			:file "/genarts/sapphire/SConstruct"
+;; 			:include-path '("/")
+;; 			:spp-table '(("WIN32" . "1")
+;; 				     ("_WIN32" . "1")))
+;;   (custom-set-variables
+;;    '(global-semantic-stickyfunc-mode t nil (semantic-util-modes))
+;;    '(semantic-default-c-path (quote ("c:/genarts/sapphire")))
+;;    )
+;;   )
 
 
 ;; Printing via GhostScript/GhostView, e.g. to color Epson C40UX
