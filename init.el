@@ -3,14 +3,23 @@
 ;;; Gary's .emacs file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; For this to work, HOME must be set to the dir of this file.
+;;; Like normal-top-level-add-subdirs-to-load-path except it doesn't recurse.
+(defun add-dir-and-subdirs-to-load-path (dir)
+  (if (file-directory-p dir)
+      (progn
+	(add-to-list 'load-path dir)
+	(dolist (f (directory-files dir))
+	  (let ((name (concat dir "/" f)))
+	    (when (and (file-directory-p name)
+		       (string-match "\\`[[:alnum:]]" f)
+		       (not (equal f ".."))
+		       (not (equal f ".")))
+	      (message (concat "Adding " name " to load-path"))
+	      (add-to-list 'load-path name)))))))
 
-(add-to-list 'load-path
-	     (expand-file-name "~/emacs"))
-
-(when (file-accessible-directory-p "c:/emacs/site-lisp")
-  (let ((default-directory "c:/emacs/site-lisp"))
-    (normal-top-level-add-subdirs-to-load-path)))
+;; For this to work, HOME must be set properly
+(add-dir-and-subdirs-to-load-path "c:/emacs/site-lisp") ;Windows only
+(add-dir-and-subdirs-to-load-path "~/.emacs.d/lisp")
 
 (server-start)
 (require 'cl)
@@ -89,6 +98,12 @@
  (initialize-completions)
  )
 
+(winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
+
+(ignore-errors
+  (load-library "revive") ; save/restore window configs to disk; M-x save-current-configuration, M-x resume
+  )
+
 ;; use zsh or bash.  Do this early on before loading any git stuff,
 ;; otherwise that will try to use cmdproxy.exe.
 (cond ((executable-find "zsh")
@@ -122,6 +137,10 @@
     (require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
   )
 
+(add-hook 'shell-mode-hook
+	  ; turn on egg-mode so C-x v l gives the git log for the current dir
+          (lambda () (egg-minor-mode t)))
+
 (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
 ; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
 
@@ -136,6 +155,7 @@
   (require 'filladapt)			;adaptive fill mode
 )
 (setq-default filladapt-mode t)
+(setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
 
 (autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
 
@@ -235,68 +255,80 @@
 ;(autoload 'mo-git-blame-current "mo-git-blame" nil t)
 
 ;;; CEDET: emacs tools for C development
-;; ;(ignore-errors
-;;   (load-file "c:/emacs/site-lisp/cedet/common/cedet.el")
-;;   (require 'semanticdb)			;save parse tree to file
-;;   (global-semanticdb-minor-mode 1)
-;;   ;; new suggestions
-;;   ;;(global-ede-mode 1)                      ; Enable the Project management system
-;;   ;;(semantic-load-enable-code-helpers)      ; Enable prototype help and smart completion
-;;   ;;(global-srecode-minor-mode 1)            ; Enable template insertion menu
+;; (ignore-errors
+;;   (load-file "/emacs/site-lisp/cedet-trunk/cedet-devel-load.el")
 
-;;   (semantic-load-enable-minimum-features)
-;;   ;;(semantic-idle-summary-mode) ; show doc for token at point in modeline
-;;   (semantic-load-enable-code-helpers)
-;;   ;;(semantic-idle-completions-mode)	;may be too weird?
-;;   ;;(global-semantic-stickyfunc-mode 1)     ;header line in buffer w/ current func's header
+;;   (add-to-list 'load-path
+;; 	       (expand-file-name "/emacs/site-lisp/cedet-trunk/contrib"))
+;;   (require 'semantic-tag-folding)
+;;   ;; Add further minor-modes to be enabled by semantic-mode.
+;;   ;; See doc-string of `semantic-default-submodes' for other things
+;;   ;; you can use here.
+;;   (add-to-list 'semantic-default-submodes 'global-semantic-idle-summary-mode t)
+;;   (add-to-list 'semantic-default-submodes 'global-semantic-idle-completions-mode t)
+;;   (add-to-list 'semantic-default-submodes 'global-cedet-m3-minor-mode t)
+
+;;   ;; Enable Semantic
+;;   (semantic-mode 1)
+
+;;   ;; Enable EDE (Project Management) features
+;;   (global-ede-mode 1)
+
 ;;   (which-function-mode 1)		;show func name in modeline
 
+;;   ;; (require 'semanticdb)			;save parse tree to file
+;;   ;; (global-semanticdb-minor-mode 1)
+;;   ;; (semantic-load-enable-minimum-features)
+;;   ;; ;;(semantic-idle-summary-mode) ; show doc for token at point in modeline
+;;   ;; (semantic-load-enable-code-helpers)
+;;   ;; (semantic-load-enable-code-helpers) ; Enable prototype help and smart completion
+;;   ;; ;;(semantic-idle-completions-mode)	;may be too weird?
+;;   ;; ;;(global-semantic-stickyfunc-mode 1)     ;header line in buffer w/ current func's header
+
+
 ;;   ;; to get Intellisense completion:
-;;   (global-ede-mode 1)		; Enable the Project management system
-;;   (semantic-load-enable-code-helpers) ; Enable prototype help and smart completion
+;; 					;(global-ede-mode 1)		; Enable the Project management system
 ;;   ;; then in C mode, turn on global-semantic-idle-completions-mode
 
-;;   (defun my-semantic-hook ()
-;;     "Don't parse really large buffers"
-;;     (cond ((string-match "^/usr/include" (buffer-file-name))
-;; 	   nil)
-;; 	  ((string-match "^/Progra" (buffer-file-name))
-;; 	   nil)
-;; 	  ((string-match "^c:/Progra" (buffer-file-name))
-;; 	   nil)
-;; 	  ((> (point-max) 1000000)
-;; 	   nil)
-;; 	  ;; only parse C and h files
-;; 	  ((string-match "\\(\\.c\\|\\.cxx\\|\\.cpp\\|\\.h\\)$" (buffer-file-name))
-;; 					;(message (concat "my-semantic-hook: OK to parse " (buffer-file-name)))
-;; 	   t)
-;; 	  (t
-;; 					; (message (concat "my-semantic-hook: unknown file: " (buffer-file-name)))
-;; 	   t)))
-;;   (add-hook 'semantic--before-fetch-tags-hook
-;; 	    'my-semantic-hook)
+;;   ;; (defun my-semantic-hook ()
+;;   ;;   "Don't parse really large buffers"
+;;   ;;   (cond ((string-match "^/usr/include" (buffer-file-name))
+;;   ;; 	   nil)
+;;   ;; 	  ((string-match "^/Progra" (buffer-file-name))
+;;   ;; 	   nil)
+;;   ;; 	  ((string-match "^c:/Progra" (buffer-file-name))
+;;   ;; 	   nil)
+;;   ;; 	  ((> (point-max) 1000000)
+;;   ;; 	   nil)
+;;   ;; 	  ;; only parse C and h files
+;;   ;; 	  ((string-match "\\(\\.c\\|\\.cxx\\|\\.cpp\\|\\.h\\)$" (buffer-file-name))
+;;   ;; 					;(message (concat "my-semantic-hook: OK to parse " (buffer-file-name)))
+;;   ;; 	   t)
+;;   ;; 	  (t
+;;   ;; 					; (message (concat "my-semantic-hook: unknown file: " (buffer-file-name)))
+;;   ;; 	   t)))
+;;   ;; (add-hook 'semantic--before-fetch-tags-hook
+;;   ;; 	    'my-semantic-hook)
 
 ;;   ;; ECB: Emacs Code Browser
-;;   ;(add-to-list 'load-path "c:/Program Files/emacs/site-lisp/ecb-2.40")
-;;   ;(require 'ecb)
-;; ;  )
+;; 					;(add-to-list 'load-path "c:/Program Files/emacs/site-lisp/ecb-2.40")
+;; 					;(require 'ecb)
+;;   )
 
-;; ;(ignore-errors
+;; (ignore-errors
 ;;   (require 'ede-load)
 ;;   (global-ede-mode t)
 ;;   (ede-cpp-root-project "Sapphire"
-;; 		      :name "GenArts Sapphire"
-;; 		      :file "/genarts/sapphire/SConstruct"
-;; 		      :include-path '("/")
-;; 		      :spp-table '(("WIN32" . "1")
-;; 				   ("_WIN32" . "1")))
-;; ;  )
-
-
-;; (custom-set-variables
-;;  '(global-semantic-stickyfunc-mode t nil (semantic-util-modes))
-;;  '(semantic-default-c-path (quote ("c:/genarts/sapphire")))
-;; )
+;; 			:name "GenArts Sapphire"
+;; 			:file "/genarts/sapphire/SConstruct"
+;; 			:include-path '("/")
+;; 			:spp-table '(("WIN32" . "1")
+;; 				     ("_WIN32" . "1")))
+;;   (custom-set-variables
+;;    '(global-semantic-stickyfunc-mode t nil (semantic-util-modes))
+;;    '(semantic-default-c-path (quote ("c:/genarts/sapphire")))
+;;    )
+;;   )
 
 
 ;; Printing via GhostScript/GhostView, e.g. to color Epson C40UX
@@ -535,13 +567,15 @@ nil otherwise."
     nwindows)
   )
 
-(global-set-key "\C-x1" (lambda ()
-			  (interactive)
-			  (if (<= (count-windows) 2)
-			      (delete-other-windows)
-			    (message "Not deleting other windows; too many windows open.")
-			    (beep)
-			    )))
+;;; Used to need this, but C-c LEFT in winner-mode restores prev window config
+;;; so now I'm not scared of C-x 1 anymore.
+;; (global-set-key "\C-x1" (lambda ()
+;; 			  (interactive)
+;; 			  (if (<= (count-windows) 3)
+;; 			      (delete-other-windows)
+;; 			    (message "Not deleting other windows; too many windows open.")
+;; 			    (beep)
+;; 			    )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; GenArts tools
@@ -680,6 +714,7 @@ nil otherwise."
 ;;; For emacs23, long lines in buffers make emacs really slow.
 ;;; This seems to ameliorate it a little.
 ;(add-hook 'compilation-mode-hook (lambda () (setq truncate-lines t)))
+(add-hook 'compilation-mode-hook (lambda () (line-number-mode nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -830,9 +865,10 @@ nil otherwise."
  compilation-window-height 15
  compilation-search-path '(nil "build/quantel/dbg")
  compilation-scroll-output t
- compile-command "scons -D -j3 cuda_arch=sm_20 version="
+ compile-command "scons -D -j8 cuda_arch=sm_20 version="
  delete-old-versions t
  diff-switches "-up"
+ egg-switch-to-buffer t
  enable-recursive-minibuffers t
  ffap-url-regexp nil		  ; don't find URLs with M-x find-file
  fill-column 78
@@ -844,7 +880,7 @@ nil otherwise."
  isearch-allow-scroll t
  kept-old-versions 1
  lazy-lock-minimum-size 5000
- line-number-mode t
+ line-number-mode t			; XXX: disable in compilation-mode buffers
  line-move-visual nil			; C-n go to next real line
  mark-even-if-inactive t
  mouse-drag-copy-region t ; default in emacs24 is nil; I like the old way.
@@ -856,7 +892,7 @@ nil otherwise."
  scroll-conservatively 10
  search-highlight t
  smtp-local-domain "genarts.com"
- split-height-threshold (/ (frame-height) 3)
+ split-height-threshold (/ (frame-height) 2)
  tags-revert-without-query t
  tramp-default-method "pscp"		; for Windows; uses PuTTY
  truncate-partial-width-windows nil	; ECB needs this to avoid
@@ -891,7 +927,13 @@ nil otherwise."
  ;; If there is more than one, they won't work right.
  '(align-to-tab-stop nil)
  '(ecb-layout-name "left1")
- '(ecb-layout-window-sizes (quote (("left1" (0.2698412698412698 . 0.30158730158730157) (0.12698412698412698 . 0.31746031746031744) (0.14285714285714285 . 0.31746031746031744) (0.2698412698412698 . 0.31746031746031744)))))
+ '(ecb-layout-window-sizes
+   (quote
+    (("left1"
+      (0.2698412698412698 . 0.30158730158730157)
+      (0.12698412698412698 . 0.31746031746031744)
+      (0.14285714285714285 . 0.31746031746031744)
+      (0.2698412698412698 . 0.31746031746031744)))))
  '(ecb-options-version "2.40")
  '(ecb-primary-secondary-mouse-buttons (quote mouse-1--mouse-2))
  '(ecb-tip-of-the-day nil)
@@ -910,11 +952,25 @@ nil otherwise."
  '(ido-enable-flex-matching t)
  '(ido-use-filename-at-point (quote guess))
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
- '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (dot . t) (ditaa . t) (latex . t) (sql . t))))
+ '(org-babel-load-languages
+   (quote
+    ((emacs-lisp . t)
+     (R . t)
+     (python . t)
+     (dot . t)
+     (ditaa . t)
+     (latex . t)
+     (sql . t))))
  '(org-confirm-babel-evaluate nil)
- '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
- '(org-export-odt-preferred-output-format "docx")
- '(org-export-taskjuggler-default-reports (quote ("taskreport \"Gantt Chart\" {
+ '(org-export-backends (quote (ascii html icalendar latex odt)))
+ '(org-odt-convert-processes
+   (quote
+    (("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 4/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
+     ("unoconv" "unoconv -f %f -o %d %i"))))
+ '(org-odt-preferred-output-format "doc")
+ '(org-export-taskjuggler-default-reports
+   (quote
+    ("taskreport \"Gantt Chart\" {
   headline \"Project Gantt Chart\"
   columns hierarchindex, name, start, end, effort, duration, completed, chart
   timeformat \"%Y-%m-%d\"
@@ -932,20 +988,41 @@ nil otherwise."
  '(org-export-with-LaTeX-fragments (quote dvipng))
  '(org-export-with-toc nil)
  '(org-latex-listings t)
- '(org-latex-packages-alist (quote (("cm" "fullpage" nil) ("compact" "titlesec" nil) ("" "paralist" nil) ("" "color" nil))))
+ '(org-latex-packages-alist
+   (quote
+    (("" "fullpage" nil)
+     ("compact" "titlesec" nil)
+     ("" "paralist" nil)
+     ("" "enumitem" nil)
+     ("" "color" nil)
+     ("" "tabularx" nil)
+     ("" "enumitem" nil))))
  '(org-list-allow-alphabetical t)
  '(org-src-fontify-natively t)
  '(org-startup-folded nil)
  '(org-startup-indented nil)
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
- '(py-python-command "c:/python25/python")
- '(recentf-exclude (quote ("semantic.cache" "\\.completions" "\\.projects\\.ede" "\\.ido\\.last" ".tmp.babel-")))
+ '(py-python-command "c:/python27/python")
+ '(recentf-exclude
+   (quote
+    ("semantic.cache" "\\.completions" "\\.projects\\.ede" "\\.ido\\.last" ".tmp.babel-")))
  '(recentf-max-menu-items 30)
  '(recentf-max-saved-items 50)
  '(rng-nxml-auto-validate-flag t)
- '(safe-local-variable-values (quote ((Mode . C++) (Mode . C) (test-case-name . twisted\.test\.test_protocols) (Mode . c++) (Mode . python) (Mode . perl) (Mode . cperl) (comment-new_column . 0))))
- '(speedbar-tag-hierarchy-method (quote (speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy)))
+ '(safe-local-variable-values
+   (quote
+    ((Mode . C++)
+     (Mode . C)
+     (test-case-name . twisted\.test\.test_protocols)
+     (Mode . c++)
+     (Mode . python)
+     (Mode . perl)
+     (Mode . cperl)
+     (comment-new_column . 0))))
+ '(speedbar-tag-hierarchy-method
+   (quote
+    (speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy)))
  '(taskjuggler-command "tj3")
  '(vc-dired-recurse nil)
  '(w32-get-true-file-attributes nil t))
