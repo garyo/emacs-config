@@ -417,7 +417,7 @@ by using nxml's indentation rules."
 	  (function
    (lambda ()
 	     (make-variable-buffer-local 'c-basic-offset)
-	     (setq c-basic-offset 2)
+	     (setq c-basic-offset 4)
 	     (local-set-key "\C-cc" 'compile)
 	     )))
 
