@@ -24,6 +24,16 @@
 (server-start)
 (require 'cl)
 
+(condition-case error
+    (progn
+      (require 'package)
+      (setq package-archives '(("gnu" . "http://elpa.gnu.org/packages/")
+			       ("marmalade" . "http://marmalade-repo.org/packages/")
+			       ("melpa" . "http://melpa.milkbox.net/packages/")))
+      )
+  ('error (message "No 'package' package found."))
+  )
+
 ;; edit server for Chrome (browser extension):
 (when (require 'edit-server nil t)
   (setq edit-server-new-frame nil)
@@ -104,6 +114,17 @@
   (load-library "revive") ; save/restore window configs to disk; M-x save-current-configuration, M-x resume
   )
 
+(condition-case error
+    (progn
+      (load-library "buffer-move")
+      (global-set-key (kbd "<C-S-up>")     'buf-move-up)
+      (global-set-key (kbd "<C-S-down>")   'buf-move-down)
+      (global-set-key (kbd "<C-S-left>")   'buf-move-left)
+      (global-set-key (kbd "<C-S-right>")  'buf-move-right)
+      )
+  ('error (message "no buffer-move lib, not defining buf-move keys:" error)))
+
+
 ;; use zsh or bash.  Do this early on before loading any git stuff,
 ;; otherwise that will try to use cmdproxy.exe.
 (cond ((executable-find "zsh")
@@ -139,7 +160,7 @@
 
 (add-hook 'shell-mode-hook
 	  ; turn on egg-mode so C-x v l gives the git log for the current dir
-          (lambda () (egg-minor-mode t)))
+          (lambda () (egg-minor-mode 1)))
 
 (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
 ; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
@@ -248,6 +269,11 @@
 (setq auto-mode-alist (cons '("\\.cp$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.tjp$" . taskjuggler-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.lua$" . lua-mode) auto-mode-alist))
+
+;; For GenArts def-effects files.  (The auto-mode-alist is only used for def files
+;; that don't have a Local Variables def-effects spec.)
+(autoload 'def-effects-mode "def-effects-mode" "Mode for editing GenArts def-effects files" t)
+(add-to-list 'auto-mode-alist '("/def-.*\\.text\\'" . def-effects-mode))
 
 ;; nicer interface to git-blame, kinda -- not very great since the left/right buffers
 ;; easily get out of sync.
@@ -952,6 +978,8 @@ nil otherwise."
  '(ido-enable-flex-matching t)
  '(ido-use-filename-at-point (quote guess))
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
+ '(magit-diff-refine-hunk (quote all))
+ '(magit-expand-staged-on-commit (quote full))
  '(org-babel-load-languages
    (quote
     ((emacs-lisp . t)
@@ -963,11 +991,8 @@ nil otherwise."
      (sql . t))))
  '(org-confirm-babel-evaluate nil)
  '(org-export-backends (quote (ascii html icalendar latex odt)))
- '(org-odt-convert-processes
-   (quote
-    (("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 4/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
-     ("unoconv" "unoconv -f %f -o %d %i"))))
- '(org-odt-preferred-output-format "doc")
+ '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
+ '(org-export-odt-preferred-output-format "docx")
  '(org-export-taskjuggler-default-reports
    (quote
     ("taskreport \"Gantt Chart\" {
@@ -998,6 +1023,11 @@ nil otherwise."
      ("" "tabularx" nil)
      ("" "enumitem" nil))))
  '(org-list-allow-alphabetical t)
+ '(org-odt-convert-processes
+   (quote
+    (("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 4/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
+     ("unoconv" "unoconv -f %f -o %d %i"))))
+ '(org-odt-preferred-output-format "doc")
  '(org-src-fontify-natively t)
  '(org-startup-folded nil)
  '(org-startup-indented nil)
@@ -1032,4 +1062,5 @@ nil otherwise."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- )
+ '(magit-item-highlight ((t (:background "floral white")))))
+(put 'set-goal-column 'disabled nil)
