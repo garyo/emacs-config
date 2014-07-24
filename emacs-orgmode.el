@@ -44,7 +44,11 @@
  '(org-export-with-LaTeX-fragments (quote dvipng))
  '(org-export-with-toc nil)
  '(org-latex-listings t)
- '(org-latex-packages-alist (quote (("cm" "fullpage" nil) ("compact" "titlesec" nil) ("" "paralist" nil) ("" "color" nil))))
+ '(org-latex-packages-alist (quote (("cm" "fullpage" nil)
+				    ("compact" "titlesec" nil)
+				    ;("" "enumitem" nil)
+				    ("" "paralist" nil)  ; use paralist or enumitem
+				    ("" "color" nil))))
  '(org-list-allow-alphabetical t)
  '(org-src-fontify-natively t)
  '(org-startup-folded nil)

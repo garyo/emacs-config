@@ -24,6 +24,17 @@
 (server-start)
 (require 'cl)
 
+;;; try to load libname (string); returns t or nil.
+(defun maybe-load-library (libname)
+   (condition-case nil
+       (load-library libname)
+     (error nil)))
+
+;;; try to require feature (symbol); returns feature or nil.
+(defun maybe-require (feature)
+  (require feature nil t))
+
+;;; Set up package system
 (condition-case error
     (progn
       (require 'package)
@@ -35,7 +46,7 @@
   )
 
 ;; edit server for Chrome (browser extension):
-(when (require 'edit-server nil t)
+(when (maybe-require 'edit-server)
   (setq edit-server-new-frame nil)
   (message "Starting edit server for Chrome...")
   (edit-server-start))
@@ -110,6 +121,12 @@
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
+;;; windmove: shift+arrow keys to move between windows.
+;;; Should be available since emacs 21.
+(when (fboundp 'windmove-default-keybindings)
+  (windmove-default-keybindings)
+  (setq windmove-wrap-around t))
+
 (ignore-errors
   (load-library "revive") ; save/restore window configs to disk; M-x save-current-configuration, M-x resume
   )
@@ -149,14 +166,15 @@
 (setq vc-handled-backends (remq 'Git vc-handled-backends))
 (setq vc-handled-backends (remq 'git vc-handled-backends))
 
-(ignore-errors
-    (require 'git-emacs-autoloads) ; an emacs GIT interface (one of many); try M-x git-status
-    (require 'git-emacs)
-    (require 'git-status)
-    (autoload 'mo-git-blame-file "mo-git-blame" nil t)
-    (autoload 'mo-git-blame-current "mo-git-blame" nil t)
-    (require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
-  )
+(maybe-require 'git-emacs-autoloads) ; an emacs GIT interface (one of many); try M-x git-status
+(maybe-require 'git-emacs)	     ; Provides M-x gitk to run gitk
+(maybe-require 'git-status)
+(autoload 'mo-git-blame-file "mo-git-blame" nil t)
+(autoload 'mo-git-blame-current "mo-git-blame" nil t)
+(maybe-require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
+
+;;; yet another emacs GIT interface, still under active dev as of mid 2014.
+(autoload 'magit-status "magit" nil t)
 
 (add-hook 'shell-mode-hook
 	  ; turn on egg-mode so C-x v l gives the git log for the current dir
@@ -171,28 +189,24 @@
 (setq python-command (or (executable-find "python") "c:/Python27/python"))
 
 (defvar dc-auto-insert-directory "~/.emacs.d/Insert/")
-(ignore-errors
-  (require 'defaultcontent)
-  (require 'filladapt)			;adaptive fill mode
-)
+(maybe-require 'defaultcontent)
+(maybe-require 'filladapt)			;adaptive fill mode
 (setq-default filladapt-mode t)
 (setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
 
 (autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
 
 ;;; C-c C-e to edit right in a grep buffer, C-c C-s to save.  Nice!
-(ignore-errors
-  (load-library "grep-ed"))
+(maybe-require 'grep-ed)
 
 (ignore-errors
  (load-file "~/.emacs-orgmode")
 )
 
 ;; Emacs Speaks Statistics (for R):
-(ignore-errors
-  (require 'ess-site)
-  (ess-toggle-underscore nil)		; no annoying magic underscore
-)
+(if (maybe-require 'ess-site)
+    (ess-toggle-underscore nil)		; no annoying magic underscore
+  nil)
 
 ;; use M-x idb to run the Intel debugger inside emacs (looks like 'dbx')
 (setq idbpath "c:/Program Files/Intel/IDB/10.0/IA32/Bin")
@@ -203,9 +217,7 @@
 
 ;; This makes [f8] insert a template in the current mode for a new (empty) file
 ;; and binds some C-c cmds in C and C++ mode.  (Try C-c SPC after "if" etc.)
-(ignore-errors
-  (require 'templates)
-  )
+(maybe-require 'templates)
 
 (if window-system
     (tool-bar-mode 0))
@@ -1062,5 +1074,6 @@ nil otherwise."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(magit-item-highlight ((t (:background "floral white")))))
+ '(magit-item-highlight ((t (:background "floral white"))))
+ '(magit-section-highlight ((t (:background "floral white")))))
 (put 'set-goal-column 'disabled nil)
