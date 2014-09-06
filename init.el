@@ -1005,6 +1005,12 @@ nil otherwise."
  '(org-export-backends (quote (ascii html icalendar latex odt)))
  '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
  '(org-export-odt-preferred-output-format "docx")
+ '(org-odt-convert-processes
+   (quote
+    (("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 4/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
+     ("LibreOffice3" "\"c:/Program Files (x86)/LibreOffice 3.4/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
+     ("unoconv" "unoconv -f %f -o %d %i"))))
+ '(org-odt-preferred-output-format "doc")
  '(org-export-taskjuggler-default-reports
    (quote
     ("taskreport \"Gantt Chart\" {
