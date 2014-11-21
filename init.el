@@ -88,7 +88,8 @@
 ; set default font attributes (for all frames)
 (if window-system
     (progn
-      (set-face-attribute 'default nil :font (find-first-font preferred-fonts))
+      (if (find-first-font preferred-fonts)
+	  (set-face-attribute 'default nil :font (find-first-font preferred-fonts)))
 
       (cond ((> (x-display-pixel-height) 1000)
 	     (setq initial-frame-alist (list
@@ -186,9 +187,10 @@
 ;;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
 (remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
 
-(add-hook 'shell-mode-hook
-	  ; turn on egg-mode so C-x v l gives the git log for the current dir
-          (lambda () (egg-minor-mode 1)))
+;;; I'm using magit now on C-X v = so this is irrelevant
+;(add-hook 'shell-mode-hook
+;	  ; turn on egg-mode so C-x v l gives the git log for the current dir
+;          (lambda () (egg-minor-mode 1)))
 
 (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
 ; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
