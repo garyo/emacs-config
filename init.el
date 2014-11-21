@@ -141,6 +141,11 @@
       )
   ('error (message "no buffer-move lib, not defining buf-move keys:" error)))
 
+;;; Prefer utf-8 coding system everywhere
+(setq org-export-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+(set-charset-priority 'unicode)
+(setq default-process-coding-system '(utf-8-unix . utf-8-unix))
 
 ;; use zsh or bash.  Do this early on before loading any git stuff,
 ;; otherwise that will try to use cmdproxy.exe.
@@ -174,7 +179,12 @@
 (maybe-require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
 
 ;;; yet another emacs GIT interface, still under active dev as of mid 2014.
+;;; This is turning out to be quite good (29-Sep-14).
 (autoload 'magit-status "magit" nil t)
+(maybe-require 'git-commit-mode)
+(global-set-key (kbd "\C-x v =") 'magit-status)	; override vc-mode binding
+;;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
+(remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
 
 (add-hook 'shell-mode-hook
 	  ; turn on egg-mode so C-x v l gives the git log for the current dir
@@ -257,6 +267,10 @@
 
 (require 'uniquify)
 (setq uniquify-buffer-name-style 'post-forward-angle-brackets)
+
+;;; Automatically revert files that change on disk
+;;; (but only when the buffer is unmodified, so it's safe)
+(global-auto-revert-mode t)
 
 ;;; Do NOT use standard-display-european: it breaks comint (shell)
 ;;; modes by adding an extra CR to every command, causing syntax
@@ -958,6 +972,10 @@ nil otherwise."
 
 (put 'narrow-to-page 'disabled nil)
 
+;;; This is very important to speed up display of long lines.
+;;; It's not perfect but it should help.
+(setq-default bidi-display-reordering nil)
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -986,12 +1004,18 @@ nil otherwise."
  '(egg-log-buffer-marks [10004 9998 46 9733 62])
  '(egg-log-graph-chars [9608 124 45 47 92])
  '(egg-quit-window-actions (quote ((egg-status-buffer-mode kill restore-windows))))
+ '(git-commit-setup-hook
+   (quote
+    (magit-revert-buffers git-commit-save-message git-commit-setup-changelog-support git-commit-turn-on-auto-fill git-commit-propertize-diff with-editor-usage-message)))
+ '(git-commit-summary-max-length 64)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
  '(ido-use-filename-at-point (quote guess))
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
+ '(magit-backup-mode nil)
  '(magit-diff-refine-hunk (quote all))
  '(magit-expand-staged-on-commit (quote full))
+ '(magit-log-format-graph-function (quote magit-log-format-unicode-graph))
  '(org-babel-load-languages
    (quote
     ((emacs-lisp . t)
@@ -1029,6 +1053,7 @@ nil otherwise."
 }")))
  '(org-export-taskjuggler-target-version 3.0)
  '(org-export-with-LaTeX-fragments (quote dvipng))
+ '(org-export-with-sub-superscripts (quote {}))
  '(org-export-with-toc nil)
  '(org-latex-listings t)
  '(org-latex-packages-alist
@@ -1049,6 +1074,7 @@ nil otherwise."
  '(org-src-fontify-natively t)
  '(org-startup-folded nil)
  '(org-startup-indented nil)
+ '(org-use-speed-commands t)
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
