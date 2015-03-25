@@ -158,6 +158,40 @@
 
 (setq shell-file-name explicit-shell-file-name)
 
+;;; Set up f7 to start or switch to shell.
+;;; Repeat presses switch to next shell buffer.
+;;; Would be nice if it worked with eshell.
+(defun sh-buf-filter (condp lst)
+  (delq nil (mapcar (lambda (x) (and (funcall condp x) x)) lst)))
+(defun shell-dwim (&optional create)
+  "Start or switch to an inferior shell process, in a smart way.
+  If a buffer with a running shell process exists, simply switch
+  to that buffer.  If a shell buffer exists, but the shell
+  process is not running, restart the shell.  If already in an
+  active shell buffer, switch to the next one, if any.  With
+  prefix argument CREATE always start a new
+  shell."
+  (interactive "P")
+  (let ((next-shell-buffer) (buffer)
+	(shell-buf-list (identity ;;used to be reverse
+			 (sort
+			  (sh-buf-filter (lambda (x) (string-match "^\\*shell\\*" (buffer-name x))) (buffer-list))
+			  '(lambda (a b) (string< (buffer-name a) (buffer-name b)))))))
+    (setq next-shell-buffer
+	  (if (string-match "^\\*shell\\*" (buffer-name buffer))
+	      (get-buffer (cadr (member (buffer-name) (mapcar (function buffer-name) (append shell-buf-list shell-buf-list)))))
+	    nil))
+    (setq buffer
+	  (if create
+	      (generate-new-buffer-name "*shell*")
+	    next-shell-buffer))
+    (shell buffer)
+    ))
+(global-set-key [f7] 'shell-dwim)
+(global-set-key [f8] 'eshell)
+
+
+
 (load-library "paren")
 (show-paren-mode)
 (recentf-mode t)
@@ -1015,9 +1049,10 @@ nil otherwise."
  '(ido-use-filename-at-point (quote guess))
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
  '(magit-backup-mode nil)
- '(magit-diff-refine-hunk (quote all))
+ '(magit-diff-refine-hunk t)
  '(magit-expand-staged-on-commit (quote full))
  '(magit-log-format-graph-function (quote magit-log-format-unicode-graph))
+ '(magit-pull-arguments (quote ("--rebase")))
  '(org-babel-load-languages
    (quote
     ((emacs-lisp . t)
@@ -1031,12 +1066,6 @@ nil otherwise."
  '(org-export-backends (quote (ascii html icalendar latex odt)))
  '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
  '(org-export-odt-preferred-output-format "docx")
- '(org-odt-convert-processes
-   (quote
-    (("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 4/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
-     ("LibreOffice3" "\"c:/Program Files (x86)/LibreOffice 3.4/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
-     ("unoconv" "unoconv -f %f -o %d %i"))))
- '(org-odt-preferred-output-format "doc")
  '(org-export-taskjuggler-default-reports
    (quote
     ("taskreport \"Gantt Chart\" {
@@ -1076,6 +1105,7 @@ nil otherwise."
  '(org-src-fontify-natively t)
  '(org-startup-folded nil)
  '(org-startup-indented nil)
+ '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
@@ -1096,12 +1126,14 @@ nil otherwise."
      (Mode . perl)
      (Mode . cperl)
      (comment-new_column . 0))))
+ '(same-window-regexps (quote ("\\*shell.*\\*\\(\\|<[0-9]+>\\)")))
  '(speedbar-tag-hierarchy-method
    (quote
     (speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy)))
  '(taskjuggler-command "tj3")
  '(vc-dired-recurse nil)
- '(w32-get-true-file-attributes nil t))
+ '(w32-get-true-file-attributes nil t)
+ '(warning-suppress-types (quote ((\(undo\ discard-info\))))))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
