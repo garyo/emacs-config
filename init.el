@@ -1063,7 +1063,7 @@ nil otherwise."
      (latex . t)
      (sql . t))))
  '(org-confirm-babel-evaluate nil)
- '(org-export-backends (quote (ascii html icalendar latex odt)))
+ '(org-export-backends (quote (ascii html icalendar latex odt koma-letter)))
  '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
  '(org-export-odt-preferred-output-format "docx")
  '(org-export-taskjuggler-default-reports
