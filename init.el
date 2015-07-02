@@ -20,6 +20,7 @@
 ;; For this to work, HOME must be set properly
 (add-dir-and-subdirs-to-load-path "c:/emacs/site-lisp") ;Windows only
 (add-dir-and-subdirs-to-load-path "~/.emacs.d/lisp")
+(add-dir-and-subdirs-to-load-path "~/.emacs.d/lisp/magit/lisp") ; special case
 
 (server-start)
 (require 'cl)
@@ -220,11 +221,7 @@
 (global-set-key (kbd "\C-x v =") 'magit-status)	; override vc-mode binding
 ;;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
 (remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
-
-;;; I'm using magit now on C-X v = so this is irrelevant
-;(add-hook 'shell-mode-hook
-;	  ; turn on egg-mode so C-x v l gives the git log for the current dir
-;          (lambda () (egg-minor-mode 1)))
+(add-hook 'magit-status-mode-hook 'delete-other-windows)
 
 (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
 ; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
