@@ -1049,6 +1049,7 @@ nil otherwise."
  '(magit-diff-refine-hunk t)
  '(magit-expand-staged-on-commit (quote full))
  '(magit-log-format-graph-function (quote magit-log-format-unicode-graph))
+ '(magit-log-format-unicode-graph-alist (quote ((47 . 9585) (92 . 9586) (42 . 9642))))
  '(magit-pull-arguments (quote ("--rebase")))
  '(org-babel-load-languages
    (quote
