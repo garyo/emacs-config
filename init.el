@@ -25,7 +25,9 @@
 (add-dir-and-subdirs-to-load-path "~/.emacs.d/lisp")
 (add-dir-and-subdirs-to-load-path "~/.emacs.d/lisp/magit/lisp") ; special case
 
-(server-start)
+(require 'server)
+(unless (server-running-p)
+  (server-start))
 (require 'cl)
 
 ;;; try to load libname (string); returns t or nil.
