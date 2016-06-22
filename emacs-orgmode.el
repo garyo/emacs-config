@@ -21,39 +21,42 @@
   ('error (message "No org-mode ox-reveal; OK, but no reveal.js presentation export available.")))
 
 (custom-set-variables
- '(org-alphabetical-lists t)
- '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (dot . t) (ditaa . t) (latex . t) (sql . t) (sh . t))))
- '(org-confirm-babel-evaluate nil)
- '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
- '(org-export-odt-preferred-output-format "docx")
- '(org-export-taskjuggler-default-reports (quote ("taskreport \"Gantt Chart\" {
-  headline \"Project Gantt Chart\"
-  columns hierarchindex, name, start, end, effort, duration, completed, chart
-  timeformat \"%Y-%m-%d\"
-  hideresource 1
-  formats html
-  loadunit shortauto
-}" "resourcereport \"Resource Graph\" {
-  headline \"Resource Allocation Graph\"
-  columns no, name, effortleft, freetime, chart
-  loadunit shortauto
-  formats html
-  hidetask ~isleaf()
-}")))
- '(org-export-taskjuggler-target-version 3.0)
- '(org-export-with-LaTeX-fragments (quote dvipng))
+ '(org-babel-load-languages (quote ((emacs-lisp . t)
+				    (R . t)
+				    (python . t)
+				    (dot . t)
+				    (ditaa . t)
+				    (latex . t)
+				    (sql . t)
+				    (sh . t))))
+ '(org-export-backends (quote (ascii html icalendar latex odt koma-letter)))
+ '(org-export-with-sub-superscripts (quote {}))
+ '(org-use-sub-superscripts (quote {}))
  '(org-export-with-toc nil)
+ '(org-latex-packages-alist
+   (quote
+    (("cm" "fullpage" nil)
+     ("compact" "titlesec" nil)
+     ("" "paralist" nil)
+     ("" "enumitem" nil)
+     ("" "color" nil)
+     ("" "tabularx" nil)
+     ("" "enumitem" nil))))
+ '(org-odt-convert-processes
+   (quote
+    (("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 5/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
+     ("unoconv" "unoconv -f %f -o %d %i"))))
+ '(org-table-convert-region-max-lines 9999)
+ '(org-use-speed-commands t)
+
+ '(org-confirm-babel-evaluate nil)
+ '(org-odt-preferred-output-format "docx")
  '(org-latex-listings t)
- '(org-latex-packages-alist (quote (("cm" "fullpage" nil)
-				    ("compact" "titlesec" nil)
-				    ;("" "enumitem" nil)
-				    ("" "paralist" nil)  ; use paralist or enumitem
-				    ("" "color" nil))))
  '(org-list-allow-alphabetical t)
  '(org-src-fontify-natively t)
  '(org-startup-folded nil)
  '(org-startup-indented nil)
- '(org-babel-load-languages (quote ((emacs-lisp . t) (R . t) (python . t) (dot . t) (ditaa . t) (latex . t) (sql . t))))
+ '(org-export-coding-system 'utf-8)
 )
 
 ;; to use koma-article formatting (more modern than default LaTeX),
@@ -73,7 +76,7 @@
 	       "\\documentclass\[presentation\]\{beamer\}"
 	       ("\\section\{%s\}" . "\\section*\{%s\}")
 	       ("\\subsection\{%s\}" . "\\subsection*\{%s\}")
-	       ("\\subsubsection\{%s\}" . "\\subsubsection*\{%s\}")))))
+	       ("\\subsubsection\{%s\}" . "\\subsubsection*\{%s\}")))
 
 ;; org-mode color
 (if (fboundp 'org-add-link-type)

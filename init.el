@@ -3,7 +3,10 @@
 ;;; Gary's .emacs file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(package-initialize)
+
 ;;; Like normal-top-level-add-subdirs-to-load-path except it doesn't recurse.
+
 (defun add-dir-and-subdirs-to-load-path (dir)
   (if (file-directory-p dir)
       (progn
@@ -41,7 +44,7 @@
       (require 'package)
       (setq package-archives '(("gnu" . "http://elpa.gnu.org/packages/")
 			       ;;("marmalade" . "http://marmalade-repo.org/packages/")
-			       ("melpa" . "http://melpa.milkbox.net/packages/")))
+			       ("melpa" . "http://melpa.org/packages/")))
       )
   ('error (message "No 'package' package found."))
   )
@@ -144,14 +147,15 @@
   ('error (message "no buffer-move lib, not defining buf-move keys:" error)))
 
 ;;; Prefer utf-8 coding system everywhere
-(setq org-export-coding-system 'utf-8)
 (prefer-coding-system 'utf-8)
 (set-charset-priority 'unicode)
 (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
 
 ;; use zsh or bash.  Do this early on before loading any git stuff,
 ;; otherwise that will try to use cmdproxy.exe.
-(cond ((executable-find "zsh")
+(cond ((file-exists-p "c:/msys64/usr/bin/zsh.exe")
+       (setq explicit-shell-file-name "c:/msys64/usr/bin/zsh.exe"))
+      ((executable-find "zsh")
        (setq explicit-shell-file-name "zsh"))
       ((executable-find "bash")
        (setq explicit-shell-file-name "bash"))
@@ -191,7 +195,14 @@
 (global-set-key [f7] 'shell-dwim)
 (global-set-key [f8] 'eshell)
 
-
+; Dirtrack mode in shell buffers; finds prompts with dir name
+; which should be better with msys2/cygwin where I can emit a
+; Windows-style dir name in the prompt.
+(require 'dirtrack)
+(add-hook 'shell-mode-hook
+          #'(lambda ()
+	      (setq dirtrack-list '("(\\(.*\\)) " 1 t))
+              (dirtrack-mode 1)))
 
 (load-library "paren")
 (show-paren-mode)
@@ -224,6 +235,7 @@
 (add-hook 'magit-status-mode-hook 'delete-other-windows)
 
 (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
+(add-to-list 'exec-path "c:/msys64/usr/bin") ; for Git (msys2)
 ; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
 
 (add-to-list 'exec-path "c:/bin")
@@ -239,8 +251,8 @@
 
 (autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
 
-;;; C-c C-e to edit right in a grep buffer, C-c C-s to save.  Nice!
-(maybe-require 'grep-ed)
+;;; wgrep-change-to-wgrep-mode to edit right in a grep buffer, C-c C-e to apply.  Nice!
+(maybe-require 'wgrep)
 
 (ignore-errors
  (load-file "~/.emacs-orgmode")
@@ -1046,11 +1058,14 @@ nil otherwise."
  '(ido-use-filename-at-point (quote guess))
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
  '(magit-backup-mode nil)
+ '(magit-cygwin-mount-points (quote (("/c" . "c:"))))
+ '(magit-diff-expansion-threshold 999.0)
  '(magit-diff-refine-hunk t)
  '(magit-expand-staged-on-commit (quote full))
  '(magit-log-format-graph-function (quote magit-log-format-unicode-graph))
  '(magit-log-format-unicode-graph-alist (quote ((47 . 9585) (92 . 9586) (42 . 9642))))
  '(magit-pull-arguments (quote ("--rebase")))
+ '(magit-refresh-status-buffer nil)
  '(org-babel-load-languages
    (quote
     ((emacs-lisp . t)
@@ -1059,35 +1074,17 @@ nil otherwise."
      (dot . t)
      (ditaa . t)
      (latex . t)
-     (sql . t))))
+     (sql . t)
+     (sh . t))))
  '(org-confirm-babel-evaluate nil)
  '(org-export-backends (quote (ascii html icalendar latex odt koma-letter)))
- '(org-export-latex-hyperref-format "Sec. \\ref{%s} (%s)")
- '(org-export-odt-preferred-output-format "docx")
- '(org-export-taskjuggler-default-reports
-   (quote
-    ("taskreport \"Gantt Chart\" {
-  headline \"Project Gantt Chart\"
-  columns hierarchindex, name, start, end, effort, duration, completed, chart
-  timeformat \"%Y-%m-%d\"
-  hideresource 1
-  formats html
-  loadunit shortauto
-}" "resourcereport \"Resource Graph\" {
-  headline \"Resource Allocation Graph\"
-  columns no, name, effortleft, freetime, chart
-  loadunit shortauto
-  formats html
-  hidetask ~isleaf()
-}")))
- '(org-export-taskjuggler-target-version 3.0)
- '(org-export-with-LaTeX-fragments (quote dvipng))
+ '(org-export-coding-system (quote utf-8))
  '(org-export-with-sub-superscripts (quote {}))
  '(org-export-with-toc nil)
  '(org-latex-listings t)
  '(org-latex-packages-alist
    (quote
-    (("" "fullpage" nil)
+    (("cm" "fullpage" nil)
      ("compact" "titlesec" nil)
      ("" "paralist" nil)
      ("" "enumitem" nil)
@@ -1097,14 +1094,16 @@ nil otherwise."
  '(org-list-allow-alphabetical t)
  '(org-odt-convert-processes
    (quote
-    (("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 4/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
+    (("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 5/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
      ("unoconv" "unoconv -f %f -o %d %i"))))
- '(org-odt-preferred-output-format "doc")
+ '(org-odt-preferred-output-format "docx")
  '(org-src-fontify-natively t)
  '(org-startup-folded nil)
  '(org-startup-indented nil)
  '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
+ '(org-use-sub-superscripts (quote {}))
+ '(package-selected-packages (quote (wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
