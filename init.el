@@ -220,12 +220,12 @@
 (setq vc-handled-backends (remq 'Git vc-handled-backends))
 (setq vc-handled-backends (remq 'git vc-handled-backends))
 
-(maybe-require 'git-emacs-autoloads) ; an emacs GIT interface (one of many); try M-x git-status
-(maybe-require 'git-emacs)	     ; Provides M-x gitk to run gitk
-(maybe-require 'git-status)
+;; (maybe-require 'git-emacs-autoloads) ; an emacs GIT interface (one of many); try M-x git-status
+;; (maybe-require 'git-emacs)	     ; Provides M-x gitk to run gitk
+;; (maybe-require 'git-status)
+;; (maybe-require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
 (autoload 'mo-git-blame-file "mo-git-blame" nil t)
 (autoload 'mo-git-blame-current "mo-git-blame" nil t)
-(maybe-require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
 
 ;;; yet another emacs GIT interface, still under active dev as of mid 2014.
 ;;; This is turning out to be quite good (29-Sep-14).
