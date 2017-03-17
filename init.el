@@ -120,17 +120,25 @@
       ))
 
 ;;; TMC Completion
-(setq *cdabbrev-radius* nil		; search whole buffer
-      *print-next-completion-does-cdabbrev-search-p* t ;show next even if cdabbrev
-      *separator-character-uses-completion-p* t	       ; save after typing separator
-      )
-(ignore-errors
- (condition-case nil
-     (load-library "completion-11-4")
-   (error
-    (load-library "completion-11-2")))
- (initialize-completions)
- )
+;; (setq *cdabbrev-radius* nil		; search whole buffer
+;;       *print-next-completion-does-cdabbrev-search-p* t ;show next even if cdabbrev
+;;       *separator-character-uses-completion-p* t	       ; save after typing separator
+;;       )
+;; (ignore-errors
+;;  (condition-case nil
+;;      (load-library "completion-11-4")
+;;    (error
+;;     (load-library "completion-11-2")))
+;;  (initialize-completions)
+;;  )
+;; package-install company-mode
+(global-company-mode) ; text completion framework with various backends
+(global-set-key (kbd "M-RET") 'company-complete) ; bind like old TMC completion
+;; package-install company-statistics
+(add-hook 'after-init-hook 'company-statistics-mode)
+
+;;; Menu bar takes up space, and can sometimes hang emacs on Windows (Feb 2017):
+(menu-bar-mode -1)
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -221,10 +229,7 @@
       (global-visual-line-mode 0)
       (setq line-move-visual nil)))
 
-;;; as of 21-Oct-10, git as a vc backend makes saving files really slow (a second or more).
-;;; I think egg is fine, don't really need vc.
-(setq vc-handled-backends (remq 'Git vc-handled-backends))
-(setq vc-handled-backends (remq 'git vc-handled-backends))
+(autoload 'vc-git-grep "vc-git" nil t)
 
 ;; (maybe-require 'git-emacs-autoloads) ; an emacs GIT interface (one of many); try M-x git-status
 ;; (maybe-require 'git-emacs)	     ; Provides M-x gitk to run gitk
@@ -1007,7 +1012,8 @@ nil otherwise."
 					; version-controlled files
  vc-path '("c:/bin" "c:/mingw/bin")
  version-control t
- visible-bell t
+ ; visible-bell hangs Windows emacs, early 2017
+ ; visible-bell t
  )
 
 ; Emulate 3rd button.  Don't know why wheel doesn't work as button2 on blur.
@@ -1035,6 +1041,9 @@ nil otherwise."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(align-to-tab-stop nil)
+ '(company-dabbrev-code-modes
+   (quote
+    (prog-mode batch-file-mode csharp-mode css-mode erlang-mode haskell-mode jde-mode lua-mode python-mode def-effects-mode)))
  '(ecb-layout-name "left1")
  '(ecb-layout-window-sizes
    (quote
@@ -1057,9 +1066,6 @@ nil otherwise."
  '(egg-log-buffer-marks [10004 9998 46 9733 62])
  '(egg-log-graph-chars [9608 124 45 47 92])
  '(egg-quit-window-actions (quote ((egg-status-buffer-mode kill restore-windows))))
- '(git-commit-setup-hook
-   (quote
-    (magit-revert-buffers git-commit-save-message git-commit-setup-changelog-support git-commit-turn-on-auto-fill git-commit-propertize-diff with-editor-usage-message)))
  '(git-commit-summary-max-length 64)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
@@ -1111,7 +1117,7 @@ nil otherwise."
  '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts (quote {}))
- '(package-selected-packages (quote (magit wgrep)))
+ '(package-selected-packages (quote (company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
