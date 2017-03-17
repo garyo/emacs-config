@@ -82,6 +82,12 @@
 	;; default
 	"Courier New-10.5"
         "Courier-10"))
+(cond
+ ((eq window-system 'ns) ; Mac native emacs: above fonts are too small
+  (setq preferred-fonts '("Droid Sans Mono Dotted-13"
+			  "Courier New-13"))
+  ))
+
 (defun find-first-font (list)
   (cond ((null list)
 	 nil)
@@ -1105,7 +1111,7 @@ nil otherwise."
  '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts (quote {}))
- '(package-selected-packages (quote (wgrep)))
+ '(package-selected-packages (quote (magit wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
