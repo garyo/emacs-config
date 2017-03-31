@@ -134,8 +134,18 @@
 ;; package-install company-mode
 (global-company-mode) ; text completion framework with various backends
 (global-set-key (kbd "M-RET") 'company-complete) ; bind like old TMC completion
+;; dabbrev mode seems closest to TMC completion
+(setq company-backends '(company-semantic company-dabbrev-code company-etags company-keywords company-dabbrev))
+
 ;; package-install company-statistics
 (add-hook 'after-init-hook 'company-statistics-mode)
+
+;; Gnu Global tags
+;; package-install ggtags
+(add-hook 'c-mode-common-hook
+	  (lambda ()
+	    (when (derived-mode-p 'c-mode 'c++-mode 'java-mode)
+	      (ggtags-mode 1))))
 
 ;;; Menu bar takes up space, and can sometimes hang emacs on Windows (Feb 2017):
 (menu-bar-mode -1)
@@ -253,14 +263,72 @@
 
 (add-to-list 'exec-path "c:/bin")
 (add-to-list 'exec-path "c:/bin2")
+(add-to-list 'exec-path "/usr/local/bin") ; for Gnu Global on Mac
 (add-to-list 'exec-path "c:/Program Files/R/R-2.14.0/bin") ; for R (statistics pkg)
 (setq python-command (or (executable-find "python") "c:/Python27/python"))
 
-(defvar dc-auto-insert-directory "~/.emacs.d/Insert/")
-(maybe-require 'defaultcontent)
+(define-skeleton cxx-skeleton
+  "Default C/C++ file skeleton"
+  ""
+  "/*----------------------------------------------------------------------*/" \n
+  "/* (c) Copyright " (substring (current-time-string) -4) ", Artel Software.  All rights reserved. */" \n
+  "/* This file may contain proprietary and confidential information.	*/" \n
+  "/* DO NOT COPY or distribute in any form without prior written consent. */" \n
+  "/*----------------------------------------------------------------------*/" \n
+  "\n"
+  > _ \n
+  "\n"
+  "/* end of " (file-name-nondirectory (buffer-file-name)) " */" > \n)
+
+(define-skeleton h-skeleton
+  "Default C/C++ header file skeleton"
+  ""
+  "/*----------------------------------------------------------------------*/" \n
+  "/* (c) Copyright " (substring (current-time-string) -4) ", Artel Software.  All rights reserved. */" \n
+  "/* This file may contain proprietary and confidential information.	*/" \n
+  "/* DO NOT COPY or distribute in any form without prior written consent. */" \n
+  "/*----------------------------------------------------------------------*/" \n
+  "\n"
+  "#ifndef __" (upcase (file-name-base (buffer-file-name))) "_H__" \n
+  "#define __" (upcase (file-name-base (buffer-file-name))) "_H__" \n
+  "\n"
+  > _ \n
+  "\n"
+  "#endif /*__" (upcase (file-name-base (buffer-file-name))) "_H__ */" \n
+  "/* end of " (file-name-nondirectory (buffer-file-name)) " */" > \n)
+
+(define-skeleton sh-skeleton
+  "Default shell file skeleton"
+  ""
+  "#! /bin/sh" \n
+  "\n"
+  "#----------------------------------------------------------------------" \n
+  "# (c) Copyright " (substring (current-time-string) -4) ", Artel Software.  All rights reserved." \n
+  "# This file may contain proprietary and confidential information." \n
+  "# DO NOT COPY or distribute in any form without prior written consent." \n
+  "# ----------------------------------------------------------------------" \n
+  "\n"
+  > _ \n
+  "\n"
+  "\n"
+  "# end of " (file-name-nondirectory (buffer-file-name)) \n
+  )
+
+(auto-insert-mode)
+(setq auto-insert-alist
+      '((("\\.\\(CC?\\|cc\\|c\\|cxx\\|cpp\\|c++\\)\\'" . "C/C++ skeleton")
+	 . cxx-skeleton)
+	(("\\.\\(HH?\\|hh\\|h\\|hxx\\|hpp\\|h++\\)\\'" . "C/C++ header skeleton")
+	 . h-skeleton)
+	(("\\.\\(sh\\)\\'" . "Shell script skeleton")
+	 . sh-skeleton)
+	)
+      )
+
 (maybe-require 'filladapt)			;adaptive fill mode
 (setq-default filladapt-mode t)
 (setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
+
 
 (autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
 
@@ -282,10 +350,6 @@
     (progn (load-file (concat idbpath "/idb.el"))
 	   (add-to-list 'exec-path idbpath))
   )
-
-;; This makes [f8] insert a template in the current mode for a new (empty) file
-;; and binds some C-c cmds in C and C++ mode.  (Try C-c SPC after "if" etc.)
-(maybe-require 'templates)
 
 (if window-system
     (tool-bar-mode 0))
@@ -1066,6 +1130,7 @@ nil otherwise."
  '(egg-log-buffer-marks [10004 9998 46 9733 62])
  '(egg-log-graph-chars [9608 124 45 47 92])
  '(egg-quit-window-actions (quote ((egg-status-buffer-mode kill restore-windows))))
+ '(ggtags-executable-directory "/usr/local/bin")
  '(git-commit-summary-max-length 64)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
@@ -1117,7 +1182,9 @@ nil otherwise."
  '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts (quote {}))
- '(package-selected-packages (quote (company-statistics magit company wgrep)))
+ '(package-selected-packages
+   (quote
+    (ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
