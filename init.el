@@ -263,9 +263,16 @@
 
 (add-to-list 'exec-path "c:/bin")
 (add-to-list 'exec-path "c:/bin2")
-(add-to-list 'exec-path "/usr/local/bin") ; for Gnu Global on Mac
 (add-to-list 'exec-path "c:/Program Files/R/R-2.14.0/bin") ; for R (statistics pkg)
 (setq python-command (or (executable-find "python") "c:/Python27/python"))
+
+;;; This sets $PATH and exec-path by querying the shell.
+;;; Much better than trying to keep them in sync as above.
+;;; Only Mac for now, but could this be useful on Windows? Probably.
+;;; requires exec-path-from-shell package (melpa).
+;;; Also can copy other env vars, see exec-path-from-shell-copy-env.
+(when (memq window-system '(mac ns))
+  (exec-path-from-shell-initialize))
 
 (define-skeleton cxx-skeleton
   "Default C/C++ file skeleton"
@@ -1130,7 +1137,6 @@ nil otherwise."
  '(egg-log-buffer-marks [10004 9998 46 9733 62])
  '(egg-log-graph-chars [9608 124 45 47 92])
  '(egg-quit-window-actions (quote ((egg-status-buffer-mode kill restore-windows))))
- '(ggtags-executable-directory "/usr/local/bin")
  '(git-commit-summary-max-length 64)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
@@ -1184,7 +1190,7 @@ nil otherwise."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (ggtags company-statistics magit company wgrep)))
+    (exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
