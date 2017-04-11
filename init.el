@@ -135,7 +135,7 @@
 (global-company-mode) ; text completion framework with various backends
 (global-set-key (kbd "M-RET") 'company-complete) ; bind like old TMC completion
 ;; dabbrev mode seems closest to TMC completion
-(setq company-backends '(company-semantic company-dabbrev-code company-etags company-keywords company-dabbrev))
+(setq company-backends '(company-semantic company-dabbrev-code company-dabbrev company-etags company-keywords))
 
 ;; package-install company-statistics
 (add-hook 'after-init-hook 'company-statistics-mode)
@@ -429,6 +429,55 @@
 ;; that don't have a Local Variables def-effects spec.)
 (autoload 'def-effects-mode "def-effects-mode" "Mode for editing GenArts def-effects files" t)
 (add-to-list 'auto-mode-alist '("/def-.*\\.text\\'" . def-effects-mode))
+
+;; Like vc-git-grep from Emacs 25, but without the semi-useless "files" arg.
+(defun git-grep (regexp &optional dir)
+  "Run git grep, searching for REGEXP in directory DIR.
+
+With \\[universal-argument] prefix, you can edit the constructed shell command line
+before it is executed.
+With two \\[universal-argument] prefixes, directly edit and run `grep-command'.
+
+Collect output in a buffer.  While git grep runs asynchronously, you
+can use \\[next-error] (M-x next-error), or \\<grep-mode-map>\\[compile-goto-error] \
+in the grep output buffer,
+to go to the lines where grep found matches.
+
+This command shares argument histories with \\[rgrep] and \\[grep]."
+  (interactive
+   (progn
+     (grep-compute-defaults)
+     (cond
+      ((equal current-prefix-arg '(16))
+       (list (read-from-minibuffer "Run: " "git grep"
+				   nil nil 'grep-history)
+	     nil))
+      (t (let* ((regexp (grep-read-regexp))
+		(dir (read-directory-name "In directory: "
+					  (vc-git-root default-directory) nil t)))
+	   (list regexp dir))))))
+  (require 'grep)
+  (when (and (stringp regexp) (> (length regexp) 0))
+    (let ((command regexp))
+      (progn
+	(setq dir (file-name-as-directory (expand-file-name dir)))
+	(setq command
+	      (grep-expand-template "git --no-pager grep -n -e <R>"
+                                    regexp))
+	(when command
+	  (if (equal current-prefix-arg '(4))
+	      (setq command
+		    (read-from-minibuffer "Confirm: "
+					  command nil nil 'grep-history))
+	    (add-to-history 'grep-history command))))
+      (when command
+	(let ((default-directory dir)
+	      (compilation-environment (cons "PAGER=" compilation-environment)))
+	  ;; Setting process-setup-function makes exit-message-function work
+	  ;; even when async processes aren't supported.
+	  (compilation-start command 'grep-mode))
+	(if (eq next-error-last-buffer (current-buffer))
+	    (setq default-directory dir))))))
 
 ;; nicer interface to git-blame, kinda -- not very great since the left/right buffers
 ;; easily get out of sync.
@@ -1112,6 +1161,8 @@ nil otherwise."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(align-to-tab-stop nil)
+ '(company-dabbrev-char-regexp "\\s_")
+ '(company-dabbrev-code-everywhere t)
  '(company-dabbrev-code-modes
    (quote
     (prog-mode batch-file-mode csharp-mode css-mode erlang-mode haskell-mode jde-mode lua-mode python-mode def-effects-mode)))
