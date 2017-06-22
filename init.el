@@ -253,12 +253,17 @@
 (autoload 'magit-status "magit" nil t)
 (maybe-require 'git-commit-mode)
 (global-set-key (kbd "\C-x v =") 'magit-status)	; override vc-mode binding
+(global-set-key (kbd "\C-x v l") 'magit-log-current)	; override vc-mode binding
 ;;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
 (remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
 (add-hook 'magit-status-mode-hook 'delete-other-windows)
 
 (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
 (add-to-list 'exec-path "c:/msys64/usr/bin") ; for Git (msys2)
+(add-to-list 'exec-path "c:/msys64/usr/local/bin") ; for GNU global/gtags
+(cond ((eq system-type 'windows-nt)
+       (setenv "PATH" (concat "c:/msys64/usr/local/bin;" (getenv "PATH")))
+       (setenv "PATH" (concat "/usr/local/bin;" (getenv "PATH")))))
 ; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
 
 (add-to-list 'exec-path "c:/bin")
@@ -1180,8 +1185,7 @@ nil otherwise."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(align-to-tab-stop nil)
- '(company-dabbrev-char-regexp "\\s_")
- '(company-dabbrev-code-everywhere t)
+ '(company-dabbrev-char-regexp "\\(\\sw\\|\\s_\\)")
  '(company-dabbrev-code-modes
    (quote
     (prog-mode batch-file-mode csharp-mode css-mode erlang-mode haskell-mode jde-mode lua-mode python-mode def-effects-mode)))
@@ -1207,6 +1211,7 @@ nil otherwise."
  '(egg-log-buffer-marks [10004 9998 46 9733 62])
  '(egg-log-graph-chars [9608 124 45 47 92])
  '(egg-quit-window-actions (quote ((egg-status-buffer-mode kill restore-windows))))
+ '(exec-path-from-shell-arguments (quote ("-l")))
  '(git-commit-summary-max-length 64)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
@@ -1281,6 +1286,7 @@ nil otherwise."
      (Mode . cperl)
      (comment-new_column . 0))))
  '(same-window-regexps (quote ("\\*shell.*\\*\\(\\|<[0-9]+>\\)")))
+ '(sentence-end-double-space nil)
  '(speedbar-tag-hierarchy-method
    (quote
     (speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy)))
