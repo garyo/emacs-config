@@ -321,6 +321,23 @@
   "# end of " (file-name-nondirectory (buffer-file-name)) \n
   )
 
+(define-skeleton py-skeleton
+  "Default Python file skeleton"
+  ""
+  "#! /usr/bin/env python" \n
+  "\n"
+  "#----------------------------------------------------------------------" \n
+  "# (c) Copyright " (substring (current-time-string) -4) ", Artel Software.  All rights reserved." \n
+  "# This file may contain proprietary and confidential information." \n
+  "# DO NOT COPY or distribute in any form without prior written consent." \n
+  "# ----------------------------------------------------------------------" \n
+  "\n"
+  > _ \n
+  "\n"
+  "\n"
+  "# end of " (file-name-nondirectory (buffer-file-name)) \n
+  )
+
 (auto-insert-mode)
 (setq auto-insert-alist
       '((("\\.\\(CC?\\|cc\\|c\\|cxx\\|cpp\\|c++\\)\\'" . "C/C++ skeleton")
@@ -329,6 +346,8 @@
 	 . h-skeleton)
 	(("\\.\\(sh\\)\\'" . "Shell script skeleton")
 	 . sh-skeleton)
+	(("\\.\\(py\\)\\'" . "Python script skeleton")
+	 . py-skeleton)
 	)
       )
 
