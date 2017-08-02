@@ -797,18 +797,18 @@ nil otherwise."
 (defun open-folder-in-explorer ()
   "Call when editing a file in a buffer. Open windows explorer in the current directory and select the current file"
   (interactive)
-  (cond (buffer-file-name
-	 (w32-shell-execute
-	  "open" "explorer"
-	  (concat "/e,/select," (convert-standard-filename buffer-file-name))
-	  ))
-	(t
-	  (w32-shell-execute
-	   "open" "explorer"
-	   (concat "/e,/root," (convert-standard-filename default-directory))
-	  ))
-	))
-(defun w32-shell-dos-semantics() t)	;needed for above, to convert filenames to backslash form
+  (let ((shell-file-name "cmd.exe"))
+    (cond (buffer-file-name
+	   (w32-shell-execute
+	    "open" "explorer"
+	    (concat "/e,/select," (convert-standard-filename buffer-file-name))
+	    ))
+	  (t
+	   (w32-shell-execute
+	    "open" "explorer"
+	    (concat "/e,/root," (convert-standard-filename default-directory))
+	    ))
+	  )))
 (global-set-key [f12] 'open-folder-in-explorer)
 
 ;;; Now that I use more window splitting, I have to teach myself not to use C-x 1 all the time
