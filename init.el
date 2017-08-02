@@ -227,7 +227,7 @@
 (require 'dirtrack)
 (add-hook 'shell-mode-hook
           #'(lambda ()
-	      (setq dirtrack-list '("(\\(.*\\)) " 1 t))
+	      (setq dirtrack-list '("(\\(.*?\\)\\( \\|) \\)" 1 t))
               (dirtrack-mode 1)))
 
 (load-library "paren")
