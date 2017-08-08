@@ -924,7 +924,7 @@ nil otherwise."
 ;;; Strip Sbuild dirs from a pathname
 (defun strip-sbuild (p)
   (replace-regexp-in-string
-   "[Ss]?[Bb]uild/.*\\(final\\|dbg\\)[^/]*/" "" p))
+   "[Ss]?[Bb]uild/.*\\(final\\|dbg\\)[^/]*/\\(mocha-[^/]*\\)?" "" p))
 
 ;;; found this on the web.  Useful!
 ;;; Modified to return (dir . file)
