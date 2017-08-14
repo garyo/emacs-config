@@ -797,18 +797,9 @@ nil otherwise."
 (defun open-folder-in-explorer ()
   "Call when editing a file in a buffer. Open windows explorer in the current directory and select the current file"
   (interactive)
-  (let ((shell-file-name "cmd.exe"))
-    (cond (buffer-file-name
-	   (w32-shell-execute
-	    "open" "explorer"
-	    (concat "/e,/select," (convert-standard-filename buffer-file-name))
-	    ))
-	  (t
-	   (w32-shell-execute
-	    "open" "explorer"
-	    (concat "/e,/root," (convert-standard-filename default-directory))
-	    ))
-	  )))
+  (if default-directory
+      (browse-url-of-file (expand-file-name default-directory))
+    (error "No `default-directory' to open")))
 (global-set-key [f12] 'open-folder-in-explorer)
 
 ;;; Now that I use more window splitting, I have to teach myself not to use C-x 1 all the time
@@ -1265,7 +1256,7 @@ nil otherwise."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
