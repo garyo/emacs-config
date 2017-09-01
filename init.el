@@ -1285,6 +1285,7 @@ nil otherwise."
     (speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy)))
  '(taskjuggler-command "tj3")
  '(vc-dired-recurse nil)
+ '(visible-bell t)
  '(w32-get-true-file-attributes nil t)
  '(warning-suppress-types (quote ((\(undo\ discard-info\))))))
 
