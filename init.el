@@ -136,6 +136,8 @@
 (global-set-key (kbd "M-RET") 'company-complete) ; bind like old TMC completion
 ;; dabbrev mode seems closest to TMC completion
 (setq company-backends '(company-semantic company-dabbrev-code company-dabbrev company-etags company-keywords))
+(setq company-dabbrev-downcase nil)	;make case-sensitive
+(setq company-dabbrev-ignore-case nil)	;make case-sensitive
 
 ;; package-install company-statistics
 (add-hook 'after-init-hook 'company-statistics-mode)
