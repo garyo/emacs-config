@@ -57,6 +57,11 @@
   (message "Starting edit server for Chrome...")
   (edit-server-start))
 
+;; Arduino mode
+(add-to-list 'load-path "~/.emacs.d/arduino-mode")
+(setq auto-mode-alist (cons '("\\.\\(pde\\|ino\\)$" . arduino-mode) auto-mode-alist))
+(autoload 'arduino-mode "arduino-mode" "Arduino editing mode." t)
+
 ;;;; FONTS ;;;;;;
 ;; Notes:
 ;; use M-x describe-font RET to describe current font
