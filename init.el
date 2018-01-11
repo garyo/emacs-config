@@ -62,6 +62,15 @@
 (setq auto-mode-alist (cons '("\\.\\(pde\\|ino\\)$" . arduino-mode) auto-mode-alist))
 (autoload 'arduino-mode "arduino-mode" "Arduino editing mode." t)
 
+;;; Default frame size - could make this variable depending on display params
+;;; but then it would have to go in the frame setup hook.
+(setq default-frame-alist (list
+			   '(top . 15)
+			   '(left . 200)
+			   '(width . 98)
+			   '(height . 66)
+			   ))
+
 ;;;; FONTS ;;;;;;
 ;; Notes:
 ;; use M-x describe-font RET to describe current font
@@ -71,58 +80,57 @@
 	;; Droid Sans Mono: quite nice.
 	;; 15 pixels total height at 10 point.  Clear & crisp.
 	;; (e.g. http://www.fontex.org/download/Droid-sans-mono.ttf)
-	"Droid Sans Mono Dotted-10"
-	"Droid Sans Mono-10"
+	("Droid Sans Mono Dotted" . 10)
+	("Droid Sans Mono" . 10)
 	;; Consolas: download installer from Microsoft.
 	;; Quite beautiful and renders nicely, but a little light.
 	;; Pretty similar to Droid Sans Mono.
 	;; The slanted verticals on the capital M annoy me a little.
 	;; (16 pixels height)
-	"Consolas-10.5"
+	("Consolas" . 10.5)
 	;; Inconsolata: lots of people like this.
 	;; http://www.levien.com/type/myfonts/inconsolata.html:
 	;; about same size as Consolas-10.5, but thicker and less leading
 	;; (17 pixels height) and not as smooth lines.  Feels chunky.
-	"Inconsolata-12"
+	("Inconsolata" . 12)
 	;; default
-	"Courier New-10.5"
-        "Courier-10"))
+	("Courier New" . 10.5)
+        ("Courier" . 10)))
 (cond
  ((eq window-system 'ns) ; Mac native emacs: above fonts are too small
   (setq preferred-fonts '("Droid Sans Mono Dotted-13"
 			  "Courier New-13"))
   ))
 
-(defun find-first-font (list)
-  (cond ((null list)
-	 nil)
-	((x-list-fonts (car list))
-	 (message (concat "Using font " (car list)))
-	 (car list))
-	(t				; recurse
-	 (find-first-font (cdr list)))
-	))
-; set default font attributes (for all frames)
-(if window-system
-    (progn
-      (if (find-first-font preferred-fonts)
-	  (set-face-attribute 'default nil :font (find-first-font preferred-fonts)))
+(defun find-first-font (fonts frame)	; fonts is ((name . size) ...)
+  (find-if (lambda (f)
+	     ;(message "Checking %s..." f)
+	     (find-font (font-spec :family (car f)) frame))
+	   fonts))
 
-      (cond ((> (x-display-pixel-height) 1000)
-	     (setq initial-frame-alist (list
-					'(top . 15)
-					'(left . 1000)
-					'(width . 98)
-					'(height . 64)
-					)))
-	    (t
-	     (setq initial-frame-alist (list
-					'(top . 15)
-					'(left . 20)
-					'(width . 98)
-					'(height . 40)
-					))))
-      ))
+;;; set default font and frame attributes (for all frames)
+;;; Note: display-graphic-p returns false when emacs is started in daemon mode,
+;;; so we do much of the frame setup in the new-frame-setup hook, which is called
+;;; after the new frame is created but before it's selected. That means we have to
+;;; use 'frame' everywhere here, not assume selected-frame is valid.
+(defun new-frame-setup (frame)
+  (when (display-graphic-p frame)
+    (message "Setting up new graphic frame")
+    (let ((font-info (find-first-font preferred-fonts frame)))
+      (when font-info
+	(let ((font (find-font (font-spec :family (car font-info)
+					 :size (float (cdr font-info)))
+			      frame)))
+	  (message "Using font %s: %s" font-info font)
+	  (set-face-attribute 'default frame :font font)
+	  ;(add-to-list 'default-frame-alist `(font . ,font))
+	  )))
+    (tool-bar-mode 0))
+  )
+;;; run on existing frames (non-daemon startup)
+(mapc 'new-frame-setup (frame-list))
+;;; run when new frames created (daemon or server)
+(add-hook 'after-make-frame-functions 'new-frame-setup)
 
 ;;; TMC Completion
 ;; (setq *cdabbrev-radius* nil		; search whole buffer
@@ -153,9 +161,6 @@
 	  (lambda ()
 	    (when (derived-mode-p 'c-mode 'c++-mode 'java-mode)
 	      (ggtags-mode 1))))
-
-;;; Menu bar takes up space, and can sometimes hang emacs on Windows (Feb 2017):
-(menu-bar-mode -1)
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -286,14 +291,20 @@
 (when (memq window-system '(mac ns))
   (exec-path-from-shell-initialize))
 
+(defun copyright-for-skel (comment-start comment-end)
+  (format
+   (concat "%1$s----------------------------------------------------------------------%2$s\n"
+	   "%1$s (c) Copyright " (substring (current-time-string) -4) ", Dark Star Systems, Inc.  All rights reserved. %2$s\n"
+	   "%1$s This file may contain proprietary and confidential information.	%2$s\n"
+	   "%1$s DO NOT COPY or distribute in any form without prior written consent. %2$s\n"
+	   "%1$s----------------------------------------------------------------------%2$s\n")
+   comment-start comment-end)
+  )
+
 (define-skeleton cxx-skeleton
   "Default C/C++ file skeleton"
   ""
-  "/*----------------------------------------------------------------------*/" \n
-  "/* (c) Copyright " (substring (current-time-string) -4) ", Artel Software.  All rights reserved. */" \n
-  "/* This file may contain proprietary and confidential information.	*/" \n
-  "/* DO NOT COPY or distribute in any form without prior written consent. */" \n
-  "/*----------------------------------------------------------------------*/" \n
+  (copyright-for-skel "/*" "*/")
   "\n"
   > _ \n
   "\n"
@@ -302,11 +313,7 @@
 (define-skeleton h-skeleton
   "Default C/C++ header file skeleton"
   ""
-  "/*----------------------------------------------------------------------*/" \n
-  "/* (c) Copyright " (substring (current-time-string) -4) ", Artel Software.  All rights reserved. */" \n
-  "/* This file may contain proprietary and confidential information.	*/" \n
-  "/* DO NOT COPY or distribute in any form without prior written consent. */" \n
-  "/*----------------------------------------------------------------------*/" \n
+  (copyright-for-skel "/*" "*/")
   "\n"
   "#ifndef __" (upcase (file-name-base (buffer-file-name))) "_H__" \n
   "#define __" (upcase (file-name-base (buffer-file-name))) "_H__" \n
@@ -321,11 +328,7 @@
   ""
   "#! /bin/sh" \n
   "\n"
-  "#----------------------------------------------------------------------" \n
-  "# (c) Copyright " (substring (current-time-string) -4) ", Artel Software.  All rights reserved." \n
-  "# This file may contain proprietary and confidential information." \n
-  "# DO NOT COPY or distribute in any form without prior written consent." \n
-  "# ----------------------------------------------------------------------" \n
+  (copyright-for-skel "#" "")
   "\n"
   > _ \n
   "\n"
@@ -338,11 +341,7 @@
   ""
   "#! /usr/bin/env python" \n
   "\n"
-  "#----------------------------------------------------------------------" \n
-  "# (c) Copyright " (substring (current-time-string) -4) ", Artel Software.  All rights reserved." \n
-  "# This file may contain proprietary and confidential information." \n
-  "# DO NOT COPY or distribute in any form without prior written consent." \n
-  "# ----------------------------------------------------------------------" \n
+  (copyright-for-skel "#" "")
   "\n"
   > _ \n
   "\n"
@@ -389,8 +388,8 @@
 	   (add-to-list 'exec-path idbpath))
   )
 
-(if window-system
-    (tool-bar-mode 0))
+;;; Menu bar takes up space, and can sometimes hang emacs on Windows (Feb 2017):
+(menu-bar-mode -1)
 (blink-cursor-mode -1)	;this is annoying
 ;;(mouse-avoidance-mode 'animate)
 (global-font-lock-mode 1)
