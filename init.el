@@ -144,7 +144,10 @@
 ;;     (load-library "completion-11-2")))
 ;;  (initialize-completions)
 ;;  )
-;; package-install company-mode
+;; package-install company
+(when (and (not (fboundp 'global-company-mode))
+	   (> emacs-major-version 25))
+  (package-install "company"))
 (global-company-mode) ; text completion framework with various backends
 (global-set-key (kbd "M-RET") 'company-complete) ; bind like old TMC completion
 ;; dabbrev mode seems closest to TMC completion
