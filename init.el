@@ -208,9 +208,12 @@
 ;;; to 8 will see very deep indentation.
 (use-package smart-tabs-mode
   :ensure t
-  :config
-  (smart-tabs-insinuate 'c)
-  )
+  :config (smart-tabs-insinuate 'c))
+
+;;; Temporarily highlight undo, yank, find-tag and a few other things
+(use-package volatile-highlights
+  :ensure t
+  :config (volatile-highlights-mode t))
 
 ;;; This sets $PATH and exec-path by querying the shell.
 ;;; Much better than trying to keep them in sync as above.
@@ -1117,7 +1120,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
