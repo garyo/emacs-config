@@ -58,7 +58,7 @@
 ;;; Meta-package system: use-package. Auto-installs and configures packages.
 (eval-when-compile
   (when (not (fboundp 'use-package))
-    (package-install "use-package"))
+    (package-install 'use-package))
   (require 'use-package))
 
 ;; edit server for Chrome (browser extension):
@@ -108,8 +108,8 @@
         ("Courier" . 10)))
 (cond
  ((eq window-system 'ns) ; Mac native emacs: above fonts are too small
-  (setq preferred-fonts '("Droid Sans Mono Dotted-13"
-			  "Courier New-13"))
+  (setq preferred-fonts '(("Droid Sans Mono Dotted" . 13)
+			  ("Courier New" . 13)))
   ))
 
 (defun find-first-font (fonts frame)
@@ -234,6 +234,10 @@
 ;;   :ensure t
 ;;   :after org)
 
+;; string manipulation routines
+(use-package s
+  :ensure t)
+
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
 ;;; windmove: shift+arrow keys to move between windows.
@@ -243,7 +247,8 @@
   (setq windmove-wrap-around t))
 
 ;;; save/restore window configs to disk automatically
-(desktop-save-mode t)
+;;; (this is a little weird on Mac with emacs 25.3)
+;(desktop-save-mode t)
 
 ;;; Prefer utf-8 coding system everywhere
 (prefer-coding-system 'utf-8)
@@ -335,13 +340,13 @@
 
 (defun copyright-for-skel (comment-start comment-end)
   "Skeleton for corporate copyright in a comment, using COMMENT-START and COMMENT-END."
-  (format
-   (concat "%1$s----------------------------------------------------------------------%2$s\n"
-	   "%1$s (c) Copyright " (substring (current-time-string) -4) ", Dark Star Systems, Inc.  All rights reserved. %2$s\n"
-	   "%1$s This file may contain proprietary and confidential information.	%2$s\n"
-	   "%1$s DO NOT COPY or distribute in any form without prior written consent. %2$s\n"
-	   "%1$s----------------------------------------------------------------------%2$s\n")
-   comment-start comment-end)
+  (s-format
+   (concat "${cs}----------------------------------------------------------------------${ce}\n"
+	   "${cs} (c) Copyright " (substring (current-time-string) -4) ", Dark Star Systems, Inc.  All rights reserved.    ${ce}\n"
+	   "${cs} This file may contain proprietary and confidential information.	${ce}\n"
+	   "${cs} DO NOT COPY or distribute in any form without prior written consent. ${ce}\n"
+	   "${cs}----------------------------------------------------------------------${ce}\n")
+   'aget `(("cs" . ,comment-start) ("ce" . ,comment-end)))
   )
 
 (define-skeleton cxx-skeleton
@@ -1120,7 +1125,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
@@ -1146,7 +1151,6 @@ by using nxml's indentation rules."
    (quote
     (speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy)))
  '(taskjuggler-command "tj3")
- '(tramp-syntax (quote default) nil (tramp))
  '(vc-dired-recurse nil)
  '(visible-bell t)
  '(w32-get-true-file-attributes nil t)
