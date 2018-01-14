@@ -7,7 +7,11 @@
 
 ;;; Like normal-top-level-add-subdirs-to-load-path except it doesn't recurse.
 
+(setq user-full-name "Gary Oberbrunner"
+      user-mail-address "garyo@darkstarsystems.com")
+
 (defun add-dir-and-subdirs-to-load-path (dir)
+  "Add DIR and its subdirs to \"load-path\"."
   (if (file-directory-p dir)
       (progn
 	(add-to-list 'load-path dir)
@@ -28,16 +32,16 @@
 (require 'server)
 (unless (server-running-p)
   (server-start))
-(require 'cl)
 
 ;;; try to load libname (string); returns t or nil.
 (defun maybe-load-library (libname)
+  "Try to load LIBNAME, ignore errors."
    (condition-case nil
        (load-library libname)
      (error nil)))
 
-;;; try to require feature (symbol); returns feature or nil.
 (defun maybe-require (feature)
+  "Try to require FEATURE (symbol); return feature or nil."
   (require feature nil t))
 
 ;;; Set up package system
@@ -50,6 +54,12 @@
       )
   ('error (message "No 'package' package found."))
   )
+
+;;; Meta-package system: use-package. Auto-installs and configures packages.
+(eval-when-compile
+  (when (not (fboundp 'use-package))
+    (package-install "use-package"))
+  (require 'use-package))
 
 ;; edit server for Chrome (browser extension):
 (when (maybe-require 'edit-server)
@@ -75,7 +85,7 @@
 ;; Notes:
 ;; use M-x describe-font RET to describe current font
 ;; C-u C-x = describes font under point (and lots of other goodies).
-(setq preferred-fonts
+(defvar preferred-fonts
       '(
 	;; Droid Sans Mono: quite nice.
 	;; 15 pixels total height at 10 point.  Clear & crisp.
@@ -102,18 +112,19 @@
 			  "Courier New-13"))
   ))
 
-(defun find-first-font (fonts frame)	; fonts is ((name . size) ...)
-  (find-if (lambda (f)
+(defun find-first-font (fonts frame)
+  "Find first font for FRAME in list; FONTS is ((name . size) ...)."
+  (cl-find-if (lambda (f)
 	     ;(message "Checking %s..." f)
 	     (find-font (font-spec :family (car f)) frame))
 	   fonts))
 
-;;; set default font and frame attributes (for all frames)
 ;;; Note: display-graphic-p returns false when emacs is started in daemon mode,
 ;;; so we do much of the frame setup in the new-frame-setup hook, which is called
 ;;; after the new frame is created but before it's selected. That means we have to
 ;;; use 'frame' everywhere here, not assume selected-frame is valid.
 (defun new-frame-setup (frame)
+  "Set default font and frame attributes for FRAME."
   (when (display-graphic-p frame)
     (message "Setting up new graphic frame")
     (let ((font-info (find-first-font preferred-fonts frame)))
@@ -132,38 +143,83 @@
 ;;; run when new frames created (daemon or server)
 (add-hook 'after-make-frame-functions 'new-frame-setup)
 
-;;; TMC Completion
-;; (setq *cdabbrev-radius* nil		; search whole buffer
-;;       *print-next-completion-does-cdabbrev-search-p* t ;show next even if cdabbrev
-;;       *separator-character-uses-completion-p* t	       ; save after typing separator
-;;       )
-;; (ignore-errors
-;;  (condition-case nil
-;;      (load-library "completion-11-4")
-;;    (error
-;;     (load-library "completion-11-2")))
-;;  (initialize-completions)
-;;  )
-;; package-install company
-(when (and (not (fboundp 'global-company-mode))
-	   (> emacs-major-version 25))
-  (package-install "company"))
-(global-company-mode) ; text completion framework with various backends
-(global-set-key (kbd "M-RET") 'company-complete) ; bind like old TMC completion
-;; dabbrev mode seems closest to TMC completion
-(setq company-backends '(company-semantic company-dabbrev-code company-dabbrev company-etags company-keywords))
-(setq company-dabbrev-downcase nil)	;make case-sensitive
-(setq company-dabbrev-ignore-case nil)	;make case-sensitive
+(use-package company
+  :ensure t
+  :demand
+  :bind (("M-RET" . company-complete))
+  :config
+  (global-company-mode)
+  ;; dabbrev mode seems closest to TMC completion
+  (setq company-backends '(company-semantic company-dabbrev-code company-dabbrev company-etags company-keywords))
+  (setq company-dabbrev-downcase nil	 ;make case-sensitive
+	company-dabbrev-ignore-case nil) ;make case-sensitive
+)
 
-;; package-install company-statistics
-(add-hook 'after-init-hook 'company-statistics-mode)
+(use-package company-statistics
+  :ensure t
+  :after company
+  :config
+  (add-hook 'after-init-hook
+	    'company-statistics-mode)
+  )
 
 ;; Gnu Global tags
 ;; package-install ggtags
-(add-hook 'c-mode-common-hook
-	  (lambda ()
-	    (when (derived-mode-p 'c-mode 'c++-mode 'java-mode)
-	      (ggtags-mode 1))))
+(use-package ggtags
+  :ensure t
+  :config
+  (add-hook 'c-mode-common-hook
+	    (lambda ()
+	      (when (derived-mode-p 'c-mode 'c++-mode 'java-mode)
+		(ggtags-mode 1))))
+  )
+
+(use-package flycheck
+  :ensure t
+  :init (global-flycheck-mode))
+
+;;; wgrep-change-to-wgrep-mode to edit right in a grep buffer, C-c C-e to apply.  Nice!
+(use-package wgrep
+  :ensure t)
+
+(use-package gitconfig-mode
+  :ensure t)
+(use-package gitignore-mode
+  :ensure t)
+
+(use-package magit
+  :ensure t
+  :bind (("C-x v =" . magit-status)
+	 ("C-x v l" . magit-log-current))
+  :config
+  ;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
+  (remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
+  (add-hook 'magit-status-mode-hook 'delete-other-windows)
+  )
+
+(use-package mo-git-blame
+  :ensure t
+  :commands (mo-git-blame-file mo-git-blame-current)
+  )
+
+;;; This sets $PATH and exec-path by querying the shell.
+;;; Much better than trying to keep them in sync as above.
+;;; Only Mac for now, but could this be useful on Windows? Probably.
+;;; Also can copy other env vars, see exec-path-from-shell-copy-env.
+(use-package exec-path-from-shell
+  :if (memq window-system '(mac ns))
+  :ensure t
+  :config
+  (exec-path-from-shell-initialize))
+
+(use-package org
+  :ensure t)
+(use-package ob-sql-mode
+  :ensure t
+  :after org)
+;; (use-package ox-tufte
+;;   :ensure t
+;;   :after org)
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -173,19 +229,8 @@
   (windmove-default-keybindings)
   (setq windmove-wrap-around t))
 
-(ignore-errors
-  (load-library "revive") ; save/restore window configs to disk; M-x save-current-configuration, M-x resume
-  )
-
-(condition-case error
-    (progn
-      (load-library "buffer-move")
-      (global-set-key (kbd "<C-S-up>")     'buf-move-up)
-      (global-set-key (kbd "<C-S-down>")   'buf-move-down)
-      (global-set-key (kbd "<C-S-left>")   'buf-move-left)
-      (global-set-key (kbd "<C-S-right>")  'buf-move-right)
-      )
-  ('error (message "no buffer-move lib, not defining buf-move keys:" error)))
+;;; save/restore window configs to disk automatically
+(desktop-save-mode t)
 
 ;;; Prefer utf-8 coding system everywhere
 (prefer-coding-system 'utf-8)
@@ -222,7 +267,7 @@
 	(shell-buf-list (identity ;;used to be reverse
 			 (sort
 			  (sh-buf-filter (lambda (x) (string-match "^\\*shell\\*" (buffer-name x))) (buffer-list))
-			  '(lambda (a b) (string< (buffer-name a) (buffer-name b)))))))
+			  #'(lambda (a b) (string< (buffer-name a) (buffer-name b)))))))
     (setq next-shell-buffer
 	  (if (string-match "^\\*shell\\*" (buffer-name buffer))
 	      (get-buffer (cadr (member (buffer-name) (mapcar (function buffer-name) (append shell-buf-list shell-buf-list)))))
@@ -260,18 +305,6 @@
 ;; (maybe-require 'git-emacs)	     ; Provides M-x gitk to run gitk
 ;; (maybe-require 'git-status)
 ;; (maybe-require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
-(autoload 'mo-git-blame-file "mo-git-blame" nil t)
-(autoload 'mo-git-blame-current "mo-git-blame" nil t)
-
-;;; yet another emacs GIT interface, still under active dev as of mid 2014.
-;;; This is turning out to be quite good (29-Sep-14).
-(autoload 'magit-status "magit" nil t)
-(maybe-require 'git-commit-mode)
-(global-set-key (kbd "\C-x v =") 'magit-status)	; override vc-mode binding
-(global-set-key (kbd "\C-x v l") 'magit-log-current)	; override vc-mode binding
-;;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
-(remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
-(add-hook 'magit-status-mode-hook 'delete-other-windows)
 
 (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
 (add-to-list 'exec-path "c:/msys64/usr/bin") ; for Git (msys2)
@@ -284,17 +317,11 @@
 (add-to-list 'exec-path "c:/bin")
 (add-to-list 'exec-path "c:/bin2")
 (add-to-list 'exec-path "c:/Program Files/R/R-2.14.0/bin") ; for R (statistics pkg)
-(setq python-command (or (executable-find "python") "c:/Python27/python"))
-
-;;; This sets $PATH and exec-path by querying the shell.
-;;; Much better than trying to keep them in sync as above.
-;;; Only Mac for now, but could this be useful on Windows? Probably.
-;;; requires exec-path-from-shell package (melpa).
-;;; Also can copy other env vars, see exec-path-from-shell-copy-env.
-(when (memq window-system '(mac ns))
-  (exec-path-from-shell-initialize))
+;;; Use python-shell-interpreter to set python to run from emacs, not python-command
+;;; NO:(setq-default python-command (or (executable-find "python") "c:/Python27/python"))
 
 (defun copyright-for-skel (comment-start comment-end)
+  "Skeleton for corporate copyright in a comment, using COMMENT-START and COMMENT-END."
   (format
    (concat "%1$s----------------------------------------------------------------------%2$s\n"
 	   "%1$s (c) Copyright " (substring (current-time-string) -4) ", Dark Star Systems, Inc.  All rights reserved. %2$s\n"
@@ -353,27 +380,23 @@
   )
 
 (auto-insert-mode)
-(setq auto-insert-alist
-      '((("\\.\\(CC?\\|cc\\|c\\|cxx\\|cpp\\|c++\\)\\'" . "C/C++ skeleton")
-	 . cxx-skeleton)
-	(("\\.\\(HH?\\|hh\\|h\\|hxx\\|hpp\\|h++\\)\\'" . "C/C++ header skeleton")
-	 . h-skeleton)
-	(("\\.\\(sh\\)\\'" . "Shell script skeleton")
-	 . sh-skeleton)
-	(("\\.\\(py\\)\\'" . "Python script skeleton")
-	 . py-skeleton)
-	)
+(setq-default auto-insert-alist
+	      '((("\\.\\(CC?\\|cc\\|c\\|cxx\\|cpp\\|c++\\)\\'" . "C/C++ skeleton")
+		 . cxx-skeleton)
+		(("\\.\\(HH?\\|hh\\|h\\|hxx\\|hpp\\|h++\\)\\'" . "C/C++ header skeleton")
+		 . h-skeleton)
+		(("\\.\\(sh\\)\\'" . "Shell script skeleton")
+		 . sh-skeleton)
+		(("\\.\\(py\\)\\'" . "Python script skeleton")
+		 . py-skeleton)
+		)
       )
 
 (maybe-require 'filladapt)			;adaptive fill mode
 (setq-default filladapt-mode t)
 (setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
 
-
 (autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
-
-;;; wgrep-change-to-wgrep-mode to edit right in a grep buffer, C-c C-e to apply.  Nice!
-(maybe-require 'wgrep)
 
 (ignore-errors
  (load-file "~/.emacs-orgmode")
@@ -392,12 +415,12 @@
   )
 
 ;;; Menu bar takes up space, and can sometimes hang emacs on Windows (Feb 2017):
-(menu-bar-mode -1)
+;(menu-bar-mode -1)
 (blink-cursor-mode -1)	;this is annoying
 ;;(mouse-avoidance-mode 'animate)
 (global-font-lock-mode 1)
 
-;; Set up font.
+;; Set up faces.
 ;; Use Shift-mouse-1 to select fonts interactively.
 ;; Then use M-x describe-font to see the full name of the current font
 ;; for use in set-frame-font (in emacs23 set-default-font is deprecated, use set-frame-font).
@@ -434,34 +457,22 @@
 ;;; (but only when the buffer is unmodified, so it's safe)
 (global-auto-revert-mode t)
 
-;;; Do NOT use standard-display-european: it breaks comint (shell)
-;;; modes by adding an extra CR to every command, causing syntax
-;;; errors from the shell etc.
-;(standard-display-european 1)		; allow european chars
-;(display-time)
-
-(setq auto-mode-alist
-      ;;; this selects . or \ or / or beginning-of-string
-      ;;; followed by "diff" and maybe "s",
-      ;;; then end of string.
-      (cons '("\\(\\.\\|\\\\\\|/\\|\\`\\)diffs?\\'" . diff-mode)
-	    auto-mode-alist))
+;;; Save all backup(~) files and auto-save files in /tmp
+;;; This keeps clutter down.
+(setq backup-directory-alist
+      `((".*" . ,temporary-file-directory)))
+(setq auto-save-file-name-transforms
+      `((".*" ,temporary-file-directory t)))
 
 (setq auto-mode-alist (cons '("\\.pl\\'" . cperl-mode) auto-mode-alist))
-(setq auto-mode-alist (cons '("\\.py\\'" . python-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("SCons\\(truct\\|cript\\)\\'" . python-mode) auto-mode-alist))
 (autoload 'visual-basic-mode "visual-basic-mode" "Visual Basic mode." t)
-(setq visual-basic-mode-indent 4)
+(setq-default visual-basic-mode-indent 4)
 (setq auto-mode-alist (cons '("\\(\\.vb\\|\\.bas\\)\\'" . visual-basic-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.cu$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.cp$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.tjp$" . taskjuggler-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.lua$" . lua-mode) auto-mode-alist))
-
-;; For GenArts def-effects files.  (The auto-mode-alist is only used for def files
-;; that don't have a Local Variables def-effects spec.)
-(autoload 'def-effects-mode "def-effects-mode" "Mode for editing GenArts def-effects files" t)
-(add-to-list 'auto-mode-alist '("/def-.*\\.text\\'" . def-effects-mode))
 
 ;; Like vc-git-grep from Emacs 25, but without the semi-useless "files" arg.
 (defun git-grep (regexp &optional dir)
@@ -511,11 +522,6 @@ This command shares argument histories with \\[rgrep] and \\[grep]."
 	  (compilation-start command 'grep-mode))
 	(if (eq next-error-last-buffer (current-buffer))
 	    (setq default-directory dir))))))
-
-;; nicer interface to git-blame, kinda -- not very great since the left/right buffers
-;; easily get out of sync.
-;(autoload 'mo-git-blame-file "mo-git-blame" nil t)
-;(autoload 'mo-git-blame-current "mo-git-blame" nil t)
 
 ;;; CEDET: emacs tools for C development
 ;; (ignore-errors
@@ -594,8 +600,7 @@ This command shares argument histories with \\[rgrep] and \\[grep]."
 ;;   )
 
 
-;; Printing via GhostScript/GhostView, e.g. to color Epson C40UX
-;; (non-PS) on Gary's desk.
+;; Printing via GhostScript/GhostView
 (require 'ps-print)
 (setq ps-lpr-command "c:\\Program Files\\Ghostgum\\gsview\\gsprint.exe")
 ;; -query causes ghostscript to query which printer to use.
@@ -608,30 +613,6 @@ This command shares argument histories with \\[rgrep] and \\[grep]."
 (setq ps-header-lines 1)
 (setq ps-print-header-frame nil)
 (setq ps-font-size '(7 . 9))
-
-(setq user-full-name "Gary Oberbrunner"
-      user-mail-address "garyo@genarts.com")
-(defun end-of-buffer-right-way ()
-  "Put point at the end of the buffer and also at the bottom of the window."
-  (interactive nil)
-  (push-mark)
-  (goto-char (point-max))
-  (recenter -2))
-
-;; Copy a line into the kill ring, like C-k but without killing.
-;; Moves point just like kill-line.
-;; Works by temporarily making the buffer read-only.
-(defun copy-line (&optional arg)
-  "Copy a line (or LINES) into the killbuffer.
-       Like kill-line (\\[kill-line]) but only copies, doesn't kill."
-  (interactive "P")
-  (let ((buffer-read-only t)
-	(kill-read-only-ok t))
-    (kill-line arg)))
-
-(add-hook 'text-mode-hook
-	  (lambda ()
-	    (auto-fill-mode)))
 
 (defun bf-pretty-print-xml-region (begin end)
   "Pretty format XML markup in region. You need to have nxml-mode
@@ -659,10 +640,12 @@ by using nxml's indentation rules."
       nil)))
 
 (defun my-c-mode-hook ()
+  "C style for Gary Oberbrunner."
+
   ;(load-library "cc-cmds")
-  (setq c-basic-offset 2)
-  (setq c-hanging-comment-ender-p nil)
-  (setq c-hanging-comment-start-p nil)
+  (setq-default c-basic-offset 2
+		c-hanging-comment-ender-p nil
+		c-hanging-comment-start-p nil)
   ;; Labels offset by 1 from parent, but keep case stmts
   ;; offset by c-basic-offset.
   (c-set-offset 'label 1)
@@ -692,16 +675,16 @@ by using nxml's indentation rules."
   (setq c-hanging-semi&comma-criteria
 	(cons 'my-semicolon-criteria
 	      c-hanging-semi&comma-criteria))
-  (setq c-hanging-braces-alist
-	'((brace-list-open)
-	  (brace-list-close)
-	  (brace-list-intro)
-	  (brace-list-entry)
-	  (substatement-open after)
-	  (topmost-intro after)
-	  (inline-open after)
-	  (block-close . c-snug-do-while)
-	  (extern-lang-open after)))
+  (setq-default c-hanging-braces-alist
+		'((brace-list-open)
+		  (brace-list-close)
+		  (brace-list-intro)
+		  (brace-list-entry)
+		  (substatement-open after)
+		  (topmost-intro after)
+		  (inline-open after)
+		  (block-close . c-snug-do-while)
+		  (extern-lang-open after)))
 
   (setq c-cleanup-list (cons 'defun-close-semi c-cleanup-list)))
 
@@ -711,8 +694,7 @@ by using nxml's indentation rules."
 (add-hook 'java-mode-hook
 	  (function
    (lambda ()
-	     (make-variable-buffer-local 'c-basic-offset)
-	     (setq c-basic-offset 4)
+	     (setq-default c-basic-offset 4)
 	     (local-set-key "\C-cc" 'compile)
 	     )))
 
@@ -722,25 +704,7 @@ by using nxml's indentation rules."
 	 mode
 	 '(("\\<XXX\\|TODO\\>" 0 font-lock-warning-face prepend)
 	   )))
-      '(c-mode c++-mode java-mode lisp-mode emacs-lisp-mode))
-
-;; M-x align support for def-effects param options
-(require 'align)
-(setq orig-align-rules-list align-rules-list)
-;;; add a new rule to line up param options, and remove the
-;;; lisp-alist-dot which is bad for def-effects (screws up any decimal
-;;; numbers).
-(setq align-rules-list
-      (cons '(def-effects-param
-	       ;; match things like these, and align the open paren
-	       ;;  foo = 0     (boolean)
-	       ;;  foo = [0 0] (popup ...)
-	      (regexp . "=\\s-*[[0-9.]?[ 0-9.]*[]0-9.]\\(\\s-*\\)(")
-	      (group 1)
-	      (modes . align-lisp-modes))
-	    (remove* 'lisp-alist-dot orig-align-rules-list :key 'car)))
-
-
+      '(c-mode c++-mode java-mode lisp-mode emacs-lisp-mode python-mode))
 
 ;;----------------------------------------------------------------------------
 ;; Programming commands (from ElijahDaniel.emacs)
@@ -748,8 +712,9 @@ by using nxml's indentation rules."
 ;; If point is in a class definition, return the name of the class. Otherwise,
 ;; return nil.
 (defun ewd-classname ()
-  "If the point is in a class definition, get the name of the class.  Return
-nil otherwise."
+  "If the point is in a class definition, get the name of the class.
+
+  Return nil otherwise."
   (save-excursion
     (let ((brace (assoc 'inclass (c-guess-basic-syntax))))
       (if (null brace) '()
@@ -759,9 +724,6 @@ nil otherwise."
           (if (looking-at "^class[ \t]+\\([A-Za-z_][^ \t:{]*\\)")
               (buffer-substring (match-beginning 1) (match-end 1))
             (error "Error parsing class definition!")))))))
-
-
-
 
 (setq
  shell-pushd-regexp "pushd\\|1\\|2"
@@ -804,90 +766,27 @@ nil otherwise."
 (load-library "shell")
 
 (defun open-folder-in-explorer ()
-  "Call when editing a file in a buffer. Open windows explorer in the current directory and select the current file"
+  "Call when editing a file in a buffer.
+
+  Open windows explorer in the current directory and select the current file"
   (interactive)
   (if default-directory
       (browse-url-of-file (expand-file-name default-directory))
     (error "No `default-directory' to open")))
 (global-set-key [f12] 'open-folder-in-explorer)
 
-;;; Now that I use more window splitting, I have to teach myself not to use C-x 1 all the time
-;;; just to expand the current window.  Right now, make it just beep.
-;;; Ideally, could check if any side-by-side windows exist, and do nothing only
-;;; in that case.
-(defun count-windows ()
-  (let ((nwindows 0))
-    (walk-windows (lambda (w) (setq nwindows (+ nwindows 1))))
-    nwindows)
-  )
-
-;;; Used to need this, but C-c LEFT in winner-mode restores prev window config
-;;; so now I'm not scared of C-x 1 anymore.
-;; (global-set-key "\C-x1" (lambda ()
-;; 			  (interactive)
-;; 			  (if (<= (count-windows) 3)
-;; 			      (delete-other-windows)
-;; 			    (message "Not deleting other windows; too many windows open.")
-;; 			    (beep)
-;; 			    )))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; GenArts tools
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun set-debug (key &optional level)
-   "Set a debug flag in /tmp/sapphire.dbg, overwriting the previous
-    value if any.  When called with a numeric prefix argument, set
-    the debug level to the prefix value (a value of 0 deletes the
-    flag entirely).  The default level, with no prefix argument,
-    is 1."
-
-   (interactive "MSet Debug Flag: \np")
-   (with-current-buffer (find-file-noselect "/tmp/sapphire.dbg" 't)
-     ; Revert to saved version of file without prompting
-     (if (buffer-modified-p)
-        (revert-buffer t t))
-
-     ;; Clear old value (if any)
-     (save-excursion
-       (beginning-of-buffer)
-       (if (search-forward-regexp (concat "^" key "=") nil t)
-          (progn
-            (beginning-of-line)
-            (kill-line 1))))
-
-     ;; Write new value
-     (save-excursion
-       (beginning-of-buffer)
-       (if level
-          (if (not (= level 0))
-              (insert (format "%s=%d\n" key level)))
-        (insert key "=1\n")))
-
-     ;; Save file
-     (save-buffer)))
-
-(defun clear-debug ()
-   (interactive)
-
-   (with-current-buffer (find-file-noselect "/tmp/sapphire.dbg" 't)
-     (if (buffer-modified-p)
-        (revert-buffer t t))
-     (mark-whole-buffer)
-     (kill-region)
-     (save-buffer)))
-
-(global-set-key "\C-cd" 'set-debug)
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; SCons (with -D) starts builds from the top of the source tree, and it builds into
-;;; an 'SBuild' subdir. But we want to find the original errors in the regular source dir,
-;;; regardless of the current directory when we run M-x compile.
-;;; Note default-directory may not be what you expect here, and
-;;; the filenames are absolute, so need to remove surgically.
 (defun process-error-filename (filename &optional spec-directory)
+  "Process compile errors from FILENAME, looking for sources in SPEC-DIRECTORY.
+
+  SCons (with -D) starts builds from the top of the source tree,
+  and it builds into an 'SBuild' subdir. But we want to find the
+  original errors in the regular source dir, regardless of the
+  current directory when we run \\[compile]. Note
+  \"default-directory\" may not be what you expect here, and the
+  filenames are absolute, so need to remove surgically."
+
   (let ((case-fold-search t)
 	(topdir (svn-base-dir nil))
 	)
@@ -909,6 +808,7 @@ nil otherwise."
 ;;; Move up the directory hierarchy from dir (nil for default-directory)
 ;;; until we find the top of the SVN working dir
 (defun svn-base-dir (dir)
+  "Find Subversion top dir, starting from DIR."
   (or (cdr (file-find-upwards dir ".git"))
       (cdr (file-find-upwards dir ".hg"))
       (cdr (file-find-upwards dir ".svn"))
@@ -916,13 +816,14 @@ nil otherwise."
       dir
       ))
 
-;;; Convert "\" to "/" so path-handling functions don't get confused
+
 (defun fix-win-path (p)
+  "Convert backslashes to forward slashes in P so path-handling functions don't get confused."
   (cond (p (replace-regexp-in-string "\\\\" "/" p)))
   )
 
-;;; Strip Sbuild dirs from a pathname
 (defun strip-sbuild (p)
+  "Strip Sbuild dirs from a pathname P."
   (replace-regexp-in-string
    "[Ss]?[Bb]uild/.*\\(final\\|dbg\\)[^/]*/\\(mocha-[^/]*\\)?" "" p))
 
@@ -930,7 +831,7 @@ nil otherwise."
 ;;; Modified to return (dir . file)
 ;;; pass nil for startfile to use default-directory.
 (defun file-find-upwards (startfile file-name)
-  ;; Chase links in the source file and search in the dir where it points.
+  "Chase links in the source file and search in the dir where it points."
   (setq dir-name (or (and startfile
                           (file-name-directory (file-chase-links startfile)))
                      default-directory))
@@ -972,58 +873,6 @@ nil otherwise."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-;;; These let you send mail from emacs on NT.
-(setq smtp-service "smtp"
-      smtpmail-default-smtp-server "penguin"
-      smtp-default-server "penguin"
-      smtpmail-local-domain "genarts.com"
-      smtp-debug-info t
-      )
-(setq send-mail-function 'smtpmail-send-it)
-(autoload 'mail "Send mail message" "smtpmail")
-;(load-library "message")
-(setq mail-user-agent 'message-user-agent)
-(setq message-send-mail-function 'smtpmail-send-it) ;for gnus
-(setq user-full-name "Gary Oberbrunner"
-      user-mail-address "garyo@genarts.com"
-      message-syntax-checks '((sender . disabled)))
-(setq gnus-subscribe-newsgroup-method 'gnus-subscribe-interactively
-      gnus-message-archive-group "INBOX.Sent"
-      gnus-message-archive-method '(nnimap "mail.hq.genarts.com")
-      nnimap-authinfo-file '((""
-			      ("login" . "garyo")))
-      nnimap-list-pattern
-      '("INBOX" "*"))
-(add-hook 'gnus-group-mode-hook 'gnus-topic-mode)
-
-(setq gnus-select-method
-      '(nnimap "mail.hq.genarts.com"
-	       (nnimap-stream ssl)
-	       (nnimap-server-port 993)
-	       (nnimap-authenticator login)))
-(setq mail-sources '((file :plugged t)))
-
-
-;(custom-set-variables
-; '(message-default-headers "Mime-Version: 1.0
-;Content-type: text/plain; charset=ISO-8859-1
-;Content-Transfer-Encoding: 8bit
-;"))
-
-;; NT emacs needs this for command.com to work as shell
-;(setq process-coding-system-alist
-;      (append '(("bash" . raw-text-unix)
-;		("cmdproxy" . (raw-text-dos . raw-text-dos)))
-;	      process-coding-system-alist))
-
-
-;;; GNUserv stuff (for Windows, see http://www.wyrdrune.com/index.html?gnuserv.html)
-;;; use 'gnuclient' or 'gnuclientw' to connect to this emacs
-;(setenv "GNUSERV_SHOW_EMACS" "1")
-;(load-library "gnuserv")
-;(gnuserv-start)
-
 ;;; Dired-x (extra functions for dired mode)
 (add-hook 'dired-load-hook
 	  (lambda ()
@@ -1041,32 +890,15 @@ nil otherwise."
 	    ;(dired-omit-mode 1)
 	    ))
 
-
-;;; Note: emacs24 has scroll-up-line and scroll-down-line, no need for these anymore.
-(defun scroll-down-one-line (arg)
-  "Scroll down one line, or number of lines specified by prefix arg."
-  (interactive "p")
-  (scroll-down 1))
-(put 'scroll-down-one-line 'isearch-scroll t) ;allow use during isearch
-(put 'scroll-down-one-line 'search-command t) ;allow use during isearch
-(defun scroll-up-one-line (arg)
-  "Scroll up one line, or number of lines specified by prefix arg."
-  (interactive "p")
-  (scroll-down (- 1)))
-(put 'scroll-up-one-line 'isearch-scroll t) ;allow use during isearch
-(put 'scroll-up-one-line 'scroll-command t) ;allow use during search
-
 (setq ibuffer-formats '((mark modified read-only " " (name 16 16) " "
 			      (size 6 -1 :right) " " (mode 16 16 :center)
 			      " " (process 8 -1) " " filename)
 			(mark " " (name 16 -1) " " filename))
       ibuffer-elide-long-columns t
       ibuffer-eliding-string "&")
-;(require 'ibuffer)
+(require 'ibuffer)
 
 ;;; Interactive buffer switching using minibuffer substring completion
-;(require 'iswitchb)
-;(iswitchb-mode)
 (setq ido-enable-tramp-completion nil)	    ; workaround tramp bug in emacs 23.1
 (ido-mode)
 
@@ -1081,13 +913,41 @@ nil otherwise."
       (occur (if isearch-regexp isearch-string
                (regexp-quote isearch-string))))))
 
-(cond ((fboundp 'scroll-up-line)
-       (global-set-key "\C-z" 'scroll-up-line) ; use emacs24 builtins
-       (global-set-key "\M-z" 'scroll-down-line))
-      (t
-       (global-set-key "\C-z" 'scroll-up-one-line) ; use mine
-       (global-set-key "\M-z" 'scroll-down-one-line)))
+(defun end-of-buffer-right-way ()
+  "Put point at the end of the buffer and also at the bottom of the window."
+  (interactive nil)
+  (push-mark)
+  (goto-char (point-max))
+  (recenter -2))
 
+(defun copy-line (arg)
+    "Copy lines (as many as prefix ARG) into the kill ring.
+
+      Ease of use features:
+      - Move to start of next line.
+      - Appends the copy on sequential calls.
+      - Use newline as last char even on the last line of the buffer.
+      - If region is active, copy its lines."
+    (interactive "p")
+    (let ((beg (line-beginning-position))
+          (end (line-end-position arg)))
+      (when mark-active
+        (if (> (point) (mark))
+            (setq beg (save-excursion (goto-char (mark)) (line-beginning-position)))
+          (setq end (save-excursion (goto-char (mark)) (line-end-position)))))
+      (if (eq last-command 'copy-line)
+          (kill-append (buffer-substring beg end) (< end beg))
+        (kill-ring-save beg end)))
+    (kill-append "\n" nil)
+    (beginning-of-line (or (and arg (1+ arg)) 2))
+    (if (and arg (not (= 1 arg))) (message "%d lines copied" arg)))
+
+(add-hook 'text-mode-hook
+	  (lambda ()
+	    (auto-fill-mode)))
+
+(global-set-key "\C-z" 'scroll-up-line) ; use emacs24 builtins
+(global-set-key "\M-z" 'scroll-down-line)
 (global-set-key "\M-k" 'copy-line)
 (global-set-key "\M->" 'end-of-buffer-right-way)
 (global-set-key "\C-X." 'goto-line)
@@ -1102,10 +962,6 @@ nil otherwise."
 			  (previous-line 10)))
 (global-set-key [f5] 'compile)
 
-;;; for Sapphire def-effects.text: indent (def ...) like a special
-;;; form with one arg (the name), not like a defun.
-(put 'def 'lisp-indent-function 1)
-
 ;;; We use .cp for C source files, but emacs ignores them by default.
 (setq completion-ignored-extensions
       (remove nil
@@ -1115,7 +971,6 @@ nil otherwise."
 (setq
  backup-by-copying-when-linked t
  font-lock-maximum-decoration t
- cache-long-line-scans t
  compilation-window-height 15
  compilation-search-path '(nil "build/quantel/dbg")
  compilation-scroll-output t
@@ -1124,7 +979,6 @@ nil otherwise."
  diff-switches "-up"
  egg-switch-to-buffer t
  enable-recursive-minibuffers t
- ffap-url-regexp nil		  ; don't find URLs with M-x find-file
  fill-column 78
  find-file-existing-other-name t
  find-dired-find-program "/bin/find" ; Win32 only
@@ -1138,14 +992,11 @@ nil otherwise."
  line-move-visual nil			; C-n go to next real line
  mark-even-if-inactive t
  mouse-drag-copy-region t ; default in emacs24 is nil; I like the old way.
- calendar-latitude 42.36831	  ; 8 Clinton St., Cambridge, MA 02139
- calendar-longitude -71.10613		; from www.MapsOnUs.com
  require-final-newline t
  next-line-add-newlines nil
  scroll-step 2
  scroll-conservatively 10
  search-highlight t
- smtp-local-domain "genarts.com"
  split-height-threshold (/ (frame-height) 2)
  tags-revert-without-query t
  tramp-default-method "pscp"		; for Windows; uses PuTTY
@@ -1154,26 +1005,17 @@ nil otherwise."
 					; since it's partial width.
  vc-make-backup-files t			; Make emacs backups even for
 					; version-controlled files
- vc-path '("c:/bin" "c:/mingw/bin")
  version-control t
  ; visible-bell hangs Windows emacs, early 2017
  ; visible-bell t
  )
 
-; Emulate 3rd button.  Don't know why wheel doesn't work as button2 on blur.
-;(setq w32-num-mouse-buttons 2)
-
-(put 'eval-expression 'disabled nil)
-(put 'narrow-to-region 'disabled nil)
-
 ;;; Initial default directory
-(if (file-exists-p "c:/genarts/sapphire/SConstruct")
+(if (file-exists-p "c:/dss/Product")
   (progn
-    (setq default-directory "c:/genarts/sapphire")
-    (cd "c:/genarts/sapphire")
+    (setq default-directory "c:/dss/Product")
+    (cd default-directory)
   ))
-
-(put 'narrow-to-page 'disabled nil)
 
 ;;; This is very important to speed up display of long lines.
 ;;; It's not perfect but it should help.
@@ -1265,7 +1107,7 @@ nil otherwise."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
@@ -1291,6 +1133,7 @@ nil otherwise."
    (quote
     (speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy)))
  '(taskjuggler-command "tj3")
+ '(tramp-syntax (quote default) nil (tramp))
  '(vc-dired-recurse nil)
  '(visible-bell t)
  '(w32-get-true-file-attributes nil t)
@@ -1303,4 +1146,11 @@ nil otherwise."
  ;; If there is more than one, they won't work right.
  '(magit-item-highlight ((t (:background "floral white"))))
  '(magit-section-highlight ((t (:background "floral white")))))
+
 (put 'set-goal-column 'disabled nil)
+(put 'eval-expression 'disabled nil)
+(put 'narrow-to-region 'disabled nil)
+(put 'narrow-to-page 'disabled nil)
+
+(provide 'emacs)
+;;; emacs ends here
