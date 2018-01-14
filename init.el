@@ -202,6 +202,16 @@
   :commands (mo-git-blame-file mo-git-blame-current)
   )
 
+;;; Trying this. Use tabs to express indentation, spaces for
+;;; alignment. It's a little odd but may be good, who knows. It sets
+;;; tab-width locally to indent though, so people with tab-width set
+;;; to 8 will see very deep indentation.
+(use-package smart-tabs-mode
+  :ensure t
+  :config
+  (smart-tabs-insinuate 'c)
+  )
+
 ;;; This sets $PATH and exec-path by querying the shell.
 ;;; Much better than trying to keep them in sync as above.
 ;;; Only Mac for now, but could this be useful on Windows? Probably.
