@@ -361,14 +361,16 @@
 (define-skeleton h-skeleton
   "Default C/C++ header file skeleton"
   ""
+  '(setq h-guard-name
+	 (replace-regexp-in-string "-" "_" (upcase (file-name-base (buffer-file-name)))))
   (copyright-for-skel "/*" "*/")
   "\n"
-  "#ifndef __" (upcase (file-name-base (buffer-file-name))) "_H__" \n
-  "#define __" (upcase (file-name-base (buffer-file-name))) "_H__" \n
+  "#ifndef __" h-guard-name "_H__" \n
+  "#define __" h-guard-name "_H__" \n
   "\n"
   > _ \n
   "\n"
-  "#endif /*__" (upcase (file-name-base (buffer-file-name))) "_H__ */" \n
+  "#endif /*__" h-guard-name "_H__ */" \n
   "/* end of " (file-name-nondirectory (buffer-file-name)) " */" > \n)
 
 (define-skeleton sh-skeleton
@@ -491,6 +493,8 @@
 (setq auto-mode-alist (cons '("\\.cp$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.tjp$" . taskjuggler-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.lua$" . lua-mode) auto-mode-alist))
+;;; .h files: interpret as C++ (for namespace etc.)
+(setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
 
 ;; Like vc-git-grep from Emacs 25, but without the semi-useless "files" arg.
 (defun git-grep (regexp &optional dir)
@@ -659,8 +663,6 @@ by using nxml's indentation rules."
 
 (defun my-c-mode-hook ()
   "C style for Gary Oberbrunner."
-
-  ;(load-library "cc-cmds")
   (setq-default c-basic-offset 2
 		c-hanging-comment-ender-p nil
 		c-hanging-comment-start-p nil)
