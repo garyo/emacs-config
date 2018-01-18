@@ -58,6 +58,7 @@
 ;;; Meta-package system: use-package. Auto-installs and configures packages.
 (eval-when-compile
   (when (not (fboundp 'use-package))
+    (package-list-packages)
     (package-install 'use-package))
   (require 'use-package))
 
@@ -206,9 +207,10 @@
 ;;; alignment. It's a little odd but may be good, who knows. It sets
 ;;; tab-width locally to indent though, so people with tab-width set
 ;;; to 8 will see very deep indentation.
-(use-package smart-tabs-mode
-  :ensure t
-  :config (smart-tabs-insinuate 'c))
+;;;;; NO, too weird for 2018 unless it could auto-guess. Just use spaces via indent-tabs-mode=nil.
+;;;(use-package smart-tabs-mode
+;;;  :ensure t
+;;;  :config (smart-tabs-insinuate 'c 'c++ 'python))
 
 ;;; Temporarily highlight undo, yank, find-tag and a few other things
 (use-package volatile-highlights
@@ -324,6 +326,7 @@
 ;; (maybe-require 'git-status)
 ;; (maybe-require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
 
+(add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Git
 (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
 (add-to-list 'exec-path "c:/msys64/usr/bin") ; for Git (msys2)
 (add-to-list 'exec-path "c:/msys64/usr/local/bin") ; for GNU global/gtags
@@ -672,10 +675,11 @@ by using nxml's indentation rules."
   (c-set-offset 'case-label 1)
   (c-set-offset 'innamespace 0)		;don't indent in namespaces
   (c-set-offset 'inextern-lang 0)	;don't indent in extern "C"
+  (c-set-offset 'inlambda 0)	; lambdas don't need any extra indent
   (c-set-offset 'statement-case-intro (lambda (in)
-					(- c-basic-offset 1)))
+					                              (- c-basic-offset 1)))
   (c-set-offset 'statement-case-open (lambda (in)
-					(- c-basic-offset 1)))
+					                             (- c-basic-offset 1)))
   (c-set-offset 'substatement-open 0)
   (c-set-offset 'statement-cont 'c-lineup-math)
   ; prevent arg lists from going off right side of page:
@@ -816,9 +820,7 @@ by using nxml's indentation rules."
 	(setq filename (concat spec-directory "/" filename)))
 
     (setq f (strip-sbuild (fix-win-path filename)))
-    (save-current-buffer
-      (set-buffer "*Messages*")
-      (insert (format "process-error-filename: filename %s in %s -> %s %S (my dir=%s, top=%s)" filename spec-directory f (file-exists-p f) default-directory topdir)))
+		(message (format "In process-error-filename: %s in %s -> %s" filename spec-directory f))
     (cond ((file-exists-p f)
 	   f)
 	  ((file-exists-p (concat topdir f))
@@ -845,7 +847,8 @@ by using nxml's indentation rules."
 (defun strip-sbuild (p)
   "Strip Sbuild dirs from a pathname P."
   (replace-regexp-in-string
-   "[Ss]?[Bb]uild/.*\\(final\\|dbg\\)[^/]*/\\(mocha-[^/]*\\)?" "" p))
+   "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/\\(mocha-[^/]*\\)?" "" p)
+)
 
 ;;; found this on the web.  Useful!
 ;;; Modified to return (dir . file)
@@ -992,9 +995,8 @@ by using nxml's indentation rules."
  backup-by-copying-when-linked t
  font-lock-maximum-decoration t
  compilation-window-height 15
- compilation-search-path '(nil "build/quantel/dbg")
  compilation-scroll-output t
- compile-command "scons -D -j8 cuda_arch=sm_20 version="
+ compile-command "scons -D -j8 variants="
  delete-old-versions t
  diff-switches "-up"
  egg-switch-to-buffer t
@@ -1078,6 +1080,7 @@ by using nxml's indentation rules."
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
  '(ido-use-filename-at-point (quote guess))
+ '(indent-tabs-mode nil)
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
  '(magit-backup-mode nil)
  '(magit-cygwin-mount-points (quote (("/c" . "c:"))))
@@ -1156,7 +1159,10 @@ by using nxml's indentation rules."
  '(vc-dired-recurse nil)
  '(visible-bell t)
  '(w32-get-true-file-attributes nil t)
- '(warning-suppress-types (quote ((\(undo\ discard-info\))))))
+ '(warning-suppress-types (quote ((\(undo\ discard-info\)))))
+ '(whitespace-style
+   (quote
+    (face trailing tabs spaces newline empty indentation space-after-tab space-before-tab space-mark tab-mark newline-mark))))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
