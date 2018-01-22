@@ -239,6 +239,14 @@
 ;; string manipulation routines
 (use-package s
   :ensure t)
+;; better visual paren matching
+(use-package mic-paren
+  :config
+  (paren-activate)
+  (add-hook 'c-mode-common-hook
+            (function (lambda ()
+                        (paren-toggle-open-paren-context 1))))
+  )
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -310,8 +318,6 @@
 	      (setq dirtrack-list '("(\\(.*?\\)\\( \\|) \\)" 1 t))
               (dirtrack-mode 1)))
 
-(load-library "paren")
-(show-paren-mode)
 (recentf-mode t)
 (if (> emacs-major-version 22)
     (progn
@@ -1130,7 +1136,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
