@@ -221,11 +221,11 @@
 ;;; Much better than trying to keep them in sync as above.
 ;;; Only Mac for now, but could this be useful on Windows? Probably.
 ;;; Also can copy other env vars, see exec-path-from-shell-copy-env.
-(use-package exec-path-from-shell
-  :if (memq window-system '(mac ns))
-  :ensure t
-  :config
-  (exec-path-from-shell-initialize))
+;(use-package exec-path-from-shell
+;  :if (memq window-system '(mac ns))
+;  :ensure t
+;  :config
+;  (exec-path-from-shell-initialize))
 
 (use-package org
   :ensure t)
@@ -1148,7 +1148,8 @@ by using nxml's indentation rules."
  '(rng-nxml-auto-validate-flag t)
  '(safe-local-variable-values
    (quote
-    ((Mode . C++)
+    ((c-basic-offset 4)
+     (Mode . C++)
      (Mode . C)
      (test-case-name . twisted\.test\.test_protocols)
      (Mode . c++)
