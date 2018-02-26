@@ -249,6 +249,7 @@
   :ensure t)
 ;; better visual paren matching
 (use-package mic-paren
+  :ensure t
   :config
   (paren-activate)
   (add-hook 'c-mode-common-hook
@@ -489,9 +490,16 @@
 	  (lambda () (sql-highlight-mysql-keywords)))
 
 ;;; whitespace and blank lines:
-(add-hook 'before-save-hook 'delete-trailing-whitespace)
+(defcustom delete-trailing-whitespace-on-save
+  t "Delete trailing whitespace when buffer is saved."
+  :group 'GCO)
+(make-variable-buffer-local 'delete-trailing-whitespace-on-save)
+(defun maybe-delete-trailing-whitespace ()
+  "Delete trailing whitespace on save, if enabled by delete-trailing-whitespace-on-save."
+  (if delete-trailing-whitespace-on-save
+      (delete-trailing-whitespace)))
+(add-hook 'before-save-hook 'maybe-delete-trailing-whitespace)
 (setq-default indicate-empty-lines t)
-;(setq-default show-trailing-whitespace t)
 
 (require 'uniquify)
 (setq uniquify-buffer-name-style 'post-forward-angle-brackets)
