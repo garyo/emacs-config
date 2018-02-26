@@ -256,6 +256,12 @@
                         (paren-toggle-open-paren-context 1))))
   )
 
+(use-package gdscript-mode
+  :ensure t
+  :mode (("\\.gd$" . gdscript-mode))
+)
+
+
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
 ;;; windmove: shift+arrow keys to move between windows.
@@ -834,7 +840,7 @@ by using nxml's indentation rules."
 	(setq filename (concat spec-directory "/" filename)))
 
     (setq f (strip-sbuild (fix-win-path filename)))
-		(message (format "In process-error-filename: %s in %s -> %s" filename spec-directory f))
+    ;;;(message (format "In process-error-filename: %s in %s -> %s" filename spec-directory f))
     (cond ((file-exists-p f)
 	   f)
 	  ((file-exists-p (concat topdir f))
@@ -1010,7 +1016,7 @@ by using nxml's indentation rules."
  font-lock-maximum-decoration t
  compilation-window-height 15
  compilation-scroll-output t
- compile-command "scons -D -j8 variants="
+ compile-command "scons -D -j8 v=debug"
  delete-old-versions t
  diff-switches "-up"
  egg-switch-to-buffer t
@@ -1144,7 +1150,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
