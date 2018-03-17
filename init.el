@@ -365,18 +365,28 @@ Return the errors parsed with the error patterns of CHECKER."
 ;; (maybe-require 'git-status)
 ;; (maybe-require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
 
-(add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Git
-(add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
-(add-to-list 'exec-path "c:/msys64/usr/bin") ; for Git (msys2)
-(add-to-list 'exec-path "c:/msys64/usr/local/bin") ; for GNU global/gtags
 (cond ((eq system-type 'windows-nt)
+       (add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Git
+       (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
+       (add-to-list 'exec-path "c:/msys64/usr/bin") ; for Git (msys2)
+       (add-to-list 'exec-path "c:/msys64/usr/local/bin") ; for GNU global/gtags
        (setenv "PATH" (concat "c:/msys64/usr/local/bin;" (getenv "PATH")))
-       (setenv "PATH" (concat "/usr/local/bin;" (getenv "PATH")))))
-; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
+       (setenv "PATH" (concat "/usr/local/bin;" (getenv "PATH")))
+       ;; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
+       (add-to-list 'exec-path "c:/bin")
+       (add-to-list 'exec-path "c:/bin2")
+       (add-to-list 'exec-path "c:/Program Files/R/R-2.14.0/bin") ; for R (statistics pkg)
+       )
+      (t
+       (add-to-list 'exec-path "/usr/local/bin")
+       ;; for SCons in compilation-mode. (emacs uses exec-path for
+       ;; things it execs directly, but compilation-mode runs a shell
+       ;; which invokes SCons, and doesn't seem to get my path -- that
+       ;; could probably be fixed.)
+       (setenv "PATH" (concat "/Users/garyo/python36/bin:" (getenv "PATH")))
+       (setenv "PATH" (concat "/usr/local/bin:" (getenv "PATH")))
+       ))
 
-(add-to-list 'exec-path "c:/bin")
-(add-to-list 'exec-path "c:/bin2")
-(add-to-list 'exec-path "c:/Program Files/R/R-2.14.0/bin") ; for R (statistics pkg)
 ;;; Use python-shell-interpreter to set python to run from emacs, not python-command
 ;;; NO:(setq-default python-command (or (executable-find "python") "c:/Python27/python"))
 
