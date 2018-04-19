@@ -1025,6 +1025,7 @@ by using nxml's indentation rules."
 	  (lambda ()
 	    (auto-fill-mode)))
 
+(global-set-key "\M- " 'cycle-spacing) ; improvement over just-one-space; repeated calls cycle 1, 0, orig
 (global-set-key "\C-z" 'scroll-up-line) ; use emacs24 builtins
 (global-set-key "\M-z" 'scroll-down-line)
 (global-set-key "\M-k" 'copy-line)
