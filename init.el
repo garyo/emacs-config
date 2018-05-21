@@ -275,6 +275,19 @@ Return the errors parsed with the error patterns of CHECKER."
   :mode (("\\.gd$" . gdscript-mode))
 )
 
+(use-package multi-web-mode
+  :ensure t
+  :config
+  (setq-default mweb-default-major-mode 'html-mode)
+  (setq-default mweb-tags
+        '((php-mode "<\\?php\\|<\\? \\|<\\?=" "\\?>")
+          (js-mode  "<script[^>]*>" "</script>")
+          (css-mode "<style[^>]*>" "</style>")))
+  (setq-default mweb-filename-extensions
+                '("php" "htm" "html" "ctp" "phtml" "php4" "php5"))
+  (multi-web-global-mode 1)
+  )
+
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -1188,7 +1201,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
