@@ -175,6 +175,12 @@
 		(ggtags-mode 1))))
   )
 
+(use-package jedi
+  :ensure t
+  :config
+  (add-hook 'python-mode-hook 'jedi:setup)
+  )
+
 (use-package flycheck
   :ensure t
   :init (global-flycheck-mode))
@@ -288,6 +294,12 @@ Return the errors parsed with the error patterns of CHECKER."
   (multi-web-global-mode 1)
   )
 
+(use-package pyvenv
+  :ensure t
+  )
+
+(use-package yaml-mode
+  :ensure t)
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -392,12 +404,16 @@ Return the errors parsed with the error patterns of CHECKER."
        )
       (t
        (add-to-list 'exec-path "/usr/local/bin")
+       (push "/Users/garyo/python36/bin" exec-path)
+       (delete-dups exec-path)
+       (message "exec-path: %s" exec-path)
        ;; for SCons in compilation-mode. (emacs uses exec-path for
        ;; things it execs directly, but compilation-mode runs a shell
        ;; which invokes SCons, and doesn't seem to get my path -- that
        ;; could probably be fixed.)
-       (setenv "PATH" (concat "/Users/garyo/python36/bin:" (getenv "PATH")))
        (setenv "PATH" (concat "/usr/local/bin:" (getenv "PATH")))
+       (setenv "PATH" (concat "/Users/garyo/python36/bin:" (getenv "PATH")))
+       (message "PATH: %s" (getenv "PATH"))
        ))
 
 ;;; Use python-shell-interpreter to set python to run from emacs, not python-command
@@ -1147,12 +1163,14 @@ by using nxml's indentation rules."
  '(egg-quit-window-actions (quote ((egg-status-buffer-mode kill restore-windows))))
  '(exec-path-from-shell-arguments (quote ("-l")))
  '(flycheck-c/c++-cppcheck-executable "c:/Program Files/Cppcheck/cppcheck.exe")
+ '(flycheck-clang-args (quote ("--std=c++17")))
  '(git-commit-summary-max-length 64)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
  '(ido-use-filename-at-point (quote guess))
  '(indent-tabs-mode nil)
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
+ '(js-indent-level 2)
  '(magit-backup-mode nil)
  '(magit-cygwin-mount-points (quote (("/c" . "c:"))))
  '(magit-diff-expansion-threshold 999.0)
@@ -1201,7 +1219,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
@@ -1213,7 +1231,9 @@ by using nxml's indentation rules."
  '(rng-nxml-auto-validate-flag t)
  '(safe-local-variable-values
    (quote
-    ((c-basic-offset 4)
+    ((eval pyvenv-activate "venv")
+     (eval venv-workon "venv")
+     (c-basic-offset 4)
      (Mode . C++)
      (Mode . C)
      (test-case-name . twisted\.test\.test_protocols)
