@@ -320,13 +320,14 @@ Return the errors parsed with the error patterns of CHECKER."
 
 ;; use zsh or bash.  Do this early on before loading any git stuff,
 ;; otherwise that will try to use cmdproxy.exe.
-(cond ((file-exists-p "c:/msys64/usr/bin/zsh.exe")
-       (setq explicit-shell-file-name "c:/msys64/usr/bin/zsh.exe"))
+(cond ((file-exists-p "c:/tools/msys64/msys64/usr/bin/zsh.exe")
+       (setq explicit-shell-file-name "c:/tools/msys64/msys64/usr/bin/zsh.exe"))
       ((executable-find "zsh")
        (setq explicit-shell-file-name "zsh"))
       ((executable-find "bash")
        (setq explicit-shell-file-name "bash"))
-      (t nil))
+      (t
+       (message "Can't find zsh!")))
 
 (setq shell-file-name explicit-shell-file-name)
 
