@@ -281,17 +281,27 @@ Return the errors parsed with the error patterns of CHECKER."
   :mode (("\\.gd$" . gdscript-mode))
 )
 
-(use-package multi-web-mode
+(use-package js2-mode
+  :ensure t
+  :mode (("\\.[tj]s$" . js2-mode))
+  )
+
+;;; multiple major modes in a buffer; like multi-web-mode but more modern.
+;;; polymode may be better still but as of Sept 2018 it's still being rewritten.
+(use-package mmm-mode
   :ensure t
   :config
-  (setq-default mweb-default-major-mode 'html-mode)
-  (setq-default mweb-tags
-        '((php-mode "<\\?php\\|<\\? \\|<\\?=" "\\?>")
-          (js-mode  "<script[^>]*>" "</script>")
-          (css-mode "<style[^>]*>" "</style>")))
-  (setq-default mweb-filename-extensions
-                '("php" "htm" "html" "ctp" "phtml" "php4" "php5"))
-  (multi-web-global-mode 1)
+  (mmm-add-mode-ext-class 'html-mode nil 'html-js) ; set up for js in html
+  (mmm-add-mode-ext-class 'html-mode nil 'html-css) ; set up for css in html
+  (setq mmm-global-mode 'maybe)
+  (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
+  (setq mmm-major-mode-preferences
+        '((perl cperl-mode perl-mode)
+          (python python-mode python-mode)
+          (javascript js-mode c++-mode) ; only here because of this -- use js-mode
+          (java jde-mode java-mode c++-mode)
+          (css css-mode c++-mode))
+        )
   )
 
 (use-package pyvenv
@@ -1220,7 +1230,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
