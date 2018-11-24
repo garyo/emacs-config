@@ -56,11 +56,13 @@
   )
 
 ;;; Meta-package system: use-package. Auto-installs and configures packages.
-(eval-when-compile
-  (when (not (fboundp 'use-package))
-    (package-list-packages)
-    (package-install 'use-package))
-  (require 'use-package))
+(when (not (fboundp 'use-package))
+  (package-list-packages)
+  (sit-for 5)                           ; wait for packages to update
+  (package-install 'use-package))
+(require 'use-package)
+(when (not (fboundp 'quelpa))
+  (package-install 'quelpa))
 
 ;; edit server for Chrome (browser extension):
 (when (maybe-require 'edit-server)
@@ -197,6 +199,9 @@ Return the errors parsed with the error patterns of CHECKER."
   (let ((sanitized-output (replace-regexp-in-string "\r" "" output))
         )
     (funcall (flycheck-checker-get checker 'error-parser) sanitized-output checker buffer)))
+
+;; My patched version of pipenv.el, 2018
+(quelpa '(pipenv :fetcher github :repo "garyo/pipenv.el"))
 
 (use-package markdown-mode
   :ensure t
@@ -1173,8 +1178,12 @@ by using nxml's indentation rules."
  '(egg-log-graph-chars [9608 124 45 47 92])
  '(egg-quit-window-actions (quote ((egg-status-buffer-mode kill restore-windows))))
  '(exec-path-from-shell-arguments (quote ("-l")))
+ '(fill-column 78)
  '(flycheck-c/c++-cppcheck-executable "c:/Program Files/Cppcheck/cppcheck.exe")
  '(flycheck-clang-args (quote ("--std=c++17")))
+ '(flycheck-python-flake8-executable "python3")
+ '(flycheck-python-pycompile-executable "python3")
+ '(flycheck-python-pylint-executable "python3")
  '(git-commit-summary-max-length 64)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
@@ -1191,6 +1200,7 @@ by using nxml's indentation rules."
  '(magit-log-format-unicode-graph-alist (quote ((47 . 9585) (92 . 9586) (42 . 9642))))
  '(magit-pull-arguments (quote ("--rebase")))
  '(magit-refresh-status-buffer nil)
+ '(ns-command-modifier (quote meta))
  '(org-babel-load-languages
    (quote
     ((emacs-lisp . t)
@@ -1230,7 +1240,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (use-package quelpa pipenv origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
