@@ -177,11 +177,11 @@
 		(ggtags-mode 1))))
   )
 
-(use-package jedi
-  :ensure t
-  :config
-  (add-hook 'python-mode-hook 'jedi:setup)
-  )
+;; (use-package jedi
+;;   :ensure t
+;;   :config
+;;   (add-hook 'python-mode-hook 'jedi:setup)
+;;   )
 
 (use-package flycheck
   :ensure t
@@ -416,7 +416,8 @@ Return the errors parsed with the error patterns of CHECKER."
 ;; (maybe-require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
 
 (cond ((eq system-type 'windows-nt)
-       (add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Git
+       (add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Global
+       (add-to-list 'exec-path "c:/tools/msys64/msys64/usr/bin") ; for Global (via msys)
        (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
        (add-to-list 'exec-path "c:/msys64/usr/bin") ; for Git (msys2)
        (add-to-list 'exec-path "c:/msys64/usr/local/bin") ; for GNU global/gtags
@@ -608,6 +609,7 @@ Return the errors parsed with the error patterns of CHECKER."
 (setq auto-mode-alist (cons '("\\.lua$" . lua-mode) auto-mode-alist))
 ;;; .h files: interpret as C++ (for namespace etc.)
 (setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("\\.vue$" . html-mode) auto-mode-alist))
 
 ;; Like vc-git-grep from Emacs 25, but without the semi-useless "files" arg.
 (defun git-grep (regexp &optional dir)
@@ -1200,6 +1202,7 @@ by using nxml's indentation rules."
  '(indent-tabs-mode nil)
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
  '(js-indent-level 2)
+ '(js2-strict-missing-semi-warning nil)
  '(magit-backup-mode nil)
  '(magit-cygwin-mount-points (quote (("/c" . "c:"))))
  '(magit-diff-expansion-threshold 999.0)
@@ -1250,10 +1253,11 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
+ '(query-replace-from-to-separator " -> ")
  '(recentf-exclude
    (quote
     ("semantic.cache" "\\.completions" "\\.projects\\.ede" "\\.ido\\.last" ".tmp.babel-")))
