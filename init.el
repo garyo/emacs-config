@@ -201,7 +201,7 @@ Return the errors parsed with the error patterns of CHECKER."
     (funcall (flycheck-checker-get checker 'error-parser) sanitized-output checker buffer)))
 
 ;; My patched version of pipenv.el, 2018
-(quelpa '(pipenv :fetcher github :repo "garyo/pipenv.el"))
+;(quelpa '(pipenv :fetcher github :repo "garyo/pipenv.el"))
 
 (use-package markdown-mode
   :ensure t
@@ -309,12 +309,21 @@ Return the errors parsed with the error patterns of CHECKER."
         )
   )
 
-(use-package pyvenv
+;;; Work with python virtualenvs
+;;; M-x venv-workon (has completion), M-x venv-deactivate, M-x venv-*
+;;; Looks in ~/.virtualenvs
+(use-package virtualenvwrapper
   :ensure t
   )
 
 (use-package yaml-mode
   :ensure t)
+
+(use-package origami
+  :ensure t
+  :bind (("C-c f" . origami-recursively-toggle-node))
+  :bind (("C-c F" . origami-show-only-node))
+  )
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -1200,6 +1209,7 @@ by using nxml's indentation rules."
  '(magit-log-format-unicode-graph-alist (quote ((47 . 9585) (92 . 9586) (42 . 9642))))
  '(magit-pull-arguments (quote ("--rebase")))
  '(magit-refresh-status-buffer nil)
+ '(mhtml-tag-relative-indent nil)
  '(ns-command-modifier (quote meta))
  '(org-babel-load-languages
    (quote
@@ -1240,7 +1250,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (use-package quelpa pipenv origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
