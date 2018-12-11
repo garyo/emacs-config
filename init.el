@@ -138,6 +138,7 @@
 					 :size (float (cdr font-info)))
 			      frame)))
 	  (message "Using font %s: %s" font-info font)
+          ;; Using Droid Sans causes query-replace to be slow!!!
 	  (set-face-attribute 'default frame :font font)
 	  ;(add-to-list 'default-frame-alist `(font . ,font))
 	  )))
@@ -1106,6 +1107,11 @@ by using nxml's indentation rules."
 	      (remove ".log"
 		      (remove ".cp" completion-ignored-extensions))))
 
+;; This fixes the slow startup of query-replace when using Droid Sans Mono Dotted font
+;; The default value of this isn't in that font I guess? (In fact, even pasting it
+;; in here makes redisplay slow down!)
+(setq-default query-replace-from-to-separator " -> ")
+
 (setq
  backup-by-copying-when-linked t
  font-lock-maximum-decoration t
@@ -1259,7 +1265,6 @@ by using nxml's indentation rules."
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
- '(query-replace-from-to-separator " -> ")
  '(recentf-exclude
    (quote
     ("semantic.cache" "\\.completions" "\\.projects\\.ede" "\\.ido\\.last" ".tmp.babel-")))
