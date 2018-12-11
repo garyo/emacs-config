@@ -62,6 +62,8 @@
   (package-install 'use-package))
 (require 'use-package)
 (when (not (fboundp 'quelpa))
+  (package-list-packages)
+  (sit-for 10)                           ; wait for packages to update
   (package-install 'quelpa))
 
 ;; edit server for Chrome (browser extension):
