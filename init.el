@@ -58,7 +58,7 @@
 ;;; Meta-package system: use-package. Auto-installs and configures packages.
 (when (not (fboundp 'use-package))
   (package-list-packages)
-  (sit-for 5)                           ; wait for packages to update
+  (sit-for 10)                           ; wait for packages to update
   (package-install 'use-package))
 (require 'use-package)
 (when (not (fboundp 'quelpa))
