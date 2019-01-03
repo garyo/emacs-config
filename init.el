@@ -139,7 +139,9 @@
     (let ((font-info (find-first-font preferred-fonts frame)))
       (when font-info
 	(let ((font (find-font (font-spec :family (car font-info)
-					 :size (float (cdr font-info)))
+                                          :slant 'normal
+                                          :weight 'normal
+					  :size (float (cdr font-info)))
 			      frame)))
 	  (message "Using font %s: %s" font-info font)
           ;; Using Droid Sans causes query-replace to be slow!!!
@@ -152,6 +154,10 @@
 (mapc 'new-frame-setup (frame-list))
 ;;; run when new frames created (daemon or server)
 (add-hook 'after-make-frame-functions 'new-frame-setup)
+
+;;; I like italic comment face as long as the actual font supports it
+;;; (which Hack does)
+(set-face-italic font-lock-comment-face t)
 
 (use-package company
   :ensure t
