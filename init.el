@@ -90,8 +90,12 @@
 ;; Notes:
 ;; use M-x describe-font RET to describe current font
 ;; C-u C-x = describes font under point (and lots of other goodies).
+;; To list all fonts, in *scratch* buffer do (print (font-family-list))
+;; To test a font, use Options menu -> Set Default Font...
 (defvar preferred-fonts
       '(
+        ("Hack" . 10)                   ; my new fave as of 2019 (very similar to DV Sans Mono)
+	("DejaVu Sans Mono" . 10)       ; better ~ than Droid Sans Dotted Mono
 	;; Droid Sans Mono: quite nice.
 	;; 15 pixels total height at 10 point.  Clear & crisp.
 	;; (e.g. http://www.fontex.org/download/Droid-sans-mono.ttf)
@@ -179,12 +183,6 @@
 	      (when (derived-mode-p 'c-mode 'c++-mode 'java-mode)
 		(ggtags-mode 1))))
   )
-
-;; (use-package jedi
-;;   :ensure t
-;;   :config
-;;   (add-hook 'python-mode-hook 'jedi:setup)
-;;   )
 
 (use-package flycheck
   :ensure t
@@ -411,6 +409,7 @@ Return the errors parsed with the error patterns of CHECKER."
       (global-visual-line-mode 0)
       (setq line-move-visual nil)))
 
+(autoload 'vc-git-root "vc-git" nil t)
 (autoload 'vc-git-grep "vc-git" nil t)
 
 ;; (maybe-require 'git-emacs-autoloads) ; an emacs GIT interface (one of many); try M-x git-status
