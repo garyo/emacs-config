@@ -293,9 +293,14 @@ Return the errors parsed with the error patterns of CHECKER."
   :mode (("\\.gd$" . gdscript-mode))
 )
 
+(use-package typescript-mode
+  :ensure t
+  :mode (("\\.ts$" . typescript-mode))
+  )
+
 (use-package js2-mode
   :ensure t
-  :mode (("\\.[tj]s$" . js2-mode))
+  :mode (("\\.js$" . js2-mode))
   )
 
 ;;; multiple major modes in a buffer; like multi-web-mode but more modern.
@@ -456,11 +461,11 @@ Return the errors parsed with the error patterns of CHECKER."
 (defun copyright-for-skel (comment-start comment-end)
   "Skeleton for corporate copyright in a comment, using COMMENT-START and COMMENT-END."
   (s-format
-   (concat "${cs}----------------------------------------------------------------------${ce}\n"
+   (concat "${cs} ----------------------------------------------------------------------${ce}\n"
 	   "${cs} (c) Copyright " (substring (current-time-string) -4) ", Dark Star Systems, Inc.  All rights reserved.    ${ce}\n"
 	   "${cs} This file may contain proprietary and confidential information.	${ce}\n"
 	   "${cs} DO NOT COPY or distribute in any form without prior written consent. ${ce}\n"
-	   "${cs}----------------------------------------------------------------------${ce}\n")
+	   "${cs} ----------------------------------------------------------------------${ce}\n")
    'aget `(("cs" . ,comment-start) ("ce" . ,comment-end)))
   )
 
@@ -1266,7 +1271,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts (quote {}))
  '(package-selected-packages
    (quote
-    (nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
+    (typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
  '(ps-font-size (quote (7 . 10)))
  '(ps-paper-type (quote letter))
  '(py-python-command "c:/python27/python")
@@ -1295,6 +1300,7 @@ by using nxml's indentation rules."
    (quote
     (speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy)))
  '(taskjuggler-command "tj3")
+ '(typescript-indent-level 2)
  '(vc-dired-recurse nil)
  '(visible-bell t)
  '(w32-get-true-file-attributes nil t)
