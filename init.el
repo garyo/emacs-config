@@ -117,16 +117,18 @@
         ("Courier" . 10)))
 (cond
  ((eq window-system 'ns) ; Mac native emacs: above fonts are too small
-  (setq preferred-fonts '(("Droid Sans Mono Dotted" . 13)
+  (setq preferred-fonts '(("Hack" . 13)
+                          ("DejaVu Sans Mono" . 13)
+                          ("Droid Sans Mono Dotted" . 13)
 			  ("Courier New" . 13)))
   ))
 
-(defun find-first-font (fonts frame)
-  "Find first font for FRAME in list; FONTS is ((name . size) ...)."
+(defun find-first-font (fonts &optional frame)
+  "Find first font for FRAME (nil for current) in list; FONTS is ((name . size) ...)."
   (cl-find-if (lambda (f)
-	     ;(message "Checking %s..." f)
-	     (find-font (font-spec :family (car f)) frame))
-	   fonts))
+	        (message "Checking %s..." f)
+	        (find-font (font-spec :family (car f)) frame))
+	      fonts))
 
 ;;; Note: display-graphic-p returns false when emacs is started in daemon mode,
 ;;; so we do much of the frame setup in the new-frame-setup hook, which is called
