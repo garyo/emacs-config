@@ -79,12 +79,11 @@
 
 ;;; Default frame size - could make this variable depending on display params
 ;;; but then it would have to go in the frame setup hook.
-(setq default-frame-alist (list
-			   '(top . 15)
-			   '(left . 200)
-			   '(width . 98)
-			   '(height . 66)
-			   ))
+(setq default-frame-alist '((top . 15)
+                            (left . 200)
+                            (width . 98)
+                            (height . 50)
+                            ))
 
 ;;;; FONTS ;;;;;;
 ;; Notes:
@@ -134,6 +133,7 @@
 ;;; so we do much of the frame setup in the new-frame-setup hook, which is called
 ;;; after the new frame is created but before it's selected. That means we have to
 ;;; use 'frame' everywhere here, not assume selected-frame is valid.
+;;; Note: for testing, use (selected-frame) to get the current frame.
 (defun new-frame-setup (frame)
   "Set default font and frame attributes for FRAME."
   (when (display-graphic-p frame)
@@ -146,9 +146,11 @@
 					  :size (float (cdr font-info)))
 			      frame)))
 	  (message "Using font %s: %s" font-info font)
-          ;; Using Droid Sans causes query-replace to be slow!!!
 	  (set-face-attribute 'default frame :font font)
-	  ;(add-to-list 'default-frame-alist `(font . ,font))
+          (message (format "Setting frame height; %s pixels / line height %s"
+                           (display-pixel-height frame) (frame-char-height frame)))
+          (set-frame-height frame (- (/ (display-pixel-height frame)
+					(frame-char-height frame)) 7))
 	  )))
     (tool-bar-mode 0))
   )
