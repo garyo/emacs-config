@@ -1215,6 +1215,7 @@ by using nxml's indentation rules."
  '(flycheck-python-flake8-executable "python3")
  '(flycheck-python-pycompile-executable "python3")
  '(flycheck-python-pylint-executable "python3")
+ '(ggtags-enable-navigation-keys nil)
  '(git-commit-summary-max-length 64)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
