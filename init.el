@@ -523,6 +523,15 @@ Return the errors parsed with the error patterns of CHECKER."
   "# end of " (file-name-nondirectory (buffer-file-name)) \n
   )
 
+(define-skeleton js-skeleton
+  "Default Javascript file skeleton"
+  ""
+  (copyright-for-skel "//" "")
+  "\n"
+  > _ \n
+  "\n"
+  )
+
 (auto-insert-mode)
 (setq-default auto-insert-alist
 	      '((("\\.\\(CC?\\|cc\\|c\\|cxx\\|cpp\\|c++\\)\\'" . "C/C++ skeleton")
@@ -533,6 +542,8 @@ Return the errors parsed with the error patterns of CHECKER."
 		 . sh-skeleton)
 		(("\\.\\(py\\)\\'" . "Python script skeleton")
 		 . py-skeleton)
+		(("\\.\\(jsx?\\|vue\\|tsx?\\)\\'" . "Javascript skeleton")
+		 . js-skeleton)
 		)
       )
 
@@ -1142,7 +1153,7 @@ by using nxml's indentation rules."
  inhibit-startup-message t
  initial-scratch-message ""   ; prevent the useless cruft in *scratch*
  Info-enable-edit t
- isearch-allow-scroll t
+ ;; isearch-allow-scroll nil  ; t means allow scroll, but prevent scrolling if would go off screen
  kept-old-versions 1
  lazy-lock-minimum-size 5000
  line-number-mode t			; XXX: disable in compilation-mode buffers
@@ -1230,6 +1241,7 @@ by using nxml's indentation rules."
  '(magit-cygwin-mount-points (quote (("/c" . "c:"))))
  '(magit-diff-expansion-threshold 999.0)
  '(magit-diff-refine-hunk t)
+ '(magit-display-buffer-function (quote magit-display-buffer-fullframe-status-v1))
  '(magit-expand-staged-on-commit (quote full))
  '(magit-log-format-graph-function (quote magit-log-format-unicode-graph))
  '(magit-log-format-unicode-graph-alist (quote ((47 . 9585) (92 . 9586) (42 . 9642))))
@@ -1288,7 +1300,8 @@ by using nxml's indentation rules."
  '(rng-nxml-auto-validate-flag t)
  '(safe-local-variable-values
    (quote
-    ((eval pyvenv-activate "venv")
+    ((indent-tabs-mode . 2)
+     (eval pyvenv-activate "venv")
      (eval venv-workon "venv")
      (c-basic-offset 4)
      (Mode . C++)
