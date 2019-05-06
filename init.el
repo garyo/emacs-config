@@ -170,7 +170,7 @@
   :config
   (global-company-mode)
   ;; dabbrev mode seems closest to TMC completion
-  (setq company-backends '(company-semantic company-dabbrev-code company-dabbrev company-etags company-keywords))
+  (setq company-backends '(company-capf company-semantic company-dabbrev-code company-dabbrev company-etags company-keywords))
   (setq company-dabbrev-downcase nil	 ;make case-sensitive
 	company-dabbrev-ignore-case nil) ;make case-sensitive
 )
@@ -197,6 +197,14 @@
 (use-package flycheck
   :ensure t
   :init (global-flycheck-mode))
+
+;;; for Windows, especially for emacs-lisp checker which passes
+;;; lots of cmd-line args to emacs
+(cond ((eq system-type 'windows-nt)
+       (setq flycheck-command-wrapper-function
+             (lambda (cmd)
+               (list "bash" "-c" (format "%s"
+                                         (mapconcat 'shell-quote-argument cmd " ")))))))
 
 ;;; On Windows, commands run by flycheck may have CRs (\r\n line endings).
 ;;; Strip them out before parsing.
@@ -307,22 +315,102 @@ Return the errors parsed with the error patterns of CHECKER."
   :mode (("\\.js$" . js2-mode))
   )
 
-;;; multiple major modes in a buffer; like multi-web-mode but more modern.
-;;; polymode may be better still but as of Sept 2018 it's still being rewritten.
-(use-package mmm-mode
+;;; Vue mode, based on mmm-mode -- set up for .vue files (html/css/script)
+(use-package vue-mode
   :ensure t
   :config
-  (mmm-add-mode-ext-class 'html-mode nil 'html-js) ; set up for js in html
-  (mmm-add-mode-ext-class 'html-mode nil 'html-css) ; set up for css in html
-  (setq mmm-global-mode 'maybe)
   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
-  (setq mmm-major-mode-preferences
-        '((perl cperl-mode perl-mode)
-          (python python-mode python-mode)
-          (javascript js-mode c++-mode) ; only here because of this -- use js-mode
-          (java jde-mode java-mode c++-mode)
-          (css css-mode c++-mode))
-        )
+  )
+
+;;; multiple major modes in a buffer; like multi-web-mode but more modern.
+;;; polymode may be better still but as of Sept 2018 it's still being rewritten.
+;; (use-package mmm-mode
+;;   :ensure t
+;;   :config
+;;   (mmm-add-mode-ext-class 'html-mode nil 'html-js) ; set up for js in html
+;;   (mmm-add-mode-ext-class 'html-mode nil 'html-css) ; set up for css in html
+;;   (setq mmm-global-mode 'maybe)
+;;   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
+;;   (setq mmm-major-mode-preferences
+;;         '((perl cperl-mode perl-mode)
+;;           (python python-mode python-mode)
+;;           (javascript js-mode c++-mode) ; only here because of this -- use js-mode
+;;           (java jde-mode java-mode c++-mode)
+;;           (css css-mode c++-mode))
+;;         )
+;;   )
+
+;; May 2019: I think eglot is more responsive and simpler
+(defvar use-lsp-mode nil
+  "T means use lsp-mode; nil means use eglot.")
+
+(cond (use-lsp-mode
+       ;; LSP mode: language server protocol for getting completions, definitions etc.
+       (use-package lsp-mode
+         :ensure t
+         :commands lsp
+         )
+       (use-package lsp-ui
+         :ensure t
+         :commands lsp-ui-mode
+         )
+       (use-package company-lsp
+         :ensure t
+         :commands company-lsp
+         )
+       )
+      (t
+       (use-package eglot
+         :ensure t
+       )))
+
+(add-to-list 'eglot-server-programs
+             '(typescript-mode . ("typescript-language-server.cmd" "--stdio"))
+             )
+
+(defclass eglot-vls (eglot-lsp-server) ()
+  :documentation "Vue Language Server.")
+
+(add-to-list 'eglot-server-programs
+             ;; '(vue-mode . ("vls.cmd" "--stdio")) ; vue language server
+             '(vue-mode . (eglot-vls . ("vls" "--stdio")))
+             )
+
+(cl-defmethod eglot-initialization-options ((server eglot-vls))
+  "Passes through required vetur initialization options to VLS."
+  '(:vetur
+    (:completion
+     (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
+     :grammar
+     (:customBlocks
+      (:docs "md" :i18n "json"))
+     :validation
+     (:template t :style t :script t)
+     :format
+     (:options
+      (:tabSize 2 :useTabs :json-false)
+      :defaultFormatter
+      (:html "prettyhtml" :css "prettier" :postcss "prettier" :scss "prettier" :less "prettier" :stylus "stylus-supremacy" :js "prettier" :ts "prettier")
+      :defaultFormatterOptions
+      (:js-beautify-html
+       (:wrap_attributes "force-expand-multiline")
+       :prettyhtml
+       (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
+      :styleInitialIndent :json-false :scriptInitialIndent :json-false)
+     :trace
+     (:server "verbose")
+     :dev
+     (:vlsPath ""))
+    ))
+
+
+;;; Eglot uses eldoc to display docs for functions
+;;; Try displaying those in a child frame:
+(use-package eldoc-box
+  :ensure t
+  :config
+  (add-hook 'eglot--managed-mode-hook #'eldoc-box-hover-mode t)
+  (set-face-background 'eldoc-box-body "#ffb")
   )
 
 ;;; Work with python virtualenvs
@@ -340,6 +428,33 @@ Return the errors parsed with the error patterns of CHECKER."
   :bind (("C-c f" . origami-recursively-toggle-node))
   :bind (("C-c F" . origami-show-only-node))
   )
+
+(defun projectile-mode-line ()
+  "Report project name (only) in the modeline."
+  (let ((project-name (projectile-project-name))
+        (project-type (projectile-project-type)))
+    (format "%s[%s]"
+            projectile-mode-line-prefix
+            (or project-name "-")
+            )))
+(use-package projectile
+  :ensure t
+  :config
+  (projectile-mode +1)
+  (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
+  (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+  (setq projectile-mode-line-prefix " Prj")
+  (setq projectile-mode-line-function 'projectile-mode-line)
+  )
+
+;; (use-package helm
+;;   :ensure t
+;;   :config
+;;   (require 'helm-config)
+;;   (global-set-key (kbd "C-x m") 'helm-M-x)
+;;   (global-set-key (kbd "C-x b") 'helm-buffers-list)
+;;   (global-set-key (kbd "C-x C-f") 'helm-find-files)
+;;   )
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -637,7 +752,6 @@ Return the errors parsed with the error patterns of CHECKER."
 (setq auto-mode-alist (cons '("\\.lua$" . lua-mode) auto-mode-alist))
 ;;; .h files: interpret as C++ (for namespace etc.)
 (setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
-(setq auto-mode-alist (cons '("\\.vue$" . html-mode) auto-mode-alist))
 
 ;; Like vc-git-grep from Emacs 25, but without the semi-useless "files" arg.
 (defun git-grep (regexp &optional dir)
@@ -1065,6 +1179,8 @@ by using nxml's indentation rules."
 (setq ido-enable-tramp-completion nil)	    ; workaround tramp bug in emacs 23.1
 (ido-mode)
 
+(cond ((eq system-type 'windows-nt)
+       (setq tramp-use-ssh-controlmaster-options nil)))
 
 ;;; This adds an isearch-mode keybinding for C-o to run Occur
 ;;; with the current search string, without interrupting the isearch.
@@ -1197,18 +1313,16 @@ by using nxml's indentation rules."
  '(align-to-tab-stop nil)
  '(company-dabbrev-char-regexp "\\(\\sw\\|\\s_\\)")
  '(company-dabbrev-code-modes
-   (quote
-    (prog-mode batch-file-mode csharp-mode css-mode erlang-mode haskell-mode jde-mode lua-mode python-mode def-effects-mode)))
+   '(prog-mode batch-file-mode csharp-mode css-mode erlang-mode haskell-mode jde-mode lua-mode python-mode def-effects-mode))
  '(ecb-layout-name "left1")
  '(ecb-layout-window-sizes
-   (quote
-    (("left1"
+   '(("left1"
       (0.2698412698412698 . 0.30158730158730157)
       (0.12698412698412698 . 0.31746031746031744)
       (0.14285714285714285 . 0.31746031746031744)
-      (0.2698412698412698 . 0.31746031746031744)))))
+      (0.2698412698412698 . 0.31746031746031744))))
  '(ecb-options-version "2.40")
- '(ecb-primary-secondary-mouse-buttons (quote mouse-1--mouse-2))
+ '(ecb-primary-secondary-mouse-buttons 'mouse-1--mouse-2)
  '(ecb-tip-of-the-day nil)
  '(ecb-windows-width 30)
  '(egg-buffer-hide-section-type-on-start nil)
@@ -1220,11 +1334,12 @@ by using nxml's indentation rules."
  '(egg-log-all-max-len 500)
  '(egg-log-buffer-marks [10004 9998 46 9733 62])
  '(egg-log-graph-chars [9608 124 45 47 92])
- '(egg-quit-window-actions (quote ((egg-status-buffer-mode kill restore-windows))))
- '(exec-path-from-shell-arguments (quote ("-l")))
+ '(egg-quit-window-actions '((egg-status-buffer-mode kill restore-windows)))
+ '(exec-path-from-shell-arguments '("-l"))
  '(fill-column 78)
  '(flycheck-c/c++-cppcheck-executable "c:/Program Files/Cppcheck/cppcheck.exe")
- '(flycheck-clang-args (quote ("--std=c++17")))
+ '(flycheck-clang-args '("--std=c++17"))
+ '(flycheck-disabled-checkers '(typescript-tslint))
  '(flycheck-python-flake8-executable "python3")
  '(flycheck-python-pycompile-executable "python3")
  '(flycheck-python-pylint-executable "python3")
@@ -1232,75 +1347,75 @@ by using nxml's indentation rules."
  '(git-commit-summary-max-length 64)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
- '(ido-use-filename-at-point (quote guess))
+ '(ido-use-filename-at-point 'guess)
  '(indent-tabs-mode nil)
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
  '(js-indent-level 2)
  '(js2-strict-missing-semi-warning nil)
+ '(lsp-clients-typescript-server
+   "c:/Users/garyo/AppData/Roaming/npm/typescript-language-server.cmd")
+ '(lsp-print-io t)
+ '(lsp-trace t)
  '(magit-backup-mode nil)
- '(magit-cygwin-mount-points (quote (("/c" . "c:"))))
+ '(magit-cygwin-mount-points '(("/c" . "c:")))
  '(magit-diff-expansion-threshold 999.0)
  '(magit-diff-refine-hunk t)
- '(magit-display-buffer-function (quote magit-display-buffer-fullframe-status-v1))
- '(magit-expand-staged-on-commit (quote full))
- '(magit-log-format-graph-function (quote magit-log-format-unicode-graph))
- '(magit-log-format-unicode-graph-alist (quote ((47 . 9585) (92 . 9586) (42 . 9642))))
- '(magit-pull-arguments (quote ("--rebase")))
+ '(magit-display-buffer-function 'magit-display-buffer-fullframe-status-v1)
+ '(magit-expand-staged-on-commit 'full)
+ '(magit-log-format-graph-function 'magit-log-format-unicode-graph)
+ '(magit-log-format-unicode-graph-alist '((47 . 9585) (92 . 9586) (42 . 9642)))
+ '(magit-pull-arguments '("--rebase"))
  '(magit-refresh-status-buffer nil)
  '(mhtml-tag-relative-indent nil)
- '(ns-command-modifier (quote meta))
+ '(ns-command-modifier 'meta)
  '(org-babel-load-languages
-   (quote
-    ((emacs-lisp . t)
+   '((emacs-lisp . t)
      (R . t)
      (python . t)
      (dot . t)
      (ditaa . t)
      (latex . t)
      (sql . t)
-     (sh . t))))
+     (sh . t)))
  '(org-confirm-babel-evaluate nil)
- '(org-export-backends (quote (ascii html icalendar latex odt koma-letter)))
- '(org-export-coding-system (quote utf-8))
- '(org-export-with-sub-superscripts (quote {}))
+ '(org-export-backends '(ascii html icalendar latex odt koma-letter))
+ '(org-export-coding-system 'utf-8)
+ '(org-export-with-sub-superscripts '{})
  '(org-export-with-toc nil)
  '(org-latex-listings t)
  '(org-latex-packages-alist
-   (quote
-    (("cm" "fullpage" nil)
+   '(("cm" "fullpage" nil)
      ("compact" "titlesec" nil)
      ("" "paralist" nil)
      ("" "enumitem" nil)
      ("" "color" nil)
      ("" "tabularx" nil)
-     ("" "enumitem" nil))))
+     ("" "enumitem" nil)))
  '(org-list-allow-alphabetical t)
  '(org-odt-convert-processes
-   (quote
-    (("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 5/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
-     ("unoconv" "unoconv -f %f -o %d %i"))))
+   '(("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 5/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
+     ("unoconv" "unoconv -f %f -o %d %i")))
  '(org-odt-preferred-output-format "docx")
  '(org-src-fontify-natively t)
  '(org-startup-folded nil)
  '(org-startup-indented nil)
  '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
- '(org-use-sub-superscripts (quote {}))
+ '(org-use-sub-superscripts '{})
  '(package-selected-packages
-   (quote
-    (typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep)))
- '(ps-font-size (quote (7 . 10)))
- '(ps-paper-type (quote letter))
+   '(eldoc-box eglot helm projectile company-lsp lsp-ui lsp-mode string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
+ '(projectile-globally-ignored-directories
+   '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
+ '(ps-font-size '(7 . 10))
+ '(ps-paper-type 'letter)
  '(py-python-command "c:/python27/python")
  '(recentf-exclude
-   (quote
-    ("semantic.cache" "\\.completions" "\\.projects\\.ede" "\\.ido\\.last" ".tmp.babel-")))
+   '("semantic.cache" "\\.completions" "\\.projects\\.ede" "\\.ido\\.last" ".tmp.babel-"))
  '(recentf-max-menu-items 30)
  '(recentf-max-saved-items 50)
  '(rng-nxml-auto-validate-flag t)
  '(safe-local-variable-values
-   (quote
-    ((indent-tabs-mode . 2)
+   '((indent-tabs-mode . 2)
      (eval pyvenv-activate "venv")
      (eval venv-workon "venv")
      (c-basic-offset 4)
@@ -1311,21 +1426,19 @@ by using nxml's indentation rules."
      (Mode . python)
      (Mode . perl)
      (Mode . cperl)
-     (comment-new_column . 0))))
- '(same-window-regexps (quote ("\\*shell.*\\*\\(\\|<[0-9]+>\\)")))
+     (comment-new_column . 0)))
+ '(same-window-regexps '("\\*shell.*\\*\\(\\|<[0-9]+>\\)"))
  '(sentence-end-double-space nil)
  '(speedbar-tag-hierarchy-method
-   (quote
-    (speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy)))
+   '(speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy))
  '(taskjuggler-command "tj3")
  '(typescript-indent-level 2)
  '(vc-dired-recurse nil)
  '(visible-bell t)
  '(w32-get-true-file-attributes nil t)
- '(warning-suppress-types (quote ((\(undo\ discard-info\)))))
+ '(warning-suppress-types '((\(undo\ discard-info\))))
  '(whitespace-style
-   (quote
-    (face trailing tabs spaces newline empty indentation space-after-tab space-before-tab space-mark tab-mark newline-mark))))
+   '(face trailing tabs spaces newline empty indentation space-after-tab space-before-tab space-mark tab-mark newline-mark)))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
