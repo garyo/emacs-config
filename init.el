@@ -3,6 +3,17 @@
 ;;; Gary's .emacs file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;; Code:
+
+;;; Performance timing for loading .emacs
+(defvar gco-timer (float-time))
+(defun print-elapsed-time (loc)
+  "Show elapsed time since last call, at LOC (string)."
+    (let* ((now (float-time))
+           (elapsed (- now gco-timer)))
+      (setq gco-timer now)
+      (message "Elapsed time at %s: %s sec" loc elapsed)))
+
 (package-initialize)
 
 ;;; Like normal-top-level-add-subdirs-to-load-path except it doesn't recurse.
@@ -79,11 +90,12 @@
 
 ;;; Default frame size - could make this variable depending on display params
 ;;; but then it would have to go in the frame setup hook.
-(setq default-frame-alist '((top . 15)
-                            (left . 200)
-                            (width . 98)
-                            (height . 50)
-                            ))
+;;; XXX: this overrides my new-frame-setup code below, so don't use it.
+;; (setq default-frame-alist '((top . 15)
+;;                             (left . 200)
+;;                             (width . 98)
+;;                             (height . 50)
+;;                             ))
 
 ;;;; FONTS ;;;;;;
 ;; Notes:
@@ -137,20 +149,25 @@
 (defun new-frame-setup (frame)
   "Set default font and frame attributes for FRAME."
   (when (display-graphic-p frame)
-    (message "Setting up new graphic frame")
+    (message "Setting up new graphic frame %s, current geom %s" frame (frame-geometry frame))
     (let ((font-info (find-first-font preferred-fonts frame)))
       (when font-info
-	(let ((font (find-font (font-spec :family (car font-info)
+	(let* ((font (find-font (font-spec :family (car font-info)
                                           :slant 'normal
                                           :weight 'normal
 					  :size (float (cdr font-info)))
-			      frame)))
+			       frame))
+              (frame-pixel-height (display-pixel-height frame))
+              (line-pixel-height (frame-char-height frame))
+              (frame-lines (/ frame-pixel-height line-pixel-height))
+              )
 	  (message "Using font %s: %s" font-info font)
 	  (set-face-attribute 'default frame :font font)
-          (message (format "Setting frame height; %s pixels / line height %s"
-                           (display-pixel-height frame) (frame-char-height frame)))
-          (set-frame-height frame (- (/ (display-pixel-height frame)
-					(frame-char-height frame)) 7))
+          (message (format "Setting frame height; %s pixels / line height %s = %s"
+                           frame-pixel-height line-pixel-height frame-lines))
+          (set-frame-height frame (- frame-lines 7))
+          (set-frame-width frame 98)
+          (set-frame-position frame -20 10) ; negative means right- or bottom-relative
 	  )))
     (tool-bar-mode 0))
   )
@@ -162,6 +179,12 @@
 ;;; I like italic comment face as long as the actual font supports it
 ;;; (which Hack does)
 (set-face-italic font-lock-comment-face t)
+
+(defun print-elapsed-time-for-package (name &rest args)
+  """Advice for use-package NAME to print elapsed time after each one."""
+  (print-elapsed-time name))
+;; Uncomment to print how long each use-package takes
+;(advice-add 'use-package :after #'print-elapsed-time-for-package)
 
 (use-package company
   :ensure t
@@ -193,6 +216,10 @@
 	      (when (derived-mode-p 'c-mode 'c++-mode 'java-mode)
 		(ggtags-mode 1))))
   )
+
+;; string manipulation routines
+(use-package s
+  :ensure t)
 
 (use-package flycheck
   :ensure t
@@ -232,12 +259,15 @@ Return the errors parsed with the error patterns of CHECKER."
 
 ;;; wgrep-change-to-wgrep-mode to edit right in a grep buffer, C-c C-e to apply.  Nice!
 (use-package wgrep
-  :ensure t)
+  :ensure t
+  :commands wgrep-change-to-wgrep-mode)
 
 (use-package gitconfig-mode
-  :ensure t)
+  :ensure t
+  :mode "\\.gitconfig\\'")
 (use-package gitignore-mode
-  :ensure t)
+  :ensure t
+  :mode "\\.gitignore\\'")
 
 (use-package magit
   :ensure t
@@ -279,17 +309,13 @@ Return the errors parsed with the error patterns of CHECKER."
 ;  (exec-path-from-shell-initialize))
 
 (use-package org
-  :ensure t)
-(use-package ob-sql-mode
   :ensure t
-  :after org)
+  :mode (("\\.org$" . org-mode))
+  :commands org-mode)
 ;; (use-package ox-tufte
 ;;   :ensure t
 ;;   :after org)
 
-;; string manipulation routines
-(use-package s
-  :ensure t)
 ;; better visual paren matching
 (use-package mic-paren
   :ensure t
@@ -318,6 +344,7 @@ Return the errors parsed with the error patterns of CHECKER."
 ;;; Vue mode, based on mmm-mode -- set up for .vue files (html/css/script)
 (use-package vue-mode
   :ensure t
+  :mode "\\.vue$"
   :config
   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
   )
@@ -362,47 +389,54 @@ Return the errors parsed with the error patterns of CHECKER."
       (t
        (use-package eglot
          :ensure t
+         :commands eglot
+         :config
+         (my-eglot-init)
+         (add-hook 'vue-mode-hook 'eglot-ensure)
+         (add-hook 'typescript-mode-hook 'eglot-ensure)
        )))
 
-(add-to-list 'eglot-server-programs
-             '(typescript-mode . ("typescript-language-server.cmd" "--stdio"))
-             )
+(defun my-eglot-init ()
+  """Initialize eglot."""
+  (add-to-list 'eglot-server-programs
+               '(typescript-mode . ("typescript-language-server.cmd" "--stdio"))
+               )
 
-(defclass eglot-vls (eglot-lsp-server) ()
-  :documentation "Vue Language Server.")
+  (defclass eglot-vls (eglot-lsp-server) ()
+    :documentation "Vue Language Server.")
 
-(add-to-list 'eglot-server-programs
-             ;; '(vue-mode . ("vls.cmd" "--stdio")) ; vue language server
-             '(vue-mode . (eglot-vls . ("vls" "--stdio")))
-             )
+  (add-to-list 'eglot-server-programs
+               ;; '(vue-mode . ("vls.cmd" "--stdio")) ; vue language server
+               '(vue-mode . (eglot-vls . ("vls" "--stdio")))
+               )
 
-(cl-defmethod eglot-initialization-options ((server eglot-vls))
-  "Passes through required vetur initialization options to VLS."
-  '(:vetur
-    (:completion
-     (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
-     :grammar
-     (:customBlocks
-      (:docs "md" :i18n "json"))
-     :validation
-     (:template t :style t :script t)
-     :format
-     (:options
-      (:tabSize 2 :useTabs :json-false)
-      :defaultFormatter
-      (:html "prettyhtml" :css "prettier" :postcss "prettier" :scss "prettier" :less "prettier" :stylus "stylus-supremacy" :js "prettier" :ts "prettier")
-      :defaultFormatterOptions
-      (:js-beautify-html
-       (:wrap_attributes "force-expand-multiline")
-       :prettyhtml
-       (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
-      :styleInitialIndent :json-false :scriptInitialIndent :json-false)
-     :trace
-     (:server "verbose")
-     :dev
-     (:vlsPath ""))
-    ))
-
+  (cl-defmethod eglot-initialization-options ((server eglot-vls))
+    "Passes through required vetur initialization options to VLS."
+    '(:vetur
+      (:completion
+       (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
+       :grammar
+       (:customBlocks
+        (:docs "md" :i18n "json"))
+       :validation
+       (:template t :style t :script t)
+       :format
+       (:options
+        (:tabSize 2 :useTabs :json-false)
+        :defaultFormatter
+        (:html "prettyhtml" :css "prettier" :postcss "prettier" :scss "prettier" :less "prettier" :stylus "stylus-supremacy" :js "prettier" :ts "prettier")
+        :defaultFormatterOptions
+        (:js-beautify-html
+         (:wrap_attributes "force-expand-multiline")
+         :prettyhtml
+         (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
+        :styleInitialIndent :json-false :scriptInitialIndent :json-false)
+       :trace
+       (:server "verbose")
+       :dev
+       (:vlsPath ""))
+      ))
+  )
 
 ;;; Eglot uses eldoc to display docs for functions
 ;;; Try displaying those in a child frame:
@@ -413,6 +447,25 @@ Return the errors parsed with the error patterns of CHECKER."
   (set-face-background 'eldoc-box-body "#ffb")
   )
 
+(defun eldoc-box--my-upper-corner-position-function (width _)
+  "Set childframe position for eldoc boxes based on WIDTH.
+This improves on the default in eldoc-mode.el."
+  (let* ((right-offset 30)
+         (has-right-scroll-bar (eq (car (frame-current-scroll-bars (selected-frame))) 'right))
+         (right-fringe (cadr (window-fringes)))
+         (right-border-width (if has-right-scroll-bar
+                                 (frame-scroll-bar-width (selected-frame))
+                               0))
+         (right-border (+ right-offset right-border-width right-fringe)))
+    (cons (pcase (eldoc-box--window-side) ; x position + a little padding
+            ;; display doc on right
+            ('left (- (frame-outer-width (selected-frame)) width right-border))
+            ;; display doc on left
+            ('right 16))
+        ;; y position + a little padding (16)
+        16)))
+(setq eldoc-box-position-function #'eldoc-box--my-upper-corner-position-function)
+
 ;;; Work with python virtualenvs
 ;;; M-x venv-workon (has completion), M-x venv-deactivate, M-x venv-*
 ;;; Looks in ~/.virtualenvs
@@ -421,7 +474,8 @@ Return the errors parsed with the error patterns of CHECKER."
   )
 
 (use-package yaml-mode
-  :ensure t)
+  :ensure t
+  :mode "\\.yaml\\'")
 
 (use-package origami
   :ensure t
@@ -541,11 +595,6 @@ Return the errors parsed with the error patterns of CHECKER."
 
 (autoload 'vc-git-root "vc-git" nil t)
 (autoload 'vc-git-grep "vc-git" nil t)
-
-;; (maybe-require 'git-emacs-autoloads) ; an emacs GIT interface (one of many); try M-x git-status
-;; (maybe-require 'git-emacs)	     ; Provides M-x gitk to run gitk
-;; (maybe-require 'git-status)
-;; (maybe-require 'egg) ; another emacs GIT interface; try M-x egg-log or egg-status
 
 (cond ((eq system-type 'windows-nt)
        (add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Global
@@ -1225,6 +1274,16 @@ by using nxml's indentation rules."
 	  (lambda ()
 	    (auto-fill-mode)))
 
+;;; I don't know if this is needed, and last time I used SQL
+;;; from org mode was many years ago.
+;; (add-hook 'org-mode-hook
+;;           (lambda ()
+;;             ;;; don't do this until needed; it can take a few sec
+;;             (use-package ob-sql-mode
+;;               :ensure t
+;;               :after org)))
+
+
 (global-set-key "\M- " 'cycle-spacing) ; improvement over just-one-space; repeated calls cycle 1, 0, orig
 (global-set-key "\C-z" 'scroll-up-line) ; use emacs24 builtins
 (global-set-key "\M-z" 'scroll-down-line)
@@ -1370,13 +1429,12 @@ by using nxml's indentation rules."
  '(ns-command-modifier 'meta)
  '(org-babel-load-languages
    '((emacs-lisp . t)
-     (R . t)
      (python . t)
      (dot . t)
      (ditaa . t)
      (latex . t)
      (sql . t)
-     (sh . t)))
+     (shell . t)))
  '(org-confirm-babel-evaluate nil)
  '(org-export-backends '(ascii html icalendar latex odt koma-letter))
  '(org-export-coding-system 'utf-8)

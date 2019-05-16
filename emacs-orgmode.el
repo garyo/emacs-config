@@ -12,7 +12,6 @@
 	   (add-to-list 'Info-default-directory-list (concat f "/info"))
 	   ))))
 
-(require 'org)
 (condition-case ex
     (progn
       (require 'ox-reveal)
@@ -28,7 +27,7 @@
 				    (ditaa . t)
 				    (latex . t)
 				    (sql . t)
-				    (sh . t))))
+				    (shell . t))))
  '(org-export-backends (quote (ascii html icalendar latex odt koma-letter)))
  '(org-export-with-sub-superscripts (quote {}))
  '(org-use-sub-superscripts (quote {}))
