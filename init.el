@@ -721,6 +721,101 @@ This improves on the default in eldoc-mode.el."
  (load-file "~/.emacs-orgmode")
 )
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Org agenda setup:
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(setq org-directory "~/Dropbox/Personal/org-agenda") ; inbox.org, gtd.org, tickler.org ...
+(setq org-agenda-files (list org-directory)) ; all .org files in these dirs
+(setq org-default-notes-file (concat org-directory "/notes.org"))
+(setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
+(setq org-log-done 'time)
+(setq org-return-follows-link t)        ; Enter key to follow links
+(setq org-tag-faces
+      '(("@work" . "#0066ff")
+        ("@home" . "#bb0000")
+        ("volunteer" . "#005500")))
+(setq org-refile-targets (quote ((nil :maxlevel . 4)
+                                 (org-agenda-files :maxlevel . 4))))
+(defun go/verify-refile-target ()
+  "Exclude TODOS as refile targets."
+  (not (member (nth 2 (org-heading-components)) (list "TODO" "DONE"))))
+(setq org-refile-target-verify-function 'go/verify-refile-target)
+
+(global-set-key (kbd "C-c l") 'org-store-link)
+(global-set-key (kbd "C-c a") 'org-agenda)
+(global-set-key (kbd "<f9>") 'org-agenda) ; faster, one keystroke
+(global-set-key (kbd "C-c c") 'org-capture)
+
+(setq org-agenda-custom-commands        ; C-a a <cmd>
+      '(("w" "At work"
+         ((agenda "" ((org-agenda-span 2)))
+          (tags-todo "+PRIORITY=\"A\"") ; top priority
+          (tags-todo "@work")
+          )
+         ((org-agenda-compact-blocks t)))
+        ("h" "At home"
+         ((agenda "" ((org-agenda-span 4)))
+          (tags-todo "+PRIORITY=\"A\"") ; top priority
+          (tags-todo "@home")
+          )
+         ((org-agenda-compact-blocks t)))
+        ("i" "Inbox"
+         ((tags-todo "+CATEGORY=\"Inbox\"")
+          )
+         )
+        ("u" "Uncategorized"
+         ((tags-todo "-{.*}")
+          )
+         )
+        ;; other commands here
+        ))
+
+;; this is a "sexp diary" function -- "date" is provided by dynamic scoping.
+;; It's a list of (month day year).
+(defun first-of-month-unless-weekend ()
+  "Return t if date (provided dynamically) is the first of the month.
+Unless the first falls on a weekend, in which case return t if
+this is the first Monday of the month."
+  (let ((dayname (calendar-day-of-week date)) ; dayname is 0=Sun, 1=Mon, ...
+        (day (cadr date)))
+    (or (and (= day 1) (memq dayname '(1 2 3 4 5)))
+        (and (memq day '(2 3)) (= dayname 1)))
+    ))
+
+;; agenda template expansions: (e.g. C-c c t to capture a todo)
+;; ^G: prompt for tags
+;; ^t: prompt for timestamp
+;; %U: add inactive timestamp (creation time)
+(setq org-capture-templates
+      '(("t" "Todo [inbox]" entry
+         (file+headline "inbox.org" "Tasks")
+         "* TODO %i%?\n  %U"
+         :prepend t)
+        ("s" "Scheduled TODO" entry
+         (file+headline "inbox.org" "Tasks") ;prompts for tags and schedule date (^G, ^t)
+         "* TODO %? %^G \nSCHEDULED: %^t\n  %U")
+        ("d" "Deadline" entry
+         (file+headline "inbox.org" "Tasks")
+         "* TODO %? %^G \n  DEADLINE: %^t"
+         :empty-lines 1)
+        ("w" "Work" entry
+         (file+headline "gtd.org" "Work")
+         "* TODO %i%?\n  %U"
+         :prepend t)
+        ("h" "Home" entry
+         (file+headline "gtd.org" "Home")
+         "* TODO %i%?\n  %U"
+         :prepend t)
+        ("T" "Tickler" entry
+         (file+headline "tickler.org" "Tickler")
+         "* %i%? \n %U")
+        ))
+(defun gtd ()
+   (interactive)
+   (find-file (concat org-directory "/gtd.org")))
+
+
 ;; Emacs Speaks Statistics (for R):
 (if (maybe-require 'ess-site)
     (ess-toggle-underscore nil)		; no annoying magic underscore
@@ -1395,6 +1490,7 @@ by using nxml's indentation rules."
  '(egg-log-graph-chars [9608 124 45 47 92])
  '(egg-quit-window-actions '((egg-status-buffer-mode kill restore-windows)))
  '(exec-path-from-shell-arguments '("-l"))
+ '(extended-command-suggest-shorter nil)
  '(fill-column 78)
  '(flycheck-c/c++-cppcheck-executable "c:/Program Files/Cppcheck/cppcheck.exe")
  '(flycheck-clang-args '("--std=c++17"))
@@ -1413,6 +1509,7 @@ by using nxml's indentation rules."
  '(js2-strict-missing-semi-warning nil)
  '(lsp-clients-typescript-server
    "c:/Users/garyo/AppData/Roaming/npm/typescript-language-server.cmd")
+ '(lsp-log-io t)
  '(lsp-print-io t)
  '(lsp-trace t)
  '(magit-backup-mode nil)
@@ -1461,7 +1558,7 @@ by using nxml's indentation rules."
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts '{})
  '(package-selected-packages
-   '(eldoc-box eglot helm projectile company-lsp lsp-ui lsp-mode string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
+   '(org-capture eglot vue-mode eldoc-box helm projectile string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
  '(ps-font-size '(7 . 10))
