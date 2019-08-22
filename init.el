@@ -817,7 +817,7 @@ this is the first Monday of the month."
          :prepend t)
         ("T" "Tickler" entry
          (file+headline "tickler.org" "Tickler")
-         "* %i%? \n %U")
+         "* TODO %i%? \n %U")
         ))
 (defun gtd ()
    (interactive)
@@ -1615,7 +1615,9 @@ by using nxml's indentation rules."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(magit-item-highlight ((t (:background "floral white"))))
- '(magit-section-highlight ((t (:background "floral white")))))
+ '(magit-section-highlight ((t (:background "floral white"))))
+ '(org-agenda-date-today ((t (:inherit org-agenda-date :slant italic :weight bold :height 1.1))))
+ '(org-agenda-date-weekend ((t (:inherit org-agenda-date :foreground "deep sky blue" :weight thin)))))
 
 (put 'set-goal-column 'disabled nil)
 (put 'eval-expression 'disabled nil)
