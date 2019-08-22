@@ -782,6 +782,14 @@ this is the first Monday of the month."
     (or (and (= day 1) (memq dayname '(1 2 3 4 5)))
         (and (memq day '(2 3)) (= dayname 1)))
     ))
+(defun first-of-quarter-unless-weekend ()
+  "Return t if date (provided dynamically) is the first day of the quarter.
+Unless the first falls on a weekend, in which case return t if
+this is the first Monday of the month."
+  (let ((month (car date)))
+    (and (memq month '(1 4 7 10))
+         (first-of-month-unless-weekend))
+    ))
 
 ;; agenda template expansions: (e.g. C-c c t to capture a todo)
 ;; ^G: prompt for tags
