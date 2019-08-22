@@ -1217,13 +1217,15 @@ by using nxml's indentation rules."
 	     (not (file-name-absolute-p filename)))
 	(setq filename (concat spec-directory "/" filename)))
 
-    (setq f (strip-sbuild (fix-win-path filename)))
-    ;;;(message (format "In process-error-filename: %s in %s -> %s" filename spec-directory f))
-    (cond ((file-exists-p f)
-	   f)
-	  ((file-exists-p (concat topdir f))
-	   (concat topdir f))
-	  (t filename))))
+    (let ((candidates (get_src_from_build_path (fix-win-path filename)))
+          (result nil))
+      (message (format "In process-error-filename: %s in %s: candidates = %s" filename spec-directory candidates))
+      (dolist (f candidates)
+        (cond ((file-exists-p f)
+	       (setq result f))
+	    ((file-exists-p (concat topdir f))
+	     (setq result (concat topdir f)))))
+      (if result result filename))))
 
 ;;; Move up the directory hierarchy from dir (nil for default-directory)
 ;;; until we find the top of the SVN working dir
@@ -1242,10 +1244,14 @@ by using nxml's indentation rules."
   (cond (p (replace-regexp-in-string "\\\\" "/" p)))
   )
 
-(defun strip-sbuild (p)
+(defun get_src_from_build_path (p)
   "Strip Sbuild dirs from a pathname P."
-  (replace-regexp-in-string
-   "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/\\(mocha-[^/]*\\)?" "" p)
+  (list
+   (replace-regexp-in-string
+    "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/" "" p)
+   (replace-regexp-in-string
+    "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/" "src/" p)
+   )
 )
 
 ;;; found this on the web.  Useful!
