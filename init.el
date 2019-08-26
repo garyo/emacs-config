@@ -505,6 +505,7 @@ This improves on the default in eldoc-mode.el."
   )
 
 (use-package helm
+  :ensure t
   :diminish helm-mode
   :init
   (progn
