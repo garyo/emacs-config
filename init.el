@@ -311,7 +311,10 @@ Return the errors parsed with the error patterns of CHECKER."
 (use-package org
   :ensure t
   :mode (("\\.org$" . org-mode))
-  :commands org-mode)
+  :commands org-mode
+  :config
+  (require 'org-mouse)
+)
 ;; (use-package ox-tufte
 ;;   :ensure t
 ;;   :after org)
@@ -501,14 +504,29 @@ This improves on the default in eldoc-mode.el."
   (setq projectile-mode-line-function 'projectile-mode-line)
   )
 
-;; (use-package helm
-;;   :ensure t
-;;   :config
-;;   (require 'helm-config)
-;;   (global-set-key (kbd "C-x m") 'helm-M-x)
-;;   (global-set-key (kbd "C-x b") 'helm-buffers-list)
-;;   (global-set-key (kbd "C-x C-f") 'helm-find-files)
-;;   )
+(use-package helm
+  :diminish helm-mode
+  :init
+  (progn
+    (require 'helm-config)
+    (setq helm-candidate-number-limit 100)
+    ;; From https://gist.github.com/antifuchs/9238468
+    (setq helm-idle-delay 0.0 ; update fast sources immediately (doesn't).
+          helm-input-idle-delay 0.01  ; this actually updates things
+                                        ; reeeelatively quickly.
+          helm-yas-display-key-on-candidate t
+          helm-quick-update t
+          helm-M-x-requires-pattern nil
+          helm-ff-skip-boring-files t)
+    (helm-mode))
+  :bind (("C-c h" . helm-mini)
+         ("C-h a" . helm-apropos)
+         ("C-x C-b" . helm-buffers-list)
+         ("C-x b" . helm-buffers-list)
+         ("M-y" . helm-show-kill-ring)
+         ; ("M-x" . helm-M-x)
+         ("C-x c o" . helm-occur)
+         ("C-x c SPC" . helm-all-mark-rings)))
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -731,6 +749,11 @@ This improves on the default in eldoc-mode.el."
 (setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
 (setq org-log-done 'time)
 (setq org-return-follows-link t)        ; Enter key to follow links
+(setq org-agenda-skip-scheduled-if-done t)
+(setq org-agenda-skip-deadline-if-done t)
+(setq org-agenda-start-on-weekday nil)  ; start on today
+;; Projects are headings with the :project: tag, shouldn't be inherited.
+(setq org-tags-exclude-from-inheritance '("project"))
 (setq org-tag-faces
       '(("@work" . "#0066ff")
         ("@home" . "#bb0000")
@@ -741,11 +764,13 @@ This improves on the default in eldoc-mode.el."
   "Exclude TODOS as refile targets."
   (not (member (nth 2 (org-heading-components)) (list "TODO" "DONE"))))
 (setq org-refile-target-verify-function 'go/verify-refile-target)
-(add-hook 'auto-save-hook 'org-save-all-org-buffers)
+(add-hook 'auto-save-hook 'org-save-all-org-buffers)            ; autosave always
+(advice-add 'org-agenda-quit :before 'org-save-all-org-buffers) ; autosave on quit agenda
 
 (global-set-key (kbd "C-c l") 'org-store-link)
 (global-set-key (kbd "C-c a") 'org-agenda)
 (global-set-key (kbd "<f9>") 'org-agenda) ; faster, one keystroke
+(global-set-key (kbd "<f8>") 'org-capture) ; faster, one keystroke
 (global-set-key (kbd "C-c c") 'org-capture)
 
 (setq org-agenda-custom-commands        ; C-a a <cmd>
@@ -766,7 +791,14 @@ This improves on the default in eldoc-mode.el."
           )
          )
         ("u" "Uncategorized"
-         ((tags-todo "-{.*}")
+         ((tags-todo "-{.*}"
+                     ((org-agenda-overriding-header "Uncategorized TODOs")))
+          )
+         )
+        ("U" "Unscheduled"
+         ((todo ""
+                ((org-agenda-overriding-header "Unscheduled TODOs")
+                 (org-agenda-skip-function '(org-agenda-skip-entry-if 'scheduled))))
           )
          )
         ;; other commands here
@@ -801,6 +833,10 @@ this is the first Monday of the month."
          (file+headline "inbox.org" "Tasks")
          "* TODO %i%?\n  %U"
          :prepend t)
+        ("." "Today" entry
+         (file+headline "inbox.org" "Tasks")
+         "* TODO %^{Task}\nSCHEDULED: %t\n"
+         :immediate-finish t)
         ("s" "Scheduled TODO" entry
          (file+headline "inbox.org" "Tasks") ;prompts for tags and schedule date (^G, ^t)
          "* TODO %? %^G \nSCHEDULED: %^t\n  %U")
@@ -1573,7 +1609,7 @@ by using nxml's indentation rules."
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts '{})
  '(package-selected-packages
-   '(org-capture eglot vue-mode eldoc-box helm projectile string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
+   '(org-mouse org-capture eglot vue-mode eldoc-box helm projectile string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
  '(ps-font-size '(7 . 10))
@@ -1618,7 +1654,10 @@ by using nxml's indentation rules."
  '(magit-item-highlight ((t (:background "floral white"))))
  '(magit-section-highlight ((t (:background "floral white"))))
  '(org-agenda-date-today ((t (:inherit org-agenda-date :slant italic :weight bold :height 1.1))))
- '(org-agenda-date-weekend ((t (:inherit org-agenda-date :foreground "deep sky blue" :weight thin)))))
+ '(org-agenda-date-weekend ((t (:inherit org-agenda-date :foreground "deep sky blue" :weight thin))))
+ '(org-level-1 ((t (:inherit default :weight bold :height 1.3))))
+ '(org-level-2 ((t (:inherit outline-2 :weight bold :height 1.15))))
+ '(org-level-3 ((t (:inherit outline-3 :slant italic :height 1.1)))))
 
 (put 'set-goal-column 'disabled nil)
 (put 'eval-expression 'disabled nil)
