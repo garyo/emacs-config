@@ -149,6 +149,7 @@
 (defun new-frame-setup (frame)
   "Set default font and frame attributes for FRAME."
   (when (display-graphic-p frame)
+    (tool-bar-mode 0))
     (message "Setting up new graphic frame %s, current geom %s" frame (frame-geometry frame))
     (let ((font-info (find-first-font preferred-fonts frame)))
       (when font-info
@@ -157,7 +158,11 @@
                                           :weight 'normal
 					  :size (float (cdr font-info)))
 			       frame))
-              (frame-pixel-height (display-pixel-height frame))
+               ;; note actual frame height = 1937, display pixels = 2160
+              (display-pixel-height (display-pixel-height frame))
+              ;; on Win 10, the difference between outer and inner frames
+              ;; is 121 y pixels, so subtract that here
+              (frame-pixel-height (- display-pixel-height 121))
               (line-pixel-height (frame-char-height frame))
               (frame-lines (/ frame-pixel-height line-pixel-height))
               )
@@ -169,7 +174,6 @@
           (set-frame-width frame 98)
           (set-frame-position frame -20 10) ; negative means right- or bottom-relative
 	  )))
-    (tool-bar-mode 0))
   )
 ;;; run on existing frames (non-daemon startup)
 (mapc 'new-frame-setup (frame-list))
