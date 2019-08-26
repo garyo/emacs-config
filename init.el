@@ -741,6 +741,7 @@ This improves on the default in eldoc-mode.el."
   "Exclude TODOS as refile targets."
   (not (member (nth 2 (org-heading-components)) (list "TODO" "DONE"))))
 (setq org-refile-target-verify-function 'go/verify-refile-target)
+(add-hook 'auto-save-hook 'org-save-all-org-buffers)
 
 (global-set-key (kbd "C-c l") 'org-store-link)
 (global-set-key (kbd "C-c a") 'org-agenda)
