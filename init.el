@@ -490,6 +490,19 @@ This improves on the default in eldoc-mode.el."
   :bind (("C-c F" . origami-show-only-node))
   )
 
+;;; M-x helm-ag: very nice for searching through files!
+;;; Requires ag, "the silver searcher"
+(use-package helm-ag
+  :ensure t
+  :config
+  (setq ag-executable (if (eq system-type 'windows-nt)
+                          "c:/tools/msys64/msys64/mingw64/bin/ag.exe"
+                        "ag"))
+  (setq helm-ag-base-command (if (eq system-type 'windows-nt)
+                                 "c:/tools/msys64/msys64/mingw64/bin/ag.exe --vimgrep"
+                               "ag --vimgrep"))
+  )
+
 (defun projectile-mode-line ()
   "Report project name (only) in the modeline."
   (let ((project-name (projectile-project-name))
@@ -521,15 +534,17 @@ This improves on the default in eldoc-mode.el."
                                         ; reeeelatively quickly.
           helm-yas-display-key-on-candidate t
           helm-quick-update t
+          helm-buffers-fuzzy-matching t
           helm-M-x-requires-pattern nil
+          projectile-completion-system 'helm
           helm-ff-skip-boring-files t)
     (helm-mode))
-  :bind (("C-c h" . helm-mini)
-         ("C-h a" . helm-apropos)
+  :bind (("C-h a" . helm-apropos)
          ("C-x C-b" . helm-buffers-list)
-         ("C-x b" . helm-buffers-list)
+         ("C-x b" . helm-mini)
          ("M-y" . helm-show-kill-ring)
          ; ("M-x" . helm-M-x)
+         ("C-x C-f" . helm-find-files)
          ("C-x c o" . helm-occur)
          ("C-x c SPC" . helm-all-mark-rings)))
 
@@ -623,11 +638,16 @@ This improves on the default in eldoc-mode.el."
        (add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Global
        (add-to-list 'exec-path "c:/tools/msys64/msys64/usr/bin") ; for Global (via msys)
        (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
+       (add-to-list 'exec-path "c:/Program Files/Git/cmd") ; for Git
        (add-to-list 'exec-path "c:/msys64/usr/bin") ; for Git (msys2)
        (add-to-list 'exec-path "c:/msys64/usr/local/bin") ; for GNU global/gtags
+       (add-to-list 'exec-path "c:/tools/msys64/msys64/mingw64/bin") ; for "ag"
+       (add-to-list 'exec-path "c:/tools/msys64/msys64/usr/bin") ; for zsh
        (setenv "PATH" (concat "c:/msys64/usr/local/bin;" (getenv "PATH")))
+       (setenv "PATH" (concat "c:/tools/msys64/msys64/usr/local/bin;" (getenv "PATH")))
+       (setenv "PATH" (concat "c:/tools/msys64/msys64/usr/bin;" (getenv "PATH")))
+       (setenv "PATH" (concat "c:/tools/msys64/msys64/mingw/bin;" (getenv "PATH")))
        (setenv "PATH" (concat "/usr/local/bin;" (getenv "PATH")))
-       ;; (add-to-list 'exec-path "c:/Program Files/TortoiseHg") ; for Hg/Mercurial
        (add-to-list 'exec-path "c:/bin")
        (add-to-list 'exec-path "c:/bin2")
        (add-to-list 'exec-path "c:/Program Files/R/R-2.14.0/bin") ; for R (statistics pkg)
@@ -865,6 +885,18 @@ this is the first Monday of the month."
    (interactive)
    (find-file (concat org-directory "/gtd.org")))
 
+;; Auto regenerate agenda when files change - use inotify
+(defun gco-org-agenda-file-notify (_event)
+    "Rebuild all agenda buffers when _EVENT specifies any org agenda files change."
+    (org-agenda-to-appt t)
+    (dolist (buffer (buffer-list))
+      (with-current-buffer buffer
+        (when (derived-mode-p 'org-agenda-mode)
+          (org-agenda-redo t)))))
+;; when modifying agenda files make sure to update appt
+(require 'filenotify)
+(dolist (file org-agenda-files)
+  (file-notify-add-watch file '(change) #'gco-org-agenda-file-notify))
 
 ;; Emacs Speaks Statistics (for R):
 (if (maybe-require 'ess-site)
@@ -1463,6 +1495,15 @@ by using nxml's indentation rules."
 ;; in here makes redisplay slow down!)
 (setq-default query-replace-from-to-separator " -> ")
 
+(cond ((eq system-type 'windows-nt)
+       (setq
+        find-dired-find-program "/bin/find"
+        find-program "/bin/find"
+        grep-program "/bin/grep"
+        )
+       ))
+
+
 (setq
  backup-by-copying-when-linked t
  font-lock-maximum-decoration t
@@ -1475,7 +1516,6 @@ by using nxml's indentation rules."
  enable-recursive-minibuffers t
  fill-column 78
  find-file-existing-other-name t
- find-dired-find-program "/bin/find" ; Win32 only
  inhibit-startup-message t
  initial-scratch-message ""   ; prevent the useless cruft in *scratch*
  Info-enable-edit t
@@ -1556,6 +1596,8 @@ by using nxml's indentation rules."
  '(flycheck-python-pylint-executable "python3")
  '(ggtags-enable-navigation-keys nil)
  '(git-commit-summary-max-length 64)
+ '(helm-autoresize-mode t)
+ '(helm-buffers-fuzzy-matching t)
  '(ido-auto-merge-delay-time 10)
  '(ido-enable-flex-matching t)
  '(ido-use-filename-at-point 'guess)
@@ -1614,7 +1656,8 @@ by using nxml's indentation rules."
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts '{})
  '(package-selected-packages
-   '(org-mouse org-capture eglot vue-mode eldoc-box helm projectile string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
+   '(helm-ag ag org-mouse org-capture eglot vue-mode eldoc-box helm projectile string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
+ '(projectile-completion-system 'helm)
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
  '(ps-font-size '(7 . 10))
