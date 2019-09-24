@@ -548,6 +548,21 @@ This improves on the default in eldoc-mode.el."
          ("C-x c o" . helm-occur)
          ("C-x c SPC" . helm-all-mark-rings)))
 
+(use-package smart-mode-line
+  :ensure t
+  :config
+  (setq sml/no-confirm-load-theme t)
+  (setq sml/name-width 40)
+  (setq sml/mode-width 'full)
+  (setq sml/shorten-directory t)
+  (setq sml/shorten-modes t)
+  ;; don't show these minor modes
+  (setq rm-blacklist '(" hl-p" " company" " ElDoc" " VHl" " Helm" " Fill"))
+  (add-to-list 'sml/replacer-regexp-list
+               '("c:/dss/Product/Horizon/WebProjects/horizon-project/horizon" ":HZN:"))
+  (sml/setup)
+  )
+
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
 ;;; windmove: shift+arrow keys to move between windows.
@@ -789,8 +804,8 @@ This improves on the default in eldoc-mode.el."
   "Exclude TODOS as refile targets."
   (not (member (nth 2 (org-heading-components)) (list "TODO" "DONE"))))
 (setq org-refile-target-verify-function 'go/verify-refile-target)
-(add-hook 'auto-save-hook 'org-save-all-org-buffers)            ; autosave always
-(advice-add 'org-agenda-quit :before 'org-save-all-org-buffers) ; autosave on quit agenda
+;(add-hook 'auto-save-hook 'org-save-all-org-buffers)            ; autosave always
+;(advice-add 'org-agenda-quit :before 'org-save-all-org-buffers) ; autosave on quit agenda
 
 (global-set-key (kbd "C-c l") 'org-store-link)
 (global-set-key (kbd "C-c a") 'org-agenda)
@@ -1560,10 +1575,13 @@ by using nxml's indentation rules."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(ag-arguments '("--smart-case"))
  '(align-to-tab-stop nil)
  '(company-dabbrev-char-regexp "\\(\\sw\\|\\s_\\)")
  '(company-dabbrev-code-modes
    '(prog-mode batch-file-mode csharp-mode css-mode erlang-mode haskell-mode jde-mode lua-mode python-mode def-effects-mode))
+ '(custom-safe-themes
+   '("c74e83f8aa4c78a121b52146eadb792c9facc5b1f02c917e3dbb454fca931223" "3c83b3676d796422704082049fc38b6966bcad960f896669dfc21a7a37a748fa" "a27c00821ccfd5a78b01e4f35dc056706dd9ede09a8b90c6955ae6a390eb1c1e" default))
  '(ecb-layout-name "left1")
  '(ecb-layout-window-sizes
    '(("left1"
@@ -1656,7 +1674,7 @@ by using nxml's indentation rules."
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts '{})
  '(package-selected-packages
-   '(helm-ag ag org-mouse org-capture eglot vue-mode eldoc-box helm projectile string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
+   '(smart-mode-line helm-ag ag org-mouse org-capture eglot vue-mode eldoc-box helm projectile string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
  '(projectile-completion-system 'helm)
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
