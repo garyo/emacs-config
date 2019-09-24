@@ -1570,6 +1570,13 @@ by using nxml's indentation rules."
 ;;; It's not perfect but it should help.
 (setq-default bidi-display-reordering nil)
 
+;;; Always use '(foo) rather than (quote (foo)) in customize
+;;; (custom-set-variables below)
+(advice-add 'custom-save-all :around
+            (lambda (orig)
+              (let ((print-quoted t))
+                (funcall orig))))
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
