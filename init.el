@@ -266,6 +266,14 @@ Return the errors parsed with the error patterns of CHECKER."
   :ensure t
   :commands wgrep-change-to-wgrep-mode)
 
+;;; Need this for wgrep to understand ag-search buffers
+(use-package wgrep-ag
+  :ensure t
+  :init
+  (autoload 'wgrep-ag-setup "wgrep-ag")
+  (add-hook 'ag-mode-hook 'wgrep-ag-setup)
+  )
+
 (use-package gitconfig-mode
   :ensure t
   :mode "\\.gitconfig\\'")
@@ -374,8 +382,19 @@ Return the errors parsed with the error patterns of CHECKER."
 ;;         )
 ;;   )
 
-;; May 2019: I think eglot is more responsive and simpler
-(defvar use-lsp-mode nil
+(defun has-fast-json ()
+  """Return t if \"json-serialize\" is implemented as a C function.
+This was done for Emacs 27 but not all builds include the C version,
+which is a lot faster."""
+  (subrp (symbol-function 'json-serialize)))
+
+(unless (has-fast-json)
+  (warn "This emacs is using older elisp json functions; maybe rebuild with libjansson?"))
+
+;; May 2019: Eglot is more responsive and simpler
+;; Oct 2019: lsp-mode has more features, but it's very slow
+;;           unless this Emacs has the fast C json lib (libjansson).
+(defvar use-lsp-mode (has-fast-json)
   "T means use lsp-mode; nil means use eglot.")
 
 (cond (use-lsp-mode
@@ -383,14 +402,44 @@ Return the errors parsed with the error patterns of CHECKER."
        (use-package lsp-mode
          :ensure t
          :commands lsp
+         :config
+         (setq lsp-prefer-flymake nil)
+         (add-hook 'vue-mode-hook #'lsp)
+         (add-hook 'typescript-mode-hook #'lsp)
+         (add-hook 'python-mode-hook #'lsp)
          )
        (use-package lsp-ui
          :ensure t
          :commands lsp-ui-mode
+         :config
+         (setq lsp-ui-doc-enable t
+               lsp-ui-doc-use-childframe t
+               lsp-ui-doc-position 'top
+               lsp-ui-doc-include-signature t
+               lsp-ui-sideline-enable nil
+               lsp-ui-flycheck-enable t
+               lsp-ui-flycheck-list-position 'right
+               lsp-ui-flycheck-live-reporting t
+               lsp-ui-peek-enable t
+               lsp-ui-peek-list-width 60
+               lsp-ui-peek-peek-height 25)
+         (add-hook 'lsp-mode-hook 'lsp-ui-mode)
          )
        (use-package company-lsp
          :ensure t
          :commands company-lsp
+         :config
+         (push 'company-lsp company-backends)
+         ;; Disable client-side cache because the LSP server does a better job.
+         (setq company-transformers nil
+               company-lsp-async t
+               company-lsp-cache-candidates nil)
+         )
+       (use-package helm-lsp
+         :ensure t
+         )
+       (use-package yasnippet
+         :ensure t
          )
        )
       (t
@@ -635,6 +684,16 @@ This improves on the default in eldoc-mode.el."
               (dirtrack-mode 1)))
 
 (recentf-mode t)
+(setq
+ recentf-exclude '("semantic.cache"
+                   "\\.completions"
+                   "\\.projects\\.ede"
+                   "\\.ido\\.last"
+                   "recentf"
+                   "ido\\.last"
+                   ".tmp.babel-")
+ recentf-max-menu-items 30
+ recentf-max-saved-items 50)
 ;; emacs doesn't save recentf list until you "exit normally"
 ;; which never really happens with emacs-server. So just save every 10
 ;; min.
@@ -1559,13 +1618,6 @@ by using nxml's indentation rules."
  ; visible-bell t
  )
 
-;;; Initial default directory
-(if (file-exists-p "c:/dss/Product")
-  (progn
-    (setq default-directory "c:/dss/Product")
-    (cd default-directory)
-  ))
-
 ;;; This is very important to speed up display of long lines.
 ;;; It's not perfect but it should help.
 (setq-default bidi-display-reordering nil)
@@ -1583,6 +1635,9 @@ by using nxml's indentation rules."
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(ag-arguments '("--smart-case"))
+ '(ag-highlight-search t)
+ '(ag-reuse-buffers t)
+ '(ag-reuse-window t)
  '(align-to-tab-stop nil)
  '(company-dabbrev-char-regexp "\\(\\sw\\|\\s_\\)")
  '(company-dabbrev-code-modes
@@ -1632,9 +1687,10 @@ by using nxml's indentation rules."
  '(js2-strict-missing-semi-warning nil)
  '(lsp-clients-typescript-server
    "c:/Users/garyo/AppData/Roaming/npm/typescript-language-server.cmd")
- '(lsp-log-io t)
- '(lsp-print-io t)
- '(lsp-trace t)
+ '(lsp-log-io nil)
+ '(lsp-print-performance t)
+ '(lsp-response-timeout 10)
+ '(lsp-trace nil)
  '(magit-backup-mode nil)
  '(magit-cygwin-mount-points '(("/c" . "c:")))
  '(magit-diff-expansion-threshold 999.0)
@@ -1680,18 +1736,15 @@ by using nxml's indentation rules."
  '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts '{})
+ '(package-check-signature nil)
  '(package-selected-packages
-   '(smart-mode-line helm-ag ag org-mouse org-capture eglot vue-mode eldoc-box helm projectile string-inflection typescript-mode nginx-mode origami-mode virtualenvwrapper use-package quelpa origami mmm-mode js2-mode nginx-mode jedi jedi-mode yaml-mode pyvenv multi-web-mode glsl-mode gdscript-mode markdown-mode mic-paren s volatile-highlights smart-tabs-mode smart-tabs mo-git-blame use-package flycheck gitconfig-mode gitignore-mode ox-tufte ob-sql-mode org exec-path-from-shell ggtags company-statistics magit company wgrep))
+   '(yasnippet yaml-mode wgrep-ag vue-mode volatile-highlights virtualenvwrapper use-package typescript-mode string-inflection smart-mode-line quelpa pyvenv promise projectile origami ob-sql-mode multi-web-mode mo-git-blame mic-paren magit lsp-ui js2-mode jedi helm-lsp helm-ag gitignore-mode gitconfig-mode ggtags gdscript-mode flycheck eldoc-box eglot company-statistics company-lsp ag))
  '(projectile-completion-system 'helm)
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
  '(ps-font-size '(7 . 10))
  '(ps-paper-type 'letter)
  '(py-python-command "c:/python27/python")
- '(recentf-exclude
-   '("semantic.cache" "\\.completions" "\\.projects\\.ede" "\\.ido\\.last" ".tmp.babel-"))
- '(recentf-max-menu-items 30)
- '(recentf-max-saved-items 50)
  '(rng-nxml-auto-validate-flag t)
  '(safe-local-variable-values
    '((indent-tabs-mode . 2)
