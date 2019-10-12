@@ -14,8 +14,6 @@
       (setq gco-timer now)
       (message "Elapsed time at %s: %s sec" loc elapsed)))
 
-(package-initialize)
-
 ;;; Like normal-top-level-add-subdirs-to-load-path except it doesn't recurse.
 
 (setq user-full-name "Gary Oberbrunner"
@@ -65,16 +63,17 @@
       )
   ('error (message "No 'package' package found."))
   )
+(setq package-check-signature nil)
+(package-initialize)
 
 ;;; Meta-package system: use-package. Auto-installs and configures packages.
 (when (not (fboundp 'use-package))
-  (package-list-packages)
-  (sit-for 10)                           ; wait for packages to update
+  (package-refresh-contents)
   (package-install 'use-package))
 (require 'use-package)
+(setq use-package-verbose t)
 (when (not (fboundp 'quelpa))
-  (package-list-packages)
-  (sit-for 10)                           ; wait for packages to update
+  (package-refresh-contents)
   (package-install 'quelpa))
 
 ;; edit server for Chrome (browser extension):
@@ -205,9 +204,7 @@
 (use-package company-statistics
   :ensure t
   :after company
-  :config
-  (add-hook 'after-init-hook
-	    'company-statistics-mode)
+  :hook (after-init . company-statistics-mode)
   )
 
 ;; Gnu Global tags
@@ -215,10 +212,9 @@
 (use-package ggtags
   :ensure t
   :config
-  (add-hook 'c-mode-common-hook
-	    (lambda ()
-	      (when (derived-mode-p 'c-mode 'c++-mode 'java-mode)
-		(ggtags-mode 1))))
+  :hook (c-mode-common . (lambda ()
+	                   (when (derived-mode-p 'c-mode 'c++-mode 'java-mode)
+		             (ggtags-mode 1))))
   )
 
 ;; string manipulation routines
@@ -227,7 +223,7 @@
 
 (use-package flycheck
   :ensure t
-  :init (global-flycheck-mode))
+  :config (global-flycheck-mode))
 
 ;;; for Windows, especially for emacs-lisp checker which passes
 ;;; lots of cmd-line args to emacs
@@ -269,14 +265,13 @@ Return the errors parsed with the error patterns of CHECKER."
 ;;; Need this for wgrep to understand ag-search buffers
 (use-package wgrep-ag
   :ensure t
-  :init
-  (autoload 'wgrep-ag-setup "wgrep-ag")
-  (add-hook 'ag-mode-hook 'wgrep-ag-setup)
+  :hook (ag-mode . wgrep-ag-setup)
   )
 
 (use-package gitconfig-mode
   :ensure t
   :mode "\\.gitconfig\\'")
+
 (use-package gitignore-mode
   :ensure t
   :mode "\\.gitignore\\'")
@@ -296,19 +291,12 @@ Return the errors parsed with the error patterns of CHECKER."
   :commands (mo-git-blame-file mo-git-blame-current)
   )
 
-;;; Trying this. Use tabs to express indentation, spaces for
-;;; alignment. It's a little odd but may be good, who knows. It sets
-;;; tab-width locally to indent though, so people with tab-width set
-;;; to 8 will see very deep indentation.
-;;;;; NO, too weird for 2018 unless it could auto-guess. Just use spaces via indent-tabs-mode=nil.
-;;;(use-package smart-tabs-mode
-;;;  :ensure t
-;;;  :config (smart-tabs-insinuate 'c 'c++ 'python))
-
 ;;; Temporarily highlight undo, yank, find-tag and a few other things
 (use-package volatile-highlights
   :ensure t
-  :config (volatile-highlights-mode t))
+  :config
+  (volatile-highlights-mode t)
+  )
 
 ;;; This sets $PATH and exec-path by querying the shell.
 ;;; Much better than trying to keep them in sync as above.
@@ -334,26 +322,26 @@ Return the errors parsed with the error patterns of CHECKER."
 ;; better visual paren matching
 (use-package mic-paren
   :ensure t
+  :hook (c-mode-common .
+                       (lambda ()
+                        (paren-toggle-open-paren-context 1)))
   :config
   (paren-activate)
-  (add-hook 'c-mode-common-hook
-            (function (lambda ()
-                        (paren-toggle-open-paren-context 1))))
   )
 
 (use-package gdscript-mode
   :ensure t
-  :mode (("\\.gd$" . gdscript-mode))
+  :mode ("\\.gd$")
 )
 
 (use-package typescript-mode
   :ensure t
-  :mode (("\\.ts$" . typescript-mode))
+  :mode ("\\.ts$")
   )
 
 (use-package js2-mode
   :ensure t
-  :mode (("\\.js$" . js2-mode))
+  :mode ("\\.js$")
   )
 
 ;;; Vue mode, based on mmm-mode -- set up for .vue files (html/css/script)
@@ -402,15 +390,16 @@ which is a lot faster."""
        (use-package lsp-mode
          :ensure t
          :commands lsp
+         :hook ((vue-mode . lsp)
+                (typescript-mode . lsp)
+                (python-mode . lsp))
          :config
          (setq lsp-prefer-flymake nil)
-         (add-hook 'vue-mode-hook #'lsp)
-         (add-hook 'typescript-mode-hook #'lsp)
-         (add-hook 'python-mode-hook #'lsp)
          )
        (use-package lsp-ui
          :ensure t
          :commands lsp-ui-mode
+         :hook (lsp-mode . lsp-ui-mode)
          :config
          (setq lsp-ui-doc-enable t
                lsp-ui-doc-use-childframe t
@@ -423,7 +412,6 @@ which is a lot faster."""
                lsp-ui-peek-enable t
                lsp-ui-peek-list-width 60
                lsp-ui-peek-peek-height 25)
-         (add-hook 'lsp-mode-hook 'lsp-ui-mode)
          )
        (use-package company-lsp
          :ensure t
@@ -446,10 +434,10 @@ which is a lot faster."""
        (use-package eglot
          :ensure t
          :commands eglot
+         :hook ((vue-mode . eglot-ensure)
+                (typescript-mode eglot-ensure))
          :config
          (my-eglot-init)
-         (add-hook 'vue-mode-hook 'eglot-ensure)
-         (add-hook 'typescript-mode-hook 'eglot-ensure)
        )))
 
 (defun my-eglot-init ()
@@ -498,8 +486,8 @@ which is a lot faster."""
 ;;; Try displaying those in a child frame:
 (use-package eldoc-box
   :ensure t
+  :hook (eglot--managed-mode . eldoc-box-hover-mode)
   :config
-  (add-hook 'eglot--managed-mode-hook #'eldoc-box-hover-mode t)
   (set-face-background 'eldoc-box-body "#ffb")
   )
 
@@ -535,8 +523,8 @@ This improves on the default in eldoc-mode.el."
 
 (use-package origami
   :ensure t
-  :bind (("C-c f" . origami-recursively-toggle-node))
-  :bind (("C-c F" . origami-show-only-node))
+  :bind (("C-c f" . origami-recursively-toggle-node)
+         ("C-c F" . origami-show-only-node))
   )
 
 ;;; M-x helm-ag: very nice for searching through files!
@@ -562,10 +550,10 @@ This improves on the default in eldoc-mode.el."
             )))
 (use-package projectile
   :ensure t
+  :bind (("s-p" . projectile-command-map)
+         ("C-c p" . projectile-command-map))
   :config
   (projectile-mode +1)
-  (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
-  (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
   (setq projectile-mode-line-prefix " Prj")
   (setq projectile-mode-line-function 'projectile-mode-line)
   )
@@ -611,6 +599,13 @@ This improves on the default in eldoc-mode.el."
                '("c:/dss/Product/Horizon/WebProjects/horizon-project/horizon" ":HZN:"))
   (sml/setup)
   )
+
+;; unfill fills or unfills para, toggling each time you press M-q
+(use-package unfill
+  :ensure t
+  :bind ([remap fill-paragraph] . unfill-toggle))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -1738,8 +1733,8 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts '{})
  '(package-check-signature nil)
  '(package-selected-packages
-   '(yasnippet yaml-mode wgrep-ag vue-mode volatile-highlights virtualenvwrapper use-package typescript-mode string-inflection smart-mode-line quelpa pyvenv promise projectile origami ob-sql-mode multi-web-mode mo-git-blame mic-paren magit lsp-ui js2-mode jedi helm-lsp helm-ag gitignore-mode gitconfig-mode ggtags gdscript-mode flycheck eldoc-box eglot company-statistics company-lsp ag))
- '(projectile-completion-system 'helm)
+   '(unfill yasnippet yaml-mode wgrep-ag vue-mode volatile-highlights virtualenvwrapper use-package typescript-mode string-inflection smart-mode-line quelpa pyvenv promise projectile origami ob-sql-mode multi-web-mode mo-git-blame mic-paren magit lsp-ui js2-mode jedi helm-lsp helm-ag gitignore-mode gitconfig-mode ggtags gdscript-mode flycheck eldoc-box eglot company-statistics company-lsp ag))
+ '(projectile-completion-system 'helm t)
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
  '(ps-font-size '(7 . 10))
@@ -1764,6 +1759,7 @@ by using nxml's indentation rules."
  '(speedbar-tag-hierarchy-method
    '(speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy))
  '(taskjuggler-command "tj3")
+ '(tramp-syntax 'default nil (tramp))
  '(typescript-indent-level 2)
  '(vc-dired-recurse nil)
  '(visible-bell t)
