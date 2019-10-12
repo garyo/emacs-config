@@ -352,6 +352,20 @@ Return the errors parsed with the error patterns of CHECKER."
   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
   )
 
+;;; Yasnippet -- autocomplete various language snippets
+;;; TAB expands snippet "keys" (abbrevs) and moves to next field
+(use-package yasnippet
+  :ensure t
+  :defer 1
+  :diminish yas-minor-mode
+  :config (yas-global-mode))
+
+;;; all the snippets -- this is big!
+(use-package yasnippet-snippets
+  :ensure t
+  :after yasnippet
+  :config (yasnippet-snippets-initialize))
+
 ;;; multiple major modes in a buffer; like multi-web-mode but more modern.
 ;;; polymode may be better still but as of Sept 2018 it's still being rewritten.
 ;; (use-package mmm-mode
@@ -429,6 +443,8 @@ which is a lot faster."""
        (use-package yasnippet
          :ensure t
          )
+       (if (not (featurep 'yasnippet))
+           (warn "LSP: missing yasnippet, LSP won't work well"))
        )
       (t
        (use-package eglot
@@ -1733,7 +1749,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts '{})
  '(package-check-signature nil)
  '(package-selected-packages
-   '(unfill yasnippet yaml-mode wgrep-ag vue-mode volatile-highlights virtualenvwrapper use-package typescript-mode string-inflection smart-mode-line quelpa pyvenv promise projectile origami ob-sql-mode multi-web-mode mo-git-blame mic-paren magit lsp-ui js2-mode jedi helm-lsp helm-ag gitignore-mode gitconfig-mode ggtags gdscript-mode flycheck eldoc-box eglot company-statistics company-lsp ag))
+   '(yasnippet-snippets unfill yasnippet yaml-mode wgrep-ag vue-mode volatile-highlights virtualenvwrapper use-package typescript-mode string-inflection smart-mode-line quelpa pyvenv promise projectile origami ob-sql-mode multi-web-mode mo-git-blame mic-paren magit lsp-ui js2-mode jedi helm-lsp helm-ag gitignore-mode gitconfig-mode ggtags gdscript-mode flycheck eldoc-box eglot company-statistics company-lsp ag))
  '(projectile-completion-system 'helm t)
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
