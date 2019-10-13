@@ -71,7 +71,8 @@
   (package-refresh-contents)
   (package-install 'use-package))
 (require 'use-package)
-(setq use-package-verbose t)
+(setq use-package-verbose t
+      use-package-always-ensure t)
 (when (not (fboundp 'quelpa))
   (package-refresh-contents)
   (package-install 'quelpa))
@@ -190,19 +191,18 @@
 ;(advice-add 'use-package :after #'print-elapsed-time-for-package)
 
 (use-package company
-  :ensure t
-  :demand
   :bind (("M-RET" . company-complete))
   :config
   (global-company-mode)
   ;; dabbrev mode seems closest to TMC completion
-  (setq company-backends '(company-capf company-semantic company-dabbrev-code company-dabbrev company-etags company-keywords))
+  (setq company-backends '(company-capf company-semantic company-dabbrev-code
+                                        company-dabbrev company-etags
+                                        company-keywords))
   (setq company-dabbrev-downcase nil	 ;make case-sensitive
 	company-dabbrev-ignore-case nil) ;make case-sensitive
 )
 
 (use-package company-statistics
-  :ensure t
   :after company
   :hook (after-init . company-statistics-mode)
   )
@@ -210,7 +210,6 @@
 ;; Gnu Global tags
 ;; package-install ggtags
 (use-package ggtags
-  :ensure t
   :config
   :hook (c-mode-common . (lambda ()
 	                   (when (derived-mode-p 'c-mode 'c++-mode 'java-mode)
@@ -218,11 +217,9 @@
   )
 
 ;; string manipulation routines
-(use-package s
-  :ensure t)
+(use-package s)
 
 (use-package flycheck
-  :ensure t
   :config (global-flycheck-mode))
 
 ;;; for Windows, especially for emacs-lisp checker which passes
@@ -250,7 +247,6 @@ Return the errors parsed with the error patterns of CHECKER."
 ;(quelpa '(pipenv :fetcher github :repo "garyo/pipenv.el"))
 
 (use-package markdown-mode
-  :ensure t
   :commands (markdown-mode gfm-mode)
   :mode (("README\\.md\\'" . gfm-mode)
          ("\\.md\\'" . markdown-mode)
@@ -259,25 +255,20 @@ Return the errors parsed with the error patterns of CHECKER."
 
 ;;; wgrep-change-to-wgrep-mode to edit right in a grep buffer, C-c C-e to apply.  Nice!
 (use-package wgrep
-  :ensure t
   :commands wgrep-change-to-wgrep-mode)
 
 ;;; Need this for wgrep to understand ag-search buffers
 (use-package wgrep-ag
-  :ensure t
   :hook (ag-mode . wgrep-ag-setup)
   )
 
 (use-package gitconfig-mode
-  :ensure t
   :mode "\\.gitconfig\\'")
 
 (use-package gitignore-mode
-  :ensure t
   :mode "\\.gitignore\\'")
 
 (use-package magit
-  :ensure t
   :bind (("C-x v =" . magit-status)
 	 ("C-x v l" . magit-log-current))
   :config
@@ -287,13 +278,11 @@ Return the errors parsed with the error patterns of CHECKER."
   )
 
 (use-package mo-git-blame
-  :ensure t
   :commands (mo-git-blame-file mo-git-blame-current)
   )
 
 ;;; Temporarily highlight undo, yank, find-tag and a few other things
 (use-package volatile-highlights
-  :ensure t
   :config
   (volatile-highlights-mode t)
   )
@@ -388,7 +377,10 @@ Return the errors parsed with the error patterns of CHECKER."
   """Return t if \"json-serialize\" is implemented as a C function.
 This was done for Emacs 27 but not all builds include the C version,
 which is a lot faster."""
-  (subrp (symbol-function 'json-serialize)))
+  (and
+   (subrp (symbol-function 'json-serialize))
+   ;; test that it works -- on Windows the DLL (or deps) may be missing
+   (equal (json-serialize (json-parse-string "[123]")) "[123]")))
 
 (unless (has-fast-json)
   (warn "This emacs is using older elisp json functions; maybe rebuild with libjansson?"))
@@ -408,7 +400,7 @@ which is a lot faster."""
                 (typescript-mode . lsp)
                 (python-mode . lsp))
          :config
-         (setq lsp-prefer-flymake nil)
+         (setq lsp-prefer-flymake t)
          )
        (use-package lsp-ui
          :ensure t
@@ -429,26 +421,27 @@ which is a lot faster."""
          )
        (use-package company-lsp
          :ensure t
-         :commands company-lsp
          :config
          (push 'company-lsp company-backends)
          ;; Disable client-side cache because the LSP server does a better job.
          (setq company-transformers nil
                company-lsp-async t
-               company-lsp-cache-candidates nil)
+               company-lsp-cache-candidates nil
+               ;; this is important for typescript language server which returns way too much!
+               ;; also javascript-typescript-langserver, same thing
+               company-lsp-match-candidate-predicate #'company-lsp-match-candidate-prefix
+               company-lsp-cache-candidates 'nil)
          )
        (use-package helm-lsp
-         :ensure t
          )
        (use-package yasnippet
-         :ensure t
          )
        (if (not (featurep 'yasnippet))
            (warn "LSP: missing yasnippet, LSP won't work well"))
        )
       (t
+       (use-package jsonrpc)
        (use-package eglot
-         :ensure t
          :commands eglot
          :hook ((vue-mode . eglot-ensure)
                 (typescript-mode eglot-ensure))
@@ -1698,10 +1691,10 @@ by using nxml's indentation rules."
  '(js2-strict-missing-semi-warning nil)
  '(lsp-clients-typescript-server
    "c:/Users/garyo/AppData/Roaming/npm/typescript-language-server.cmd")
- '(lsp-log-io nil)
+ '(lsp-log-io t)
  '(lsp-print-performance t)
  '(lsp-response-timeout 10)
- '(lsp-trace nil)
+ '(lsp-trace t)
  '(magit-backup-mode nil)
  '(magit-cygwin-mount-points '(("/c" . "c:")))
  '(magit-diff-expansion-threshold 999.0)
