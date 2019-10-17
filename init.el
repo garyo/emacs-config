@@ -14,10 +14,17 @@
       (setq gco-timer now)
       (message "Elapsed time at %s: %s sec" loc elapsed)))
 
+;; Prefer .el file if newer than .elc
+(setq load-prefer-newer t)
+
 ;;; Like normal-top-level-add-subdirs-to-load-path except it doesn't recurse.
 
 (setq user-full-name "Gary Oberbrunner"
       user-mail-address "garyo@darkstarsystems.com")
+
+;; don't GC after every 800k; only when idle.
+(setq gc-cons-threshold (eval-when-compile (* 1024 1024 1024)))
+(run-with-idle-timer 10 t (lambda () (garbage-collect)))
 
 (defun add-dir-and-subdirs-to-load-path (dir)
   "Add DIR and its subdirs to \"load-path\"."
@@ -76,6 +83,11 @@
 (when (not (fboundp 'quelpa))
   (package-refresh-contents)
   (package-install 'quelpa))
+(quelpa
+ '(quelpa-use-package
+   :fetcher git
+   :url "https://framagit.org/steckerhalter/quelpa-use-package.git"))
+(require 'quelpa-use-package)
 
 ;; edit server for Chrome (browser extension):
 (when (maybe-require 'edit-server)
@@ -293,24 +305,20 @@ Return the errors parsed with the error patterns of CHECKER."
 ;;; Also can copy other env vars, see exec-path-from-shell-copy-env.
 ;(use-package exec-path-from-shell
 ;  :if (memq window-system '(mac ns))
-;  :ensure t
 ;  :config
 ;  (exec-path-from-shell-initialize))
 
 (use-package org
-  :ensure t
   :mode (("\\.org$" . org-mode))
   :commands org-mode
   :config
   (require 'org-mouse)
 )
 ;; (use-package ox-tufte
-;;   :ensure t
 ;;   :after org)
 
 ;; better visual paren matching
 (use-package mic-paren
-  :ensure t
   :hook (c-mode-common .
                        (lambda ()
                         (paren-toggle-open-paren-context 1)))
@@ -319,46 +327,41 @@ Return the errors parsed with the error patterns of CHECKER."
   )
 
 (use-package gdscript-mode
-  :ensure t
   :mode ("\\.gd$")
 )
 
 (use-package typescript-mode
-  :ensure t
   :mode ("\\.ts$")
   )
 
 (use-package js2-mode
-  :ensure t
   :mode ("\\.js$")
   )
 
 ;;; Vue mode, based on mmm-mode -- set up for .vue files (html/css/script)
 (use-package vue-mode
-  :ensure t
   :mode "\\.vue$"
   :config
   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
+  ;; fix for Emacs27 bug (as of June 2019)
+  ;; without this, TAB doesn't indent in the <script> section
+  (add-to-list 'mmm-save-local-variables '(syntax-ppss-table buffer))
   )
 
 ;;; Yasnippet -- autocomplete various language snippets
 ;;; TAB expands snippet "keys" (abbrevs) and moves to next field
 (use-package yasnippet
-  :ensure t
-  :defer 1
   :diminish yas-minor-mode
   :config (yas-global-mode))
 
 ;;; all the snippets -- this is big!
 (use-package yasnippet-snippets
-  :ensure t
   :after yasnippet
   :config (yasnippet-snippets-initialize))
 
 ;;; multiple major modes in a buffer; like multi-web-mode but more modern.
 ;;; polymode may be better still but as of Sept 2018 it's still being rewritten.
 ;; (use-package mmm-mode
-;;   :ensure t
 ;;   :config
 ;;   (mmm-add-mode-ext-class 'html-mode nil 'html-js) ; set up for js in html
 ;;   (mmm-add-mode-ext-class 'html-mode nil 'html-css) ; set up for css in html
@@ -388,26 +391,133 @@ which is a lot faster."""
 ;; May 2019: Eglot is more responsive and simpler
 ;; Oct 2019: lsp-mode has more features, but it's very slow
 ;;           unless this Emacs has the fast C json lib (libjansson).
-(defvar use-lsp-mode (has-fast-json)
-  "T means use lsp-mode; nil means use eglot.")
+;;           ... and even then it's super slow for me.
+(defvar use-lsp-mode nil
+  "T means use lsp-mode; nil means use eglot.
+Always uses eglot if this Emacs doesn't have fast JSON.")
 
-(cond (use-lsp-mode
+(defvar vls-workspace-configuration
+  '((:vetur . (:completion
+               (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
+               :grammar
+               (:customBlocks
+                (:docs "md" :i18n "json"))
+               :validation
+               (:template t :style t :script t)
+               :format
+               (:defaultFormatter
+                (:html "prettyhtml" :css "prettier" :postcss "prettier"
+                       :scss "prettier" :less "prettier"
+                       :stylus "stylus-supremacy"
+                       :js "prettier" :ts "prettier")
+                :defaultFormatterOptions
+                (:js-beautify-html
+                 (:wrap_attributes "force-expand-multiline")
+                 :prettyhtml
+                 (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
+                :styleInitialIndent :json-false
+                :scriptInitialIndent :json-false)
+               :trace
+               (:server "verbose")
+               :dev
+               (:vlsPath "" :logLevel: "DEBUG")
+               :html
+               (:suggest nil)
+               :prettier :json-false
+               ))
+    (:html . (:suggest ()))
+    (:prettier . :json-false)
+    (:javascript . (:format nil :suggest nil))
+    (:typescript . (:format nil :suggest nil))
+    (:emmet . ())
+    (:stylusSupremacy . ())
+    )
+  )
+
+(defun my-eglot-init ()
+  """Initialize eglot."""
+  (eglot-ensure)
+
+  (defclass eglot-vls (eglot-lsp-server) ()
+    :documentation "Vue Language Server.")
+
+  ;; XXX: only for VLS
+  (add-hook 'eglot-server-initialized-hook
+            (lambda (server)
+              (progn
+                (message "Eglot connected to %s" server)
+                (setq eglot-workspace-configuration vls-workspace-configuration)
+                )))
+
+  (add-to-list 'eglot-server-programs
+               '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
+
+    "workspaceFolders": [
+        {
+            "uri": "file:///c%3A/dss/Product/Horizon/WebProjects/horizon-project/horizon",
+            "name": "horizon"
+        }
+    ]
+
+  (cl-defmethod eglot-initialization-options ((server eglot-vls))
+    "Passes through required vetur initialization options to VLS."
+    '(:config
+      (:vetur
+       (:completion
+        (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
+        :grammar
+        (:customBlocks
+         (:docs "md" :i18n "json"))
+        :validation
+        (:template t :style t :script t)
+        :format
+        (:defaultFormatter
+         (:html "prettyhtml" :css "prettier" :postcss "prettier" :scss "prettier" :less "prettier" :stylus "stylus-supremacy" :js "prettier" :ts "prettier")
+         :defaultFormatterOptions
+         (:js-beautify-html
+          (:wrap_attributes "force-expand-multiline")
+          :prettyhtml
+          (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
+         :styleInitialIndent :json-false
+         :scriptInitialIndent :json-false)
+        :trace
+        (:server "verbose")
+        :dev
+        (:vlsPath "")
+        :html
+        (:suggest nil)
+        :prettier :json-false
+        )
+       :css (:suggest nil)
+       :html (:suggest nil)
+       :prettier :json-false
+       :javascript (:format nil :suggest nil)
+       :typescript (:format nil :suggest nil)
+       :emmet nil
+       :stylusSupremacy nil
+       )))
+  )
+
+(cond ((and use-lsp-mode (has-fast-json))
        ;; LSP mode: language server protocol for getting completions, definitions etc.
        (use-package lsp-mode
-         :ensure t
          :commands lsp
          :hook ((vue-mode . lsp)
                 (typescript-mode . lsp)
                 (python-mode . lsp))
          :config
-         (setq lsp-prefer-flymake t)
+         (setq lsp-prefer-flymake nil
+               lsp-log-io nil
+               lsp-trace nil
+               lsp-print-performance t
+               lsp-response-timeout 5
+               )
          )
        (use-package lsp-ui
-         :ensure t
          :commands lsp-ui-mode
          :hook (lsp-mode . lsp-ui-mode)
          :config
-         (setq lsp-ui-doc-enable t
+         (setq lsp-ui-doc-enable nil    ; lsp-ui-doc is nice but very slow
                lsp-ui-doc-use-childframe t
                lsp-ui-doc-position 'top
                lsp-ui-doc-include-signature t
@@ -417,121 +527,57 @@ which is a lot faster."""
                lsp-ui-flycheck-live-reporting t
                lsp-ui-peek-enable t
                lsp-ui-peek-list-width 60
-               lsp-ui-peek-peek-height 25)
-         )
+               lsp-ui-peek-peek-height 25
+               )
+	 )
        (use-package company-lsp
-         :ensure t
          :config
          (push 'company-lsp company-backends)
          ;; Disable client-side cache because the LSP server does a better job.
-         (setq company-transformers nil
-               company-lsp-async t
-               company-lsp-cache-candidates nil
+         (setq company-lsp-async t
+               company-lsp-cache-candidates 'auto
                ;; this is important for typescript language server which returns way too much!
                ;; also javascript-typescript-langserver, same thing
-               company-lsp-match-candidate-predicate #'company-lsp-match-candidate-prefix
-               company-lsp-cache-candidates 'nil)
+               company-lsp-match-candidate-predicate #'company-lsp-match-candidate-flex
+               company-lsp-enable-snippet t
+               )
          )
        (use-package helm-lsp
          )
-       (use-package yasnippet
-         )
+
        (if (not (featurep 'yasnippet))
            (warn "LSP: missing yasnippet, LSP won't work well"))
        )
       (t
        (use-package jsonrpc)
        (use-package eglot
+         :quelpa ((eglot :fetcher github :repo "joaotavora/eglot"))
          :commands eglot
          :hook ((vue-mode . eglot-ensure)
-                (typescript-mode eglot-ensure))
+                (typescript-mode . eglot-ensure))
          :config
          (my-eglot-init)
-       )))
-
-(defun my-eglot-init ()
-  """Initialize eglot."""
-  (add-to-list 'eglot-server-programs
-               '(typescript-mode . ("typescript-language-server.cmd" "--stdio"))
-               )
-
-  (defclass eglot-vls (eglot-lsp-server) ()
-    :documentation "Vue Language Server.")
-
-  (add-to-list 'eglot-server-programs
-               ;; '(vue-mode . ("vls.cmd" "--stdio")) ; vue language server
-               '(vue-mode . (eglot-vls . ("vls" "--stdio")))
-               )
-
-  (cl-defmethod eglot-initialization-options ((server eglot-vls))
-    "Passes through required vetur initialization options to VLS."
-    '(:vetur
-      (:completion
-       (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
-       :grammar
-       (:customBlocks
-        (:docs "md" :i18n "json"))
-       :validation
-       (:template t :style t :script t)
-       :format
-       (:options
-        (:tabSize 2 :useTabs :json-false)
-        :defaultFormatter
-        (:html "prettyhtml" :css "prettier" :postcss "prettier" :scss "prettier" :less "prettier" :stylus "stylus-supremacy" :js "prettier" :ts "prettier")
-        :defaultFormatterOptions
-        (:js-beautify-html
-         (:wrap_attributes "force-expand-multiline")
-         :prettyhtml
-         (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
-        :styleInitialIndent :json-false :scriptInitialIndent :json-false)
-       :trace
-       (:server "verbose")
-       :dev
-       (:vlsPath ""))
-      ))
-  )
+         )
+       ))
 
 ;;; Eglot uses eldoc to display docs for functions
 ;;; Try displaying those in a child frame:
-(use-package eldoc-box
-  :ensure t
-  :hook (eglot--managed-mode . eldoc-box-hover-mode)
-  :config
-  (set-face-background 'eldoc-box-body "#ffb")
-  )
-
-(defun eldoc-box--my-upper-corner-position-function (width _)
-  "Set childframe position for eldoc boxes based on WIDTH.
-This improves on the default in eldoc-mode.el."
-  (let* ((right-offset 30)
-         (has-right-scroll-bar (eq (car (frame-current-scroll-bars (selected-frame))) 'right))
-         (right-fringe (cadr (window-fringes)))
-         (right-border-width (if has-right-scroll-bar
-                                 (frame-scroll-bar-width (selected-frame))
-                               0))
-         (right-border (+ right-offset right-border-width right-fringe)))
-    (cons (pcase (eldoc-box--window-side) ; x position + a little padding
-            ;; display doc on right
-            ('left (- (frame-outer-width (selected-frame)) width right-border))
-            ;; display doc on left
-            ('right 16))
-        ;; y position + a little padding (16)
-        16)))
-(setq eldoc-box-position-function #'eldoc-box--my-upper-corner-position-function)
+;; (use-package eldoc-box
+;;   :hook (eglot--managed-mode . eldoc-box-hover-mode)
+;;   :config
+;;   (set-face-background 'eldoc-box-body "#ffb")
+;;   )
 
 ;;; Work with python virtualenvs
 ;;; M-x venv-workon (has completion), M-x venv-deactivate, M-x venv-*
 ;;; Looks in ~/.virtualenvs
 (use-package virtualenvwrapper
-  :ensure t
   )
 
 (use-package yaml-mode
-  :ensure t
   :mode "\\.yaml\\'")
 
 (use-package origami
-  :ensure t
   :bind (("C-c f" . origami-recursively-toggle-node)
          ("C-c F" . origami-show-only-node))
   )
@@ -539,7 +585,6 @@ This improves on the default in eldoc-mode.el."
 ;;; M-x helm-ag: very nice for searching through files!
 ;;; Requires ag, "the silver searcher"
 (use-package helm-ag
-  :ensure t
   :config
   (setq ag-executable (if (eq system-type 'windows-nt)
                           "c:/tools/msys64/msys64/mingw64/bin/ag.exe"
@@ -558,7 +603,6 @@ This improves on the default in eldoc-mode.el."
             (or project-name "-")
             )))
 (use-package projectile
-  :ensure t
   :bind (("s-p" . projectile-command-map)
          ("C-c p" . projectile-command-map))
   :config
@@ -568,7 +612,6 @@ This improves on the default in eldoc-mode.el."
   )
 
 (use-package helm
-  :ensure t
   :diminish helm-mode
   :init
   (progn
@@ -595,7 +638,6 @@ This improves on the default in eldoc-mode.el."
          ("C-x c SPC" . helm-all-mark-rings)))
 
 (use-package smart-mode-line
-  :ensure t
   :config
   (setq sml/no-confirm-load-theme t)
   (setq sml/name-width 40)
@@ -611,7 +653,6 @@ This improves on the default in eldoc-mode.el."
 
 ;; unfill fills or unfills para, toggling each time you press M-q
 (use-package unfill
-  :ensure t
   :bind ([remap fill-paragraph] . unfill-toggle))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1541,7 +1582,6 @@ by using nxml's indentation rules."
 ;;           (lambda ()
 ;;             ;;; don't do this until needed; it can take a few sec
 ;;             (use-package ob-sql-mode
-;;               :ensure t
 ;;               :after org)))
 
 
@@ -1687,14 +1727,9 @@ by using nxml's indentation rules."
  '(ido-use-filename-at-point 'guess)
  '(indent-tabs-mode nil)
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
+ '(jit-lock-defer-time 0.2)
  '(js-indent-level 2)
  '(js2-strict-missing-semi-warning nil)
- '(lsp-clients-typescript-server
-   "c:/Users/garyo/AppData/Roaming/npm/typescript-language-server.cmd")
- '(lsp-log-io t)
- '(lsp-print-performance t)
- '(lsp-response-timeout 10)
- '(lsp-trace t)
  '(magit-backup-mode nil)
  '(magit-cygwin-mount-points '(("/c" . "c:")))
  '(magit-diff-expansion-threshold 999.0)
@@ -1742,7 +1777,7 @@ by using nxml's indentation rules."
  '(org-use-sub-superscripts '{})
  '(package-check-signature nil)
  '(package-selected-packages
-   '(yasnippet-snippets unfill yasnippet yaml-mode wgrep-ag vue-mode volatile-highlights virtualenvwrapper use-package typescript-mode string-inflection smart-mode-line quelpa pyvenv promise projectile origami ob-sql-mode multi-web-mode mo-git-blame mic-paren magit lsp-ui js2-mode jedi helm-lsp helm-ag gitignore-mode gitconfig-mode ggtags gdscript-mode flycheck eldoc-box eglot company-statistics company-lsp ag))
+   '(quelpa-use-package yasnippet-snippets unfill yasnippet yaml-mode wgrep-ag vue-mode volatile-highlights virtualenvwrapper use-package typescript-mode string-inflection smart-mode-line quelpa pyvenv promise projectile origami ob-sql-mode multi-web-mode mo-git-blame mic-paren magit lsp-ui js2-mode jedi helm-lsp helm-ag gitignore-mode gitconfig-mode ggtags gdscript-mode flycheck eldoc-box eglot company-statistics company-lsp ag))
  '(projectile-completion-system 'helm t)
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
