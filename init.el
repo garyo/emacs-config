@@ -392,12 +392,13 @@ which is a lot faster."""
 ;; Oct 2019: lsp-mode has more features, but it's very slow
 ;;           unless this Emacs has the fast C json lib (libjansson).
 ;;           ... and even then it's super slow for me.
-(defvar use-lsp-mode nil
+(defvar use-lsp-mode t
   "T means use lsp-mode; nil means use eglot.
 Always uses eglot if this Emacs doesn't have fast JSON.")
 
 (defvar vls-workspace-configuration
-  '((:vetur . (:completion
+  '((:vetur . (:useWorkspaceDependencies: :json-false
+               :completion
                (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
                :grammar
                (:customBlocks
@@ -405,7 +406,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                :validation
                (:template t :style t :script t)
                :format
-               (:defaultFormatter
+               (:enable t
+                :defaultFormatter
                 (:html "prettyhtml" :css "prettier" :postcss "prettier"
                        :scss "prettier" :less "prettier"
                        :stylus "stylus-supremacy"
@@ -433,6 +435,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     (:stylusSupremacy . ())
     )
   )
+
+(message (json-encode vls-workspace-configuration))
 
 (defun my-eglot-init ()
   """Initialize eglot."""
@@ -510,7 +514,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                lsp-log-io nil
                lsp-trace nil
                lsp-print-performance t
-               lsp-response-timeout 5
+               lsp-response-timeout 10
                )
          )
        (use-package lsp-ui
