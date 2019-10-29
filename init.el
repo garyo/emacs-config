@@ -83,11 +83,6 @@
 (when (not (fboundp 'quelpa))
   (package-refresh-contents)
   (package-install 'quelpa))
-(quelpa
- '(quelpa-use-package
-   :fetcher git
-   :url "https://framagit.org/steckerhalter/quelpa-use-package.git"))
-(require 'quelpa-use-package)
 
 ;; edit server for Chrome (browser extension):
 (when (maybe-require 'edit-server)
@@ -204,6 +199,7 @@
 
 (use-package company
   :bind (("M-RET" . company-complete))
+  :demand                               ; load it now (better for eglot)
   :config
   (global-company-mode)
   ;; dabbrev mode seems closest to TMC completion
@@ -257,6 +253,8 @@ Return the errors parsed with the error patterns of CHECKER."
 
 ;; My patched version of pipenv.el, 2018
 ;(quelpa '(pipenv :fetcher github :repo "garyo/pipenv.el"))
+
+(use-package quelpa-use-package)
 
 (use-package markdown-mode
   :commands (markdown-mode gfm-mode)
@@ -346,13 +344,36 @@ Return the errors parsed with the error patterns of CHECKER."
   ;; fix for Emacs27 bug (as of June 2019)
   ;; without this, TAB doesn't indent in the <script> section
   (add-to-list 'mmm-save-local-variables '(syntax-ppss-table buffer))
+  (add-to-list 'mmm-save-local-variables '(c-current-comment-prefix region))
   )
 
 ;;; Yasnippet -- autocomplete various language snippets
 ;;; TAB expands snippet "keys" (abbrevs) and moves to next field
 (use-package yasnippet
   :diminish yas-minor-mode
-  :config (yas-global-mode))
+  :config
+  (yas-global-mode)
+  ;; This is a bit questionable: during an expansion, yasnippet normally uses
+  ;; TAB to accept a field and move to the next field. But company also binds
+  ;; TAB (to advance to common completion), so when a completion is in
+  ;; progress _and_ it has a snippet to expand, TAB doesn't work.
+  ;; So this uses a function bound to C-o to either expand an active snippet,
+  ;; or else do the usual open-line.
+  (global-set-key "\C-o" 'yasnippet-or-open-line)
+  (defun yasnippet-or-open-line ()
+    "Call `open-line', unless there are abbrevs or snippets at point.
+In that case expand them.  If there's a snippet expansion in progress,
+move to the next field. Call `open-line' if nothing else applies."
+    (interactive)
+    (cond ((expand-abbrev))
+          ((yas--snippets-at-point)
+           (yas-next-field-or-maybe-expand))
+          ((ignore-errors
+             (yas-expand)))
+          (t
+           (open-line 1))))
+  )
+
 
 ;;; all the snippets -- this is big!
 (use-package yasnippet-snippets
@@ -396,8 +417,11 @@ which is a lot faster."""
   "T means use lsp-mode; nil means use eglot.
 Always uses eglot if this Emacs doesn't have fast JSON.")
 
+(defvar lsp-mode-verbose nil
+  "Set to t to turn on lots of logging in lsp-mode.")
+
 (defvar vls-vetur-configuration
-  '(:useWorkspaceDependencies:
+  `(:useWorkspaceDependencies:
     :json-false
     :completion
     (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
@@ -420,8 +444,9 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
               (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
              :styleInitialIndent :json-false
              :scriptInitialIndent :json-false)
-    :trace
-    (:server "verbose")
+    ,@(if lsp-mode-verbose
+          (:trace
+           (:server "verbose")))
     :dev
     (:vlsPath "" :logLevel: "DEBUG")
     :html
@@ -455,13 +480,6 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (add-to-list 'eglot-server-programs
                '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
 
-    "workspaceFolders": [
-        {
-            "uri": "file:///c%3A/dss/Product/Horizon/WebProjects/horizon-project/horizon",
-            "name": "horizon"
-        }
-    ]
-
   (cl-defmethod eglot-initialization-options ((server eglot-vls))
     "Passes through required vetur initialization options to VLS."
     `(:config
@@ -485,8 +503,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                 (python-mode . lsp))
          :config
          (setq lsp-prefer-flymake nil
-               lsp-log-io nil
-               lsp-trace nil
+               lsp-log-io lsp-mode-verbose
+               lsp-trace lsp-mode-verbose
                lsp-print-performance t
                lsp-response-timeout 10
                )
@@ -513,10 +531,21 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          (push 'company-lsp company-backends)
          ;; Disable client-side cache because the LSP server does a better job (?)
          (setq company-lsp-async t
-               company-lsp-cache-candidates 'auto
-               ;; this is important for typescript language server which returns way too much!
-               ;; also javascript-typescript-langserver, same thing
-               company-lsp-match-candidate-predicate #'company-lsp-match-candidate-prefix
+               company-lsp-cache-candidates nil
+               company-lsp-filter-candidates ; need to filter vls and jsts-ls
+               '((bingo . nil)
+                 (ccls . nil)
+                 (clangd . nil)
+                 (cquery . nil)
+                 (go-bingo . nil)
+                 (gopls . nil)
+                 (javacomp . nil)
+                 (jdtls . nil)
+                 (pyls . nil)
+                 (rls . nil)
+                 (jsts-ls . t)
+                 (vls . t)
+                 (t . t))
                company-lsp-enable-snippet t
                )
          )
@@ -535,6 +564,13 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                 (typescript-mode . eglot-ensure)
                 (javascript-mode . eglot-ensure))
          :config
+         ;; note: company-mode must be loaded already
+         ;; eglot wants to replace all company backends with 'company-capf
+         ;; so I make sure that's first, but keep my other backends in case
+         ;; eglot doesn't have any completions (e.g. to use yasnippet or complete
+         ;; in strings and comments)
+         (add-to-list 'eglot-stay-out-of "company")
+         (add-to-list 'company-backends  'company-capf)
          (my-eglot-init)
          )
        ))
