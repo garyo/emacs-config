@@ -392,41 +392,45 @@ which is a lot faster."""
 ;; Oct 2019: lsp-mode has more features, but it's very slow
 ;;           unless this Emacs has the fast C json lib (libjansson).
 ;;           ... and even then it's super slow for me.
-(defvar use-lsp-mode t
+(defvar use-lsp-mode nil
   "T means use lsp-mode; nil means use eglot.
 Always uses eglot if this Emacs doesn't have fast JSON.")
 
+(defvar vls-vetur-configuration
+  '(:useWorkspaceDependencies:
+    :json-false
+    :completion
+    (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
+    :grammar
+    (:customBlocks
+     (:docs "md" :i18n "json"))
+    :validation
+    (:template t :style t :script t)
+    :format
+    (:enable t
+             :defaultFormatter
+             (:html "prettyhtml" :css "prettier" :postcss "prettier"
+                    :scss "prettier" :less "prettier"
+                    :stylus "stylus-supremacy"
+                    :js "prettier" :ts "prettier")
+             :defaultFormatterOptions
+             (:js-beautify-html
+              (:wrap_attributes "force-expand-multiline")
+              :prettyhtml
+              (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
+             :styleInitialIndent :json-false
+             :scriptInitialIndent :json-false)
+    :trace
+    (:server "verbose")
+    :dev
+    (:vlsPath "" :logLevel: "DEBUG")
+    :html
+    (:suggest nil)
+    :prettier :json-false
+    ))
+
 (defvar vls-workspace-configuration
-  '((:vetur . (:useWorkspaceDependencies: :json-false
-               :completion
-               (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
-               :grammar
-               (:customBlocks
-                (:docs "md" :i18n "json"))
-               :validation
-               (:template t :style t :script t)
-               :format
-               (:enable t
-                :defaultFormatter
-                (:html "prettyhtml" :css "prettier" :postcss "prettier"
-                       :scss "prettier" :less "prettier"
-                       :stylus "stylus-supremacy"
-                       :js "prettier" :ts "prettier")
-                :defaultFormatterOptions
-                (:js-beautify-html
-                 (:wrap_attributes "force-expand-multiline")
-                 :prettyhtml
-                 (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
-                :styleInitialIndent :json-false
-                :scriptInitialIndent :json-false)
-               :trace
-               (:server "verbose")
-               :dev
-               (:vlsPath "" :logLevel: "DEBUG")
-               :html
-               (:suggest nil)
-               :prettier :json-false
-               ))
+  `((:vetur . ,vls-vetur-configuration)
     (:html . (:suggest ()))
     (:prettier . :json-false)
     (:javascript . (:format nil :suggest nil))
@@ -436,21 +440,16 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     )
   )
 
-(message (json-encode vls-workspace-configuration))
-
 (defun my-eglot-init ()
   """Initialize eglot."""
-  (eglot-ensure)
 
   (defclass eglot-vls (eglot-lsp-server) ()
     :documentation "Vue Language Server.")
 
-  ;; XXX: only for VLS
   (add-hook 'eglot-server-initialized-hook
             (lambda (server)
-              (progn
-                (message "Eglot connected to %s" server)
-                (setq eglot-workspace-configuration vls-workspace-configuration)
+              (if (eglot-vls-p server)
+                  (setq eglot-workspace-configuration vls-workspace-configuration)
                 )))
 
   (add-to-list 'eglot-server-programs
@@ -465,33 +464,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
   (cl-defmethod eglot-initialization-options ((server eglot-vls))
     "Passes through required vetur initialization options to VLS."
-    '(:config
-      (:vetur
-       (:completion
-        (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
-        :grammar
-        (:customBlocks
-         (:docs "md" :i18n "json"))
-        :validation
-        (:template t :style t :script t)
-        :format
-        (:defaultFormatter
-         (:html "prettyhtml" :css "prettier" :postcss "prettier" :scss "prettier" :less "prettier" :stylus "stylus-supremacy" :js "prettier" :ts "prettier")
-         :defaultFormatterOptions
-         (:js-beautify-html
-          (:wrap_attributes "force-expand-multiline")
-          :prettyhtml
-          (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
-         :styleInitialIndent :json-false
-         :scriptInitialIndent :json-false)
-        :trace
-        (:server "verbose")
-        :dev
-        (:vlsPath "")
-        :html
-        (:suggest nil)
-        :prettier :json-false
-        )
+    `(:config
+      (:vetur ,vls-vetur-configuration
        :css (:suggest nil)
        :html (:suggest nil)
        :prettier :json-false
@@ -521,7 +495,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          :commands lsp-ui-mode
          :hook (lsp-mode . lsp-ui-mode)
          :config
-         (setq lsp-ui-doc-enable nil    ; lsp-ui-doc is nice but very slow
+         (setq lsp-ui-doc-enable t
                lsp-ui-doc-use-childframe t
                lsp-ui-doc-position 'top
                lsp-ui-doc-include-signature t
@@ -537,12 +511,12 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        (use-package company-lsp
          :config
          (push 'company-lsp company-backends)
-         ;; Disable client-side cache because the LSP server does a better job.
+         ;; Disable client-side cache because the LSP server does a better job (?)
          (setq company-lsp-async t
                company-lsp-cache-candidates 'auto
                ;; this is important for typescript language server which returns way too much!
                ;; also javascript-typescript-langserver, same thing
-               company-lsp-match-candidate-predicate #'company-lsp-match-candidate-flex
+               company-lsp-match-candidate-predicate #'company-lsp-match-candidate-prefix
                company-lsp-enable-snippet t
                )
          )
@@ -558,7 +532,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          :quelpa ((eglot :fetcher github :repo "joaotavora/eglot"))
          :commands eglot
          :hook ((vue-mode . eglot-ensure)
-                (typescript-mode . eglot-ensure))
+                (typescript-mode . eglot-ensure)
+                (javascript-mode . eglot-ensure))
          :config
          (my-eglot-init)
          )
