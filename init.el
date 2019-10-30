@@ -341,9 +341,13 @@ Return the errors parsed with the error patterns of CHECKER."
   :mode "\\.vue$"
   :config
   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
-  ;; fix for Emacs27 bug (as of June 2019)
+  ;; fix for Emacs27/mmm-mode bug (as of June 2019)
   ;; without this, TAB doesn't indent in the <script> section
+  ;; remove once mmm-mode has a fix for this
+  ;; (see https://github.com/purcell/mmm-mode/issues/99)
   (add-to-list 'mmm-save-local-variables '(syntax-ppss-table buffer))
+  ;; Fix for mmm-mode bug https://github.com/purcell/mmm-mode/issues/100
+  ;; (can remove once that's fixed & released)
   (add-to-list 'mmm-save-local-variables '(c-current-comment-prefix region))
   )
 
@@ -432,6 +436,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     (:template t :style t :script t)
     :format
     (:enable t
+             :options (:tabSize 2)      ; required, believe it or not
              :defaultFormatter
              (:html "prettyhtml" :css "prettier" :postcss "prettier"
                     :scss "prettier" :less "prettier"
@@ -445,8 +450,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
              :styleInitialIndent :json-false
              :scriptInitialIndent :json-false)
     ,@(if lsp-mode-verbose
-          (:trace
-           (:server "verbose")))
+          '(:trace
+            (:server "verbose")))
     :dev
     (:vlsPath "" :logLevel: "DEBUG")
     :html
@@ -558,7 +563,10 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
       (t
        (use-package jsonrpc)
        (use-package eglot
-         :quelpa ((eglot :fetcher github :repo "joaotavora/eglot"))
+         ;; XXX for debug/testing only, load from local.
+         ;; Else load from github with quelpa.
+         :load-path "eglot/"
+         ;; :quelpa ((eglot :fetcher github :repo "joaotavora/eglot"))
          :commands eglot
          :hook ((vue-mode . eglot-ensure)
                 (typescript-mode . eglot-ensure)
