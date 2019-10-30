@@ -60,29 +60,23 @@
   "Try to require FEATURE (symbol); return feature or nil."
   (require feature nil t))
 
-;;; Set up package system
-(condition-case error
-    (progn
-      (require 'package)
-      (setq package-archives '(("gnu" . "http://elpa.gnu.org/packages/")
-			       ;;("marmalade" . "http://marmalade-repo.org/packages/")
-			       ("melpa" . "http://melpa.org/packages/")))
-      )
-  ('error (message "No 'package' package found."))
-  )
-(setq package-check-signature nil)
-(package-initialize)
+;;; Set up package system -- straight.el (better than built-in package.el)
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 5))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
 
 ;;; Meta-package system: use-package. Auto-installs and configures packages.
-(when (not (fboundp 'use-package))
-  (package-refresh-contents)
-  (package-install 'use-package))
-(require 'use-package)
-(setq use-package-verbose t
-      use-package-always-ensure t)
-(when (not (fboundp 'quelpa))
-  (package-refresh-contents)
-  (package-install 'quelpa))
+(straight-use-package 'use-package)
+(setq straight-use-package-by-default t) ; make use-package use straight
 
 ;; edit server for Chrome (browser extension):
 (when (maybe-require 'edit-server)
@@ -191,12 +185,6 @@
 ;;; (which Hack does)
 (set-face-italic font-lock-comment-face t)
 
-(defun print-elapsed-time-for-package (name &rest args)
-  """Advice for use-package NAME to print elapsed time after each one."""
-  (print-elapsed-time name))
-;; Uncomment to print how long each use-package takes
-;(advice-add 'use-package :after #'print-elapsed-time-for-package)
-
 (use-package company
   :bind (("M-RET" . company-complete))
   :demand                               ; load it now (better for eglot)
@@ -216,7 +204,6 @@
   )
 
 ;; Gnu Global tags
-;; package-install ggtags
 (use-package ggtags
   :config
   :hook (c-mode-common . (lambda ()
@@ -250,11 +237,6 @@ Return the errors parsed with the error patterns of CHECKER."
   (let ((sanitized-output (replace-regexp-in-string "\r" "" output))
         )
     (funcall (flycheck-checker-get checker 'error-parser) sanitized-output checker buffer)))
-
-;; My patched version of pipenv.el, 2018
-;(quelpa '(pipenv :fetcher github :repo "garyo/pipenv.el"))
-
-(use-package quelpa-use-package)
 
 (use-package markdown-mode
   :commands (markdown-mode gfm-mode)
@@ -563,10 +545,9 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
       (t
        (use-package jsonrpc)
        (use-package eglot
-         ;; XXX for debug/testing only, load from local.
-         ;; Else load from github with quelpa.
-         :load-path "eglot/"
-         ;; :quelpa ((eglot :fetcher github :repo "joaotavora/eglot"))
+         :straight (:host github
+                          :repo "joaotavora/eglot"
+                          :branch "scratch/50-resolve-completion-items-in-more-situations")
          :commands eglot
          :hook ((vue-mode . eglot-ensure)
                 (typescript-mode . eglot-ensure)
@@ -1599,15 +1580,6 @@ by using nxml's indentation rules."
 	  (lambda ()
 	    (auto-fill-mode)))
 
-;;; I don't know if this is needed, and last time I used SQL
-;;; from org mode was many years ago.
-;; (add-hook 'org-mode-hook
-;;           (lambda ()
-;;             ;;; don't do this until needed; it can take a few sec
-;;             (use-package ob-sql-mode
-;;               :after org)))
-
-
 (global-set-key "\M- " 'cycle-spacing) ; improvement over just-one-space; repeated calls cycle 1, 0, orig
 (global-set-key "\C-z" 'scroll-up-line) ; use emacs24 builtins
 (global-set-key "\M-z" 'scroll-down-line)
@@ -1798,9 +1770,6 @@ by using nxml's indentation rules."
  '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts '{})
- '(package-check-signature nil)
- '(package-selected-packages
-   '(quelpa-use-package yasnippet-snippets unfill yasnippet yaml-mode wgrep-ag vue-mode volatile-highlights virtualenvwrapper use-package typescript-mode string-inflection smart-mode-line quelpa pyvenv promise projectile origami ob-sql-mode multi-web-mode mo-git-blame mic-paren magit lsp-ui js2-mode jedi helm-lsp helm-ag gitignore-mode gitconfig-mode ggtags gdscript-mode flycheck eldoc-box eglot company-statistics company-lsp ag))
  '(projectile-completion-system 'helm t)
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
