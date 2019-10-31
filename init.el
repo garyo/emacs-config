@@ -15,7 +15,7 @@
       (message "Elapsed time at %s: %s sec" loc elapsed)))
 
 ;; Prefer .el file if newer than .elc
-(setq load-prefer-newer t)
+;(setq load-prefer-newer t)
 
 ;;; Like normal-top-level-add-subdirs-to-load-path except it doesn't recurse.
 
@@ -92,10 +92,10 @@
 ;;; Default frame size - could make this variable depending on display params
 ;;; but then it would have to go in the frame setup hook.
 ;;; XXX: this overrides my new-frame-setup code below, so don't use it.
-;; (setq default-frame-alist '((top . 15)
-;;                             (left . 200)
+;; (setq default-frame-alist '((top . 0)
+;;                              (left . 20)
 ;;                             (width . 98)
-;;                             (height . 50)
+;;                             (fullscreen . fullheight)
 ;;                             ))
 
 ;;;; FONTS ;;;;;;
@@ -159,21 +159,12 @@
                                           :weight 'normal
 					  :size (float (cdr font-info)))
 			       frame))
-               ;; note actual frame height = 1937, display pixels = 2160
-              (display-pixel-height (display-pixel-height frame))
-              ;; on Win 10, the difference between outer and inner frames
-              ;; is 121 y pixels, so subtract that here
-              (frame-pixel-height (- display-pixel-height 121))
-              (line-pixel-height (frame-char-height frame))
-              (frame-lines (/ frame-pixel-height line-pixel-height))
               )
 	  (message "Using font %s: %s" font-info font)
 	  (set-face-attribute 'default frame :font font)
-          (message (format "Setting frame height; %s pixels / line height %s = %s"
-                           frame-pixel-height line-pixel-height frame-lines))
-          (set-frame-height frame (- frame-lines 7))
-          (set-frame-width frame 98)
-          (set-frame-position frame -20 10) ; negative means right- or bottom-relative
+          (set-frame-position frame 20 0) ; negative means right- or bottom-relative
+          (set-frame-width frame 90)
+          (set-frame-parameter frame 'fullscreen 'fullheight) ; full height
 	  )))
   )
 ;;; run on existing frames (non-daemon startup)
