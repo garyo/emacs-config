@@ -17,33 +17,12 @@
 ;; Prefer .el file if newer than .elc
 ;(setq load-prefer-newer t)
 
-;;; Like normal-top-level-add-subdirs-to-load-path except it doesn't recurse.
-
 (setq user-full-name "Gary Oberbrunner"
       user-mail-address "garyo@darkstarsystems.com")
 
 ;; don't GC after every 800k; only when idle.
 (setq gc-cons-threshold (eval-when-compile (* 1024 1024 1024)))
 (run-with-idle-timer 10 t (lambda () (garbage-collect)))
-
-(defun add-dir-and-subdirs-to-load-path (dir)
-  "Add DIR and its subdirs to \"load-path\"."
-  (if (file-directory-p dir)
-      (progn
-	(add-to-list 'load-path dir)
-	(dolist (f (directory-files dir))
-	  (let ((name (concat dir "/" f)))
-	    (when (and (file-directory-p name)
-		       (string-match "\\`[[:alnum:]]" f)
-		       (not (equal f ".."))
-		       (not (equal f ".")))
-	      (message (concat "Adding " name " to load-path"))
-	      (add-to-list 'load-path name)))))))
-
-;; For this to work, HOME must be set properly
-(add-dir-and-subdirs-to-load-path "c:/emacs/site-lisp") ;Windows only
-(add-dir-and-subdirs-to-load-path "~/.emacs.d/lisp")
-(add-dir-and-subdirs-to-load-path "~/.emacs.d/lisp/magit/lisp") ; special case
 
 (defvar msys-root
   (cond ((file-exists-p "c:/tools/msys64/msys64")
@@ -61,17 +40,6 @@
 (require 'server)
 (unless (server-running-p)
   (server-start))
-
-;;; try to load libname (string); returns t or nil.
-(defun maybe-load-library (libname)
-  "Try to load LIBNAME, ignore errors."
-   (condition-case nil
-       (load-library libname)
-     (error nil)))
-
-(defun maybe-require (feature)
-  "Try to require FEATURE (symbol); return feature or nil."
-  (require feature nil t))
 
 ;;; Set up package system -- straight.el (better than built-in package.el)
 (defvar bootstrap-version)
@@ -91,18 +59,6 @@
 (straight-use-package 'use-package)
 (defvar straight-use-package-by-default)
 (setq straight-use-package-by-default t) ; make use-package use straight
-
-;; edit server for Chrome (browser extension):
-(when (maybe-require 'edit-server)
-  (defvar edit-server-new-frame)
-  (setq edit-server-new-frame nil)
-  (message "Starting edit server for Chrome...")
-  (edit-server-start))
-
-;; Arduino mode
-(add-to-list 'load-path "~/.emacs.d/arduino-mode")
-(setq auto-mode-alist (cons '("\\.\\(pde\\|ino\\)$" . arduino-mode) auto-mode-alist))
-(autoload 'arduino-mode "arduino-mode" "Arduino editing mode." t)
 
 ;;; Default frame size - could make this variable depending on display params
 ;;; but then it would have to go in the frame setup hook.
@@ -690,7 +646,26 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (use-package unfill
   :bind ([remap fill-paragraph] . unfill-toggle))
 
+;;; adaptive fill mode
+(use-package filladapt
+  ;; to enable only in certain modes:
+  ;; :hook (('text-mode-hook . 'filladapt-mode))
+  :config
+  (setq-default filladapt-mode t))      ; turn on by default everywhere
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun maybe-require (feature)
+  "Try to require FEATURE (symbol); return feature or nil."
+  (require feature nil t))
+
+;; edit server for Chrome (browser extension) (but only if installed):
+(when (maybe-require 'edit-server)
+  (defvar edit-server-new-frame)
+  (setq edit-server-new-frame nil)
+  (message "Starting edit server for Chrome...")
+  (edit-server-start))
+
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
@@ -763,6 +738,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 	      (setq dirtrack-list '("(\\(.*?\\)\\( \\|) \\)" 1 t))
               (dirtrack-mode 1)))
 
+;;; Recentf mode: remember recently visited files
 (recentf-mode t)
 (setq-default
  recentf-exclude '("semantic.cache"
@@ -916,8 +892,6 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 		)
       )
 
-(maybe-require 'filladapt)			;adaptive fill mode
-(setq-default filladapt-mode t)
 (setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
 
 (autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
@@ -1060,11 +1034,6 @@ this is the first Monday of the month."
 (dolist (file org-agenda-files)
   (file-notify-add-watch file '(change) #'gco-org-agenda-file-notify))
 
-;; Emacs Speaks Statistics (for R):
-(if (maybe-require 'ess-site)
-    (ess-toggle-underscore nil)		; no annoying magic underscore
-  nil)
-
 ;; use M-x idb to run the Intel debugger inside emacs (looks like 'dbx')
 (defvar idbpath "c:/Program Files/Intel/IDB/10.0/IA32/Bin")
 (if (file-readable-p (concat idbpath "/idb.el"))
@@ -1192,83 +1161,6 @@ This command shares argument histories with \\[rgrep] and \\[grep]."
 	(if (eq next-error-last-buffer (current-buffer))
 	    (setq default-directory dir))))))
 
-;;; CEDET: emacs tools for C development
-;; (ignore-errors
-;;   (load-file "/emacs/site-lisp/cedet-trunk/cedet-devel-load.el")
-
-;;   (add-to-list 'load-path
-;; 	       (expand-file-name "/emacs/site-lisp/cedet-trunk/contrib"))
-;;   (require 'semantic-tag-folding)
-;;   ;; Add further minor-modes to be enabled by semantic-mode.
-;;   ;; See doc-string of `semantic-default-submodes' for other things
-;;   ;; you can use here.
-;;   (add-to-list 'semantic-default-submodes 'global-semantic-idle-summary-mode t)
-;;   (add-to-list 'semantic-default-submodes 'global-semantic-idle-completions-mode t)
-;;   (add-to-list 'semantic-default-submodes 'global-cedet-m3-minor-mode t)
-
-;;   ;; Enable Semantic
-;;   (semantic-mode 1)
-
-;;   ;; Enable EDE (Project Management) features
-;;   (global-ede-mode 1)
-
-;;   (which-function-mode 1)		;show func name in modeline
-
-;;   ;; (require 'semanticdb)			;save parse tree to file
-;;   ;; (global-semanticdb-minor-mode 1)
-;;   ;; (semantic-load-enable-minimum-features)
-;;   ;; ;;(semantic-idle-summary-mode) ; show doc for token at point in modeline
-;;   ;; (semantic-load-enable-code-helpers)
-;;   ;; (semantic-load-enable-code-helpers) ; Enable prototype help and smart completion
-;;   ;; ;;(semantic-idle-completions-mode)	;may be too weird?
-;;   ;; ;;(global-semantic-stickyfunc-mode 1)     ;header line in buffer w/ current func's header
-
-
-;;   ;; to get Intellisense completion:
-;; 					;(global-ede-mode 1)		; Enable the Project management system
-;;   ;; then in C mode, turn on global-semantic-idle-completions-mode
-
-;;   ;; (defun my-semantic-hook ()
-;;   ;;   "Don't parse really large buffers"
-;;   ;;   (cond ((string-match "^/usr/include" (buffer-file-name))
-;;   ;; 	   nil)
-;;   ;; 	  ((string-match "^/Progra" (buffer-file-name))
-;;   ;; 	   nil)
-;;   ;; 	  ((string-match "^c:/Progra" (buffer-file-name))
-;;   ;; 	   nil)
-;;   ;; 	  ((> (point-max) 1000000)
-;;   ;; 	   nil)
-;;   ;; 	  ;; only parse C and h files
-;;   ;; 	  ((string-match "\\(\\.c\\|\\.cxx\\|\\.cpp\\|\\.h\\)$" (buffer-file-name))
-;;   ;; 					;(message (concat "my-semantic-hook: OK to parse " (buffer-file-name)))
-;;   ;; 	   t)
-;;   ;; 	  (t
-;;   ;; 					; (message (concat "my-semantic-hook: unknown file: " (buffer-file-name)))
-;;   ;; 	   t)))
-;;   ;; (add-hook 'semantic--before-fetch-tags-hook
-;;   ;; 	    'my-semantic-hook)
-
-;;   ;; ECB: Emacs Code Browser
-;; 					;(add-to-list 'load-path "c:/Program Files/emacs/site-lisp/ecb-2.40")
-;; 					;(require 'ecb)
-;;   )
-
-;; (ignore-errors
-;;   (require 'ede-load)
-;;   (global-ede-mode t)
-;;   (ede-cpp-root-project "Sapphire"
-;; 			:name "GenArts Sapphire"
-;; 			:file "/genarts/sapphire/SConstruct"
-;; 			:include-path '("/")
-;; 			:spp-table '(("WIN32" . "1")
-;; 				     ("_WIN32" . "1")))
-;;   (custom-set-variables
-;;    '(global-semantic-stickyfunc-mode t nil (semantic-util-modes))
-;;    '(semantic-default-c-path (quote ("c:/genarts/sapphire")))
-;;    )
-;;   )
-
-
 ;; Printing via GhostScript/GhostView
 (require 'ps-print)
 (setq ps-lpr-command "c:\\Program Files\\Ghostgum\\gsview\\gsprint.exe")
@@ -1374,37 +1266,12 @@ by using nxml's indentation rules."
 	   )))
       '(c-mode c++-mode java-mode lisp-mode emacs-lisp-mode python-mode))
 
-;;----------------------------------------------------------------------------
-;; Programming commands (from ElijahDaniel.emacs)
-;;----------------------------------------------------------------------------
-;; If point is in a class definition, return the name of the class. Otherwise,
-;; return nil.
-(defun ewd-classname ()
-  "If the point is in a class definition, get the name of the class.
-
-  Return nil otherwise."
-  (save-excursion
-    (let ((brace (assoc 'inclass (c-guess-basic-syntax))))
-      (if (null brace) '()
-        (goto-char (cdr brace))
-        (let ((class-open (assoc 'class-open (c-guess-basic-syntax))))
-          (if class-open (goto-char (cdr class-open)))
-          (if (looking-at "^class[ \t]+\\([A-Za-z_][^ \t:{]*\\)")
-              (buffer-substring (match-beginning 1) (match-end 1))
-            (error "Error parsing class definition!")))))))
-
 (setq
  shell-pushd-regexp "pushd\\|1\\|2"
  shell-pushd-dextract t
  shell-pushd-dunique t
  ;shell-cd-regexp nil			; autopushd in zsh
  shell-chdrive-regexp "[a-z]:")		;
-
-;; ;(add-hook 'comint-output-filter-functions
-;; ;          'comint-strip-ctrl-m)
-
-;; Not needed
-;; ;(setenv "CYGWIN" "nobinmode")
 
 ;;This is from Voelker's emacs NT page:
 (defvar explicit-zsh-args)
@@ -1723,7 +1590,6 @@ by using nxml's indentation rules."
  '(egg-quit-window-actions '((egg-status-buffer-mode kill restore-windows)))
  '(exec-path-from-shell-arguments '("-l"))
  '(extended-command-suggest-shorter nil)
- '(fill-column 78)
  '(flycheck-c/c++-cppcheck-executable "c:/Program Files/Cppcheck/cppcheck.exe")
  '(flycheck-clang-args '("--std=c++17"))
  '(flycheck-disabled-checkers '(typescript-tslint emacs-lisp-checkdoc))
