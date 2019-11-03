@@ -253,6 +253,7 @@ Return the errors parsed with the error patterns of CHECKER."
 
 (use-package magit
   :bind (("C-x v =" . magit-status)
+         ("C-x v b" . magit-blame)
 	 ("C-x v l" . magit-log-current))
   :config
   ;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
@@ -260,8 +261,15 @@ Return the errors parsed with the error patterns of CHECKER."
   (add-hook 'magit-status-mode-hook 'delete-other-windows)
   )
 
-(use-package mo-git-blame
-  :commands (mo-git-blame-file mo-git-blame-current)
+;; Show git changes in fringe
+(use-package git-gutter-fringe
+  :config
+  (dolist (p '((git-gutter:added    . "#0c0")
+               (git-gutter:deleted  . "#c00")
+               (git-gutter:modified . "#cc0")))
+    (set-face-foreground (car p) (cdr p))
+    (set-face-background (car p) (cdr p)))
+  (global-git-gutter-mode)
   )
 
 ;;; Temporarily highlight undo, yank, find-tag and a few other things
