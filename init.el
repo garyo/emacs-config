@@ -152,6 +152,7 @@
 (use-package company
   :bind (("M-RET" . company-complete))
   :demand                               ; load it now (better for eglot)
+  :defines company-dabbrev-downcase company-dabbrev-ignore-case
   :config
   (global-company-mode)
   ;; dabbrev mode seems closest to TMC completion
