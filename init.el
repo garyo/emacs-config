@@ -76,10 +76,12 @@
 
 ;;; Meta-package system: use-package. Auto-installs and configures packages.
 (straight-use-package 'use-package)
+(defvar straight-use-package-by-default)
 (setq straight-use-package-by-default t) ; make use-package use straight
 
 ;; edit server for Chrome (browser extension):
 (when (maybe-require 'edit-server)
+  (defvar edit-server-new-frame)
   (setq edit-server-new-frame nil)
   (message "Starting edit server for Chrome...")
   (edit-server-start))
@@ -205,8 +207,16 @@
 ;; string manipulation routines
 (use-package s)
 
+(use-package flycheck-pos-tip)
 (use-package flycheck
-  :config (global-flycheck-mode))
+  :config
+  (global-flycheck-mode)
+  ;; show flycheck errors in popup, not in minimuffer. This is important
+  ;; because minibuffer may be showing documentation or something else,
+  ;; and without this flycheck errors/warnings overwrite that info.
+  ;; (alternately, could show doc strings in popup somehow)
+  (flycheck-pos-tip-mode)
+  )
 
 ;;; for Windows, especially for emacs-lisp checker which passes
 ;;; lots of cmd-line args to emacs
@@ -351,7 +361,7 @@ In that case expand them.  If there's a snippet expansion in progress,
 move to the next field. Call `open-line' if nothing else applies."
     (interactive)
     (cond ((expand-abbrev))
-          ((yas--snippets-at-point)
+          ((yas-active-snippets)
            (yas-next-field-or-maybe-expand))
           ((ignore-errors
              (yas-expand)))
@@ -451,33 +461,35 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     )
   )
 
-(defun my-eglot-init ()
-  """Initialize eglot."""
+(eval-after-load "eglot"
+  (defun my-eglot-init ()
+    """Initialize eglot."""
 
-  (defclass eglot-vls (eglot-lsp-server) ()
-    :documentation "Vue Language Server.")
+    (defclass eglot-vls (eglot-lsp-server) ()
+      :documentation "Vue Language Server.")
 
-  (add-hook 'eglot-server-initialized-hook
-            (lambda (server)
-              (if (eglot-vls-p server)
-                  (setq eglot-workspace-configuration vls-workspace-configuration)
+    (add-hook 'eglot-server-initialized-hook
+              (lambda (server)
+                (if (eglot-vls-p server)
+                    (setq eglot-workspace-configuration vls-workspace-configuration)
+                  )))
+
+    (add-to-list 'eglot-server-programs
+                 '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
+
+    (cl-defmethod eglot-initialization-options ((server eglot-vls))
+      "Passes through required vetur initialization options to VLS."
+      `(:config
+        (:vetur ,vls-vetur-configuration
+                :css (:suggest nil)
+                :html (:suggest nil)
+                :prettier :json-false
+                :javascript (:format nil :suggest nil)
+                :typescript (:format nil :suggest nil)
+                :emmet nil
+                :stylusSupremacy nil
                 )))
-
-  (add-to-list 'eglot-server-programs
-               '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
-
-  (cl-defmethod eglot-initialization-options ((server eglot-vls))
-    "Passes through required vetur initialization options to VLS."
-    `(:config
-      (:vetur ,vls-vetur-configuration
-       :css (:suggest nil)
-       :html (:suggest nil)
-       :prettier :json-false
-       :javascript (:format nil :suggest nil)
-       :typescript (:format nil :suggest nil)
-       :emmet nil
-       :stylusSupremacy nil
-       )))
+    )
   )
 
 (cond ((and use-lsp-mode (has-fast-json))
@@ -585,13 +597,17 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          ("C-c F" . origami-show-only-node))
   )
 
-;;; M-x helm-ag: very nice for searching through files!
-;;; Requires ag, "the silver searcher"
-(use-package helm-ag
+(use-package ag
   :config
   (setq ag-executable (if (eq system-type 'windows-nt)
                           "c:/tools/msys64/msys64/mingw64/bin/ag.exe"
                         "ag"))
+  )
+
+;;; M-x helm-ag: very nice for searching through files!
+;;; Requires ag, "the silver searcher"
+(use-package helm-ag
+  :config
   (setq helm-ag-base-command (if (eq system-type 'windows-nt)
                                  "c:/tools/msys64/msys64/mingw64/bin/ag.exe --vimgrep"
                                "ag --vimgrep"))
@@ -608,6 +624,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (use-package projectile
   :bind (("s-p" . projectile-command-map)
          ("C-c p" . projectile-command-map))
+  :demand
   :config
   (projectile-mode +1)
   (setq projectile-mode-line-prefix " Prj")
@@ -732,7 +749,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
               (dirtrack-mode 1)))
 
 (recentf-mode t)
-(setq
+(setq-default
  recentf-exclude '("semantic.cache"
                    "\\.completions"
                    "\\.projects\\.ede"
@@ -744,8 +761,9 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
  recentf-max-saved-items 50)
 ;; emacs doesn't save recentf list until you "exit normally"
 ;; which never really happens with emacs-server. So just save every 10
-;; min.
-(run-at-time nil 600 'recentf-save-list)
+;; min, and do it silently.
+(run-at-time nil 600 (lambda () (let ((save-silently t))
+                                  (recentf-save-list))))
 
 (if (> emacs-major-version 22)
     (progn
@@ -975,7 +993,7 @@ this is the first Monday of the month."
 ;; ^G: prompt for tags
 ;; ^t: prompt for timestamp
 ;; %U: add inactive timestamp (creation time)
-(setq org-capture-templates
+(defvar org-capture-templates
       '(("t" "Todo [inbox]" entry
          (file+headline "inbox.org" "Tasks")
          "* TODO %i%?\n  %U"
@@ -1026,7 +1044,7 @@ this is the first Monday of the month."
   nil)
 
 ;; use M-x idb to run the Intel debugger inside emacs (looks like 'dbx')
-(setq idbpath "c:/Program Files/Intel/IDB/10.0/IA32/Bin")
+(defvar idbpath "c:/Program Files/Intel/IDB/10.0/IA32/Bin")
 (if (file-readable-p (concat idbpath "/idb.el"))
     (progn (load-file (concat idbpath "/idb.el"))
 	   (add-to-list 'exec-path idbpath))
@@ -1047,7 +1065,8 @@ this is the first Monday of the month."
 
 (defface shell-hilight-face
   '((t (:background "grey80")))
-  "Used for marking significant items in shell buffers.")
+  "Used for marking significant items in shell buffers."
+  :group 'shell)
 ;;; Hilight compiler and linker output filenames so I can see them more easily
 (defvar my-shell-extra-keywords
   '(("/OUT:[^ ]+" 1 shell-hilight-face)
@@ -1066,6 +1085,7 @@ this is the first Monday of the month."
 ;;; whitespace and blank lines:
 (defcustom delete-trailing-whitespace-on-save
   t "Delete trailing whitespace when buffer is saved."
+  :type '(boolean)
   :group 'GCO)
 (make-variable-buffer-local 'delete-trailing-whitespace-on-save)
 (defun maybe-delete-trailing-whitespace ()
@@ -1365,6 +1385,7 @@ by using nxml's indentation rules."
 ;; ;(setenv "CYGWIN" "nobinmode")
 
 ;;This is from Voelker's emacs NT page:
+(defvar explicit-zsh-args)
 (setq explicit-bash-args '("--login" "--noediting" "-i")
       ; explicit-zsh-args '("-i" "-o" "emacscygwinhack")
       explicit-zsh-args '("-i")
@@ -1459,7 +1480,6 @@ by using nxml's indentation rules."
 
 ;;; For emacs23, long lines in buffers make emacs really slow.
 ;;; This seems to ameliorate it a little.
-;(add-hook 'compilation-mode-hook (lambda () (setq truncate-lines t)))
 (add-hook 'compilation-mode-hook (lambda () (line-number-mode nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1604,7 +1624,6 @@ by using nxml's indentation rules."
  Info-enable-edit t
  ;; isearch-allow-scroll nil  ; t means allow scroll, but prevent scrolling if would go off screen
  kept-old-versions 1
- lazy-lock-minimum-size 5000
  line-number-mode t			; XXX: disable in compilation-mode buffers
  line-move-visual nil			; C-n go to next real line
  mark-even-if-inactive t
@@ -1679,7 +1698,7 @@ by using nxml's indentation rules."
  '(fill-column 78)
  '(flycheck-c/c++-cppcheck-executable "c:/Program Files/Cppcheck/cppcheck.exe")
  '(flycheck-clang-args '("--std=c++17"))
- '(flycheck-disabled-checkers '(typescript-tslint))
+ '(flycheck-disabled-checkers '(typescript-tslint emacs-lisp-checkdoc))
  '(flycheck-python-flake8-executable "python3")
  '(flycheck-python-pycompile-executable "python3")
  '(flycheck-python-pylint-executable "python3")
