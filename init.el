@@ -1525,7 +1525,6 @@ by using nxml's indentation rules."
   ;; The menu/app key (to the right of the right Windows key) is
   ;; pretty hard to reach with right pinky, so it's less useful, and
   ;; only on certain keyboards, but my Das Keyboard has it, so why not.
-  (setq w32-pass-apps-to-system nil)
   (setq w32-apps-modifier 'hyper) ; Menu/App key
   )
 ;; Mac default setup has Command (⌘, clover) = meta
