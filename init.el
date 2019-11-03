@@ -1414,7 +1414,7 @@ by using nxml's indentation rules."
   filenames are absolute, so need to remove surgically."
 
   (let ((case-fold-search t)
-	(topdir (svn-base-dir nil))
+	(topdir (car (project-roots (project-current))))
 	)
     ;; prepend dir
     (if (and spec-directory
@@ -1431,18 +1431,6 @@ by using nxml's indentation rules."
 	     (setq result (concat topdir f)))))
       (if result result filename))))
 
-;;; Move up the directory hierarchy from dir (nil for default-directory)
-;;; until we find the top of the SVN working dir
-(defun svn-base-dir (dir)
-  "Find Subversion top dir, starting from DIR."
-  (or (cdr (file-find-upwards dir ".git"))
-      (cdr (file-find-upwards dir ".hg"))
-      (cdr (file-find-upwards dir ".svn"))
-      (cdr (file-find-upwards dir "primitives")) ; Sapphire only!
-      dir
-      ))
-
-
 (defun fix-win-path (p)
   "Convert backslashes to forward slashes in P so path-handling functions don't get confused."
   (cond (p (replace-regexp-in-string "\\\\" "/" p)))
@@ -1457,34 +1445,6 @@ by using nxml's indentation rules."
     "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/" "src/" p)
    )
 )
-
-;;; found this on the web.  Useful!
-;;; Modified to return (dir . file)
-;;; pass nil for startfile to use default-directory.
-(defun file-find-upwards (startfile file-name)
-  "Chase links in the source file and search in the dir where it points."
-  (setq dir-name (or (and startfile
-                          (file-name-directory (file-chase-links startfile)))
-                     default-directory))
-  (setq dir-name (expand-file-name (file-chase-links dir-name)))
-  ;; Move up in the dir hierarchy till we find the given file-name
-  (let ((file1 (concat dir-name file-name))
-        parent-dir)
-    (while (and (not (file-exists-p file1))
-                (progn (setq parent-dir
-                             (file-name-directory
-                              (directory-file-name
-                               (file-name-directory file1))))
-                       ;; Give up if we are already at the root dir.
-                       (not (string= (file-name-directory file1)
-                                     parent-dir))))
-      ;; Move up to the parent dir and try again.
-      (setq file1 (expand-file-name file-name parent-dir)))
-    ;; If we found the file in a parent dir, use that.  Otherwise,
-    ;; return nil
-    (if (or (get-file-buffer file1) (file-exists-p file1))
-        (cons file1 parent-dir)
-      (cons nil nil))))
 
 ;;; For emacs 21.1, this requires a patch to compile.el, which is in
 ;;; Gary's email in the emacs folder (date around 10/25/2001).  Later
@@ -1513,12 +1473,6 @@ by using nxml's indentation rules."
 	    ;; (setq dired-x-hands-off-my-keys nil)
 	    (setq dired-omit-localp nil) ; match full pathname (slower)
 	    (setq dired-omit-files "/\\.svn/\\|\\.svn-base$\\|/SBuild/\\|/\\.?#\\|/\\.$\\|/\\.\\.$")
-	    ))
-;(setq dired-omit-files "/\\.svn/\\|\\.svn-base$\\|/SBuild/\\|/\\.?#\\|/\\.$\\|/\\.\\.$")
-(add-hook 'dired-mode-hook
-	  (lambda ()
-	    ;; Set dired-x buffer-local variables here.  For example:
-	    ;(dired-omit-mode 1)
 	    ))
 
 (setq ibuffer-formats '((mark modified read-only " " (name 16 16) " "
