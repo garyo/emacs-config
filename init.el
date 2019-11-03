@@ -1530,11 +1530,28 @@ by using nxml's indentation rules."
 (require 'ibuffer)
 
 ;;; Interactive buffer switching using minibuffer substring completion
-(setq ido-enable-tramp-completion nil)	    ; workaround tramp bug in emacs 23.1
-(ido-mode)
+;;(setq ido-enable-tramp-completion nil)	    ; workaround tramp bug in emacs 23.1
+;;(ido-mode)
 
 (cond ((eq system-type 'windows-nt)
        (setq tramp-use-ssh-controlmaster-options nil)))
+
+;; make PC keyboard's Windows key be Super or Hyper (Windows only)
+;; (There are a few that aren't rebindable: Win-L, Win-G at least)
+;; This is nice because Super-p is the prefix for Projectile
+(setq w32-pass-lwindow-to-system nil)
+(setq w32-lwindow-modifier 'super) ; Left Windows key
+(w32-register-hot-key [s-]) ; disable all Windows shortcuts while Emacs has focus
+
+;; I don't usuall use right-windows but why not
+(setq w32-pass-rwindow-to-system nil)
+(setq w32-rwindow-modifier 'super) ; Right Windows key
+
+;; The menu/app key (to the right of the right Windows key) is
+;; pretty hard to reach with right pinky, so it's less useful, and
+;; only on certain keyboards, but my Das Keyboard has it, so why not.
+(setq w32-pass-apps-to-system nil)
+(setq w32-apps-modifier 'hyper) ; Menu/App key
 
 ;;; This adds an isearch-mode keybinding for C-o to run Occur
 ;;; with the current search string, without interrupting the isearch.
