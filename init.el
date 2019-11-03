@@ -45,6 +45,19 @@
 (add-dir-and-subdirs-to-load-path "~/.emacs.d/lisp")
 (add-dir-and-subdirs-to-load-path "~/.emacs.d/lisp/magit/lisp") ; special case
 
+(defvar msys-root
+  (cond ((file-exists-p "c:/tools/msys64/msys64")
+         "c:/tools/msys64/msys64")
+        ((file-exists-p "c:/tools/msys64")
+         "c:/tools/msys64")
+        (t
+         "NO_MSYS"))
+  "Root of Msys64 install; should contain e.g. usr/bin/zsh.exe")
+
+(defmacro msys-path (file)
+  "Path within msys dir of FILE. FILE should be relative (no leading /)."
+  `(expand-file-name ,file msys-root))
+
 (require 'server)
 (unless (server-running-p)
   (server-start))
@@ -393,9 +406,9 @@ move to the next field. Call `open-line' if nothing else applies."
 ;;   )
 
 (defun has-fast-json ()
-  """Return t if \"json-serialize\" is implemented as a C function.
+  "Return t if \"json-serialize\" is implemented as a C function.
 This was done for Emacs 27 but not all builds include the C version,
-which is a lot faster."""
+which is a lot faster."
   (and
    (subrp (symbol-function 'json-serialize))
    ;; test that it works -- on Windows the DLL (or deps) may be missing
@@ -403,6 +416,13 @@ which is a lot faster."""
 
 (unless (has-fast-json)
   (warn "This emacs is using older elisp json functions; maybe rebuild with libjansson?"))
+
+(defvar vls-exe
+  (cond ((file-exists-p (expand-file-name "~/src/vetur/server/bin/vls"))
+         (expand-file-name "~/src/vetur/server/bin/vls"))
+        (t "vls"))
+  "Vue Language Server path - normally just \"vls\" but can point to local install."
+  )
 
 ;; May 2019: Eglot is more responsive and simpler
 ;; Oct 2019: lsp-mode has more features, but it's very slow
@@ -505,6 +525,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                lsp-trace lsp-mode-verbose
                lsp-print-performance t
                lsp-response-timeout 10
+               lsp-vetur-server-command vls-exe ; normally just "vls"
                )
          )
        (use-package lsp-ui
@@ -598,19 +619,11 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   )
 
 (use-package ag
-  :config
-  (setq ag-executable (if (eq system-type 'windows-nt)
-                          "c:/tools/msys64/msys64/mingw64/bin/ag.exe"
-                        "ag"))
   )
 
 ;;; M-x helm-ag: very nice for searching through files!
 ;;; Requires ag, "the silver searcher"
 (use-package helm-ag
-  :config
-  (setq helm-ag-base-command (if (eq system-type 'windows-nt)
-                                 "c:/tools/msys64/msys64/mingw64/bin/ag.exe --vimgrep"
-                               "ag --vimgrep"))
   )
 
 (defun projectile-mode-line ()
@@ -696,8 +709,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
 ;; use zsh or bash.  Do this early on before loading any git stuff,
 ;; otherwise that will try to use cmdproxy.exe.
-(cond ((file-exists-p "c:/tools/msys64/msys64/usr/bin/zsh.exe")
-       (setq explicit-shell-file-name "c:/tools/msys64/msys64/usr/bin/zsh.exe"))
+(cond ((file-exists-p (msys-path "usr/bin/zsh.exe"))
+       (setq explicit-shell-file-name (msys-path "usr/bin/zsh.exe")))
       ((executable-find "zsh")
        (setq explicit-shell-file-name "zsh"))
       ((executable-find "bash")
@@ -774,23 +787,30 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (autoload 'vc-git-root "vc-git" nil t)
 (autoload 'vc-git-grep "vc-git" nil t)
 
+(defmacro prepend-PATH (dir)
+  "Prepend DIR (abs path) to PATH env var."
+  `(setenv "PATH" (concat ,dir
+                          path-separator
+                          (getenv "PATH"))))
+(defmacro prepend-PATH-msys (dir)
+  "Prepend msys DIR (path rel to msys root) to PATH env var."
+  `(setenv "PATH" (concat (msys-path ,dir)
+                          path-separator
+                          (getenv "PATH"))))
+
 (cond ((eq system-type 'windows-nt)
        (add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Global
-       (add-to-list 'exec-path "c:/tools/msys64/msys64/usr/bin") ; for Global (via msys)
        (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
        (add-to-list 'exec-path "c:/Program Files/Git/cmd") ; for Git
-       (add-to-list 'exec-path "c:/msys64/usr/bin") ; for Git (msys2)
-       (add-to-list 'exec-path "c:/msys64/usr/local/bin") ; for GNU global/gtags
-       (add-to-list 'exec-path "c:/tools/msys64/msys64/mingw64/bin") ; for "ag"
-       (add-to-list 'exec-path "c:/tools/msys64/msys64/usr/bin") ; for zsh
-       (setenv "PATH" (concat "c:/msys64/usr/local/bin;" (getenv "PATH")))
-       (setenv "PATH" (concat "c:/tools/msys64/msys64/usr/local/bin;" (getenv "PATH")))
-       (setenv "PATH" (concat "c:/tools/msys64/msys64/usr/bin;" (getenv "PATH")))
-       (setenv "PATH" (concat "c:/tools/msys64/msys64/mingw/bin;" (getenv "PATH")))
-       (setenv "PATH" (concat "/usr/local/bin;" (getenv "PATH")))
+       (add-to-list 'exec-path (msys-path "mingw64/bin")) ; for "ag"
+       (add-to-list 'exec-path (msys-path "usr/bin")) ; for zsh, git, etc.
+       (add-to-list 'exec-path (msys-path "usr/local/bin")) ; for GNU global/gtags
        (add-to-list 'exec-path "c:/bin")
        (add-to-list 'exec-path "c:/bin2")
-       (add-to-list 'exec-path "c:/Program Files/R/R-2.14.0/bin") ; for R (statistics pkg)
+       (prepend-PATH-msys "usr/local/bin")
+       (prepend-PATH-msys "usr/bin")
+       (prepend-PATH-msys "mingw64/bin")
+       (prepend-PATH "/usr/local/bin")
        )
       (t
        (add-to-list 'exec-path "/usr/local/bin")
@@ -801,8 +821,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        ;; things it execs directly, but compilation-mode runs a shell
        ;; which invokes SCons, and doesn't seem to get my path -- that
        ;; could probably be fixed.)
-       (setenv "PATH" (concat "/usr/local/bin:" (getenv "PATH")))
-       (setenv "PATH" (concat "/Users/garyo/python36/bin:" (getenv "PATH")))
+       (prepend-PATH "/usr/local/bin")
+       (prepend-PATH "/Users/garyo/python36/bin")
        (message "PATH: %s" (getenv "PATH"))
        ))
 
