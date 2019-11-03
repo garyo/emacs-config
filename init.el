@@ -179,7 +179,9 @@
 	  (set-face-attribute 'default frame :font font)
           (set-frame-width frame 100)
           (set-frame-parameter frame 'fullscreen 'fullheight) ; full height
-          (set-frame-position frame -20 0) ; negative means right- or bottom-relative
+          (if (equal window-system 'ns)
+              (set-frame-position frame 20 0)
+            (set-frame-position frame -20 0)) ; negative means right- or bottom-relative
 	  )))
   )
 ;;; run on existing frames (non-daemon startup)
