@@ -217,13 +217,36 @@ Return the errors parsed with the error patterns of CHECKER."
          ("\\.markdown\\'" . markdown-mode))
   :init (setq markdown-command "multimarkdown"))
 
-;;; wgrep-change-to-wgrep-mode to edit right in a grep buffer, C-c C-e to apply.  Nice!
+;;; * Searching
+
+(use-package rg                         ; ripgrep: fast find, wgrep-capable
+  :config
+  (rg-enable-default-bindings)          ; start w/ C-c s p, "rg-project"
+  )
+
+;;; ripgrep seems better and works better on Windows, but keep this here for now:
+;; M-x ag-project
+(use-package ag)
+
+;;; wgrep-change-to-wgrep-mode to edit right in a grep buffer (or ag/ripgrep)
+;;; Use C-c C-e to apply.
 (use-package wgrep
-  :commands wgrep-change-to-wgrep-mode)
+  :commands wgrep-change-to-wgrep-mode
+  :config
+  (setq wgrep-auto-save-buffer t)
+  )
 
 ;;; Need this for wgrep to understand ag-search buffers
 (use-package wgrep-ag
   :hook (ag-mode . wgrep-ag-setup)
+  )
+
+;;; M-x helm-ag: very nice for searching through files!
+;;; Requires ag or rg (silver searcher or ripgrep)
+(use-package helm-ag
+  :config
+  ;; This is configured for ripgrep; comment out to use ag
+  (setq helm-ag-base-command "rg --no-heading --vimgrep --smart-case")
   )
 
 (use-package gitconfig-mode
@@ -576,14 +599,6 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          ("C-c F" . origami-show-only-node))
   )
 
-(use-package ag
-  )
-
-;;; M-x helm-ag: very nice for searching through files!
-;;; Requires ag, "the silver searcher"
-(use-package helm-ag
-  )
-
 (defun projectile-mode-line ()
   "Report project name (only) in the modeline."
   (let ((project-name (projectile-project-name))
@@ -785,6 +800,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        (add-to-list 'exec-path (msys-path "usr/local/bin")) ; for GNU global/gtags
        (add-to-list 'exec-path "c:/bin")
        (add-to-list 'exec-path "c:/bin2")
+       (add-to-list 'exec-path "c:/ProgramData/Chocolatey/bin") ; rg, putty, etc.
        (prepend-PATH-msys "usr/local/bin")
        (prepend-PATH-msys "usr/bin")
        (prepend-PATH-msys "mingw64/bin")
