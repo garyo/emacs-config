@@ -37,9 +37,9 @@
   "Path within msys dir of FILE. FILE should be relative (no leading /)."
   `(expand-file-name ,file msys-root))
 
-(require 'server)
-(unless (server-running-p)
-  (server-start))
+(if (eq system-type 'windows-nt)
+    (push (msys-path "usr/bin") exec-path) ; for msys/linux "find", needed by straight.el
+  )
 
 ;;; Set up package system -- straight.el (better than built-in package.el)
 (defvar bootstrap-version)
@@ -59,6 +59,9 @@
 (straight-use-package 'use-package)
 (defvar straight-use-package-by-default)
 (setq straight-use-package-by-default t) ; make use-package use straight
+(defvar straight-check-for-modifications)
+(setq straight-check-for-modifications
+      '(check-on-save find-when-checking))
 
 ;;; Default frame size - could make this variable depending on display params
 ;;; but then it would have to go in the frame setup hook.
@@ -218,6 +221,12 @@ Return the errors parsed with the error patterns of CHECKER."
          ("\\.markdown\\'" . markdown-mode))
   :init (setq markdown-command "multimarkdown"))
 
+;; instant live github markdown preview in markdown mode, C-c C-c g
+;; Requires 'grip', a python package (pip install grip) installed in system python
+(use-package grip-mode
+  :bind (:map markdown-mode-command-map
+         ("g" . grip-mode)))
+
 ;;; * Searching
 
 (use-package rg                         ; ripgrep: fast find, wgrep-capable
@@ -271,7 +280,7 @@ Return the errors parsed with the error patterns of CHECKER."
   :config
   (dolist (p '((git-gutter:added    . "#0c0")
                (git-gutter:deleted  . "#c00")
-               (git-gutter:modified . "#cc0")))
+               (git-gutter:modified . "#df0")))
     (set-face-foreground (car p) (cdr p))
     (set-face-background (car p) (cdr p)))
   (global-git-gutter-mode)
@@ -1569,6 +1578,11 @@ by using nxml's indentation rules."
               (let ((print-quoted t))
                 (funcall orig))))
 
+;;; Start emacs server
+(require 'server)
+(unless (server-running-p)
+  (server-start))
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -1635,6 +1649,7 @@ by using nxml's indentation rules."
  '(magit-log-format-unicode-graph-alist '((47 . 9585) (92 . 9586) (42 . 9642)))
  '(magit-pull-arguments '("--rebase"))
  '(magit-refresh-status-buffer nil)
+ '(markdown-command "pandoc")
  '(mhtml-tag-relative-indent nil)
  '(ns-command-modifier 'meta)
  '(org-babel-load-languages
@@ -1670,7 +1685,7 @@ by using nxml's indentation rules."
  '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts '{})
- '(projectile-completion-system 'helm t)
+ '(projectile-completion-system 'helm)
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
  '(ps-font-size '(7 . 10))
