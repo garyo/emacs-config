@@ -570,7 +570,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        (use-package eglot
          :straight (:host github
                           :repo "joaotavora/eglot"
-                          :branch "scratch/50-resolve-completion-items-in-more-situations")
+                          :branch "master")
          :commands eglot
          :hook ((vue-mode . eglot-ensure)
                 (typescript-mode . eglot-ensure)
