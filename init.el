@@ -427,8 +427,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   "Set to t to turn on lots of logging in lsp-mode.")
 
 (defvar vls-vetur-configuration
-  `(:useWorkspaceDependencies:
-    :json-false
+  `(:useWorkspaceDependencies: t
     :completion
     (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
     :grammar
@@ -486,7 +485,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                   )))
 
     (add-to-list 'eglot-server-programs
-                 '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
+                 '(vue-mode typescript-mode . (eglot-vls . ("vls" "--stdio"))))
 
     (cl-defmethod eglot-initialization-options ((server eglot-vls))
       "Passes through required vetur initialization options to VLS."
