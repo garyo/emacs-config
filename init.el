@@ -152,6 +152,12 @@
 ;;; (which Hack does)
 (set-face-italic font-lock-comment-face t)
 
+;;;
+;;; Packages
+;;;
+(defvar helm-or-ivy 'ivy
+  "Whether to use Helm mode or Ivy mode for advanced completions")
+
 (use-package company
   :bind (("M-RET" . company-complete))
   :demand                               ; load it now (better for eglot)
@@ -253,11 +259,12 @@ Return the errors parsed with the error patterns of CHECKER."
 
 ;;; M-x helm-ag: very nice for searching through files!
 ;;; Requires ag or rg (silver searcher or ripgrep)
-(use-package helm-ag
-  :config
-  ;; This is configured for ripgrep; comment out to use ag
-  (setq helm-ag-base-command "rg --no-heading --vimgrep --smart-case")
-  )
+(if (eq helm-or-ivy 'helm)
+    (use-package helm-ag
+      :config
+      ;; This is configured for ripgrep; comment out to use ag
+      (setq helm-ag-base-command "rg --no-heading --vimgrep --smart-case")
+      ))
 
 (use-package gitconfig-mode
   :mode "\\.gitconfig\\'")
@@ -626,31 +633,53 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (setq projectile-mode-line-function 'projectile-mode-line)
   )
 
-(use-package helm
-  :diminish helm-mode
-  :init
-  (progn
-    (require 'helm-config)
-    (setq helm-candidate-number-limit 100)
-    ;; From https://gist.github.com/antifuchs/9238468
-    (setq helm-idle-delay 0.0 ; update fast sources immediately (doesn't).
-          helm-input-idle-delay 0.01  ; this actually updates things
+(if (eq helm-or-ivy 'helm)
+    (use-package helm
+      :diminish helm-mode
+      :init
+      (progn
+        (require 'helm-config)
+        (setq helm-candidate-number-limit 100)
+        ;; From https://gist.github.com/antifuchs/9238468
+        (setq helm-idle-delay 0.0 ; update fast sources immediately (doesn't).
+              helm-input-idle-delay 0.01 ; this actually updates things
                                         ; reeeelatively quickly.
-          helm-yas-display-key-on-candidate t
-          helm-quick-update t
-          helm-buffers-fuzzy-matching t
-          helm-M-x-requires-pattern nil
-          projectile-completion-system 'helm
-          helm-ff-skip-boring-files t)
-    (helm-mode))
-  :bind (("C-h a" . helm-apropos)
-         ("C-x C-b" . helm-buffers-list)
-         ("C-x b" . helm-mini)
-         ("M-y" . helm-show-kill-ring)
-         ; ("M-x" . helm-M-x)
-         ("C-x C-f" . helm-find-files)
-         ("C-x c o" . helm-occur)
-         ("C-x c SPC" . helm-all-mark-rings)))
+              helm-yas-display-key-on-candidate t
+              helm-quick-update t
+              helm-buffers-fuzzy-matching t
+              helm-M-x-requires-pattern nil
+              projectile-completion-system 'helm
+              helm-ff-skip-boring-files t)
+        (helm-mode))
+      :config
+      (setq projectile-completion-system 'helm)
+      :bind (("C-h a" . helm-apropos)
+             ("C-x C-b" . helm-buffers-list)
+             ("C-x b" . helm-mini)
+             ("M-y" . helm-show-kill-ring)
+                                        ; ("M-x" . helm-M-x)
+             ("C-x C-f" . helm-find-files)
+             ("C-x c o" . helm-occur)
+             ("C-x c SPC" . helm-all-mark-rings)))
+  ;; else Ivy
+  (use-package counsel
+    :config
+    (counsel-mode 1)
+    )
+  (use-package swiper                   ; replace isearch!
+    :bind (("C-s" . swiper)
+           ("C-r" . swiper-backward))
+    )
+  (use-package ivy
+    :config
+    (ivy-mode 1)
+    (setq ivy-use-virtual-buffers t
+          ivy-height 20
+          ivy-count-format "(%d/%d) ")
+    (setq projectile-completion-system 'ivy)
+    )
+  (use-package ivy-hydra)               ; C-o in ivy minibuffer to start hydra
+)
 
 (use-package smart-mode-line
   :config
@@ -1684,7 +1713,6 @@ by using nxml's indentation rules."
  '(org-table-convert-region-max-lines 9999)
  '(org-use-speed-commands t)
  '(org-use-sub-superscripts '{})
- '(projectile-completion-system 'helm)
  '(projectile-globally-ignored-directories
    '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout" "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
  '(ps-font-size '(7 . 10))
