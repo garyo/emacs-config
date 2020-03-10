@@ -492,7 +492,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                   )))
 
     (add-to-list 'eglot-server-programs
-                 '(vue-mode typescript-mode . (eglot-vls . ("vls" "--stdio"))))
+                 '((vue-mode typescript-mode) . (eglot-vls . ("vls" "--stdio"))))
 
     (cl-defmethod eglot-initialization-options ((server eglot-vls))
       "Passes through required vetur initialization options to VLS."
