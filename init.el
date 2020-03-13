@@ -492,7 +492,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                   )))
 
     (add-to-list 'eglot-server-programs
-                 '((vue-mode typescript-mode) . (eglot-vls . ("vls" "--stdio"))))
+                 '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
 
     (cl-defmethod eglot-initialization-options ((server eglot-vls))
       "Passes through required vetur initialization options to VLS."
@@ -666,9 +666,10 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     :config
     (counsel-mode 1)
     )
-  (use-package swiper                   ; replace isearch!
-    :bind (("C-s" . swiper)
-           ("C-r" . swiper-backward))
+  (use-package swiper
+    ;; use Ctrl-O to switch to swiper mode within isearch
+    :bind (:map isearch-mode-map
+                ("C-o" . swiper-from-isearch))
     )
   (use-package ivy
     :config
@@ -679,6 +680,11 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     (setq projectile-completion-system 'ivy)
     )
   (use-package ivy-hydra)               ; C-o in ivy minibuffer to start hydra
+  (use-package ivy-rich
+    :config
+    (ivy-rich-mode 1)
+    (setcdr (assq t ivy-format-functions-alist) #'ivy-format-function-line)
+    )
 )
 
 (use-package smart-mode-line
@@ -748,6 +754,12 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
       (t
        (message "Can't find zsh!")))
 
+;; Setting this will make emacs use this shell for subprocesses
+;; (shell-command, start-file-process, compilations, etc.)
+;; Beware: on Windows with msys zsh, it'll translate paths
+;; which might be what you want sometimes, but not others!
+;; (so "grep /foo" will turn into "grep c:/tools/msys64/msys64/foo")
+;; In that case you can double the initial slash (maybe!).
 (setq shell-file-name explicit-shell-file-name)
 
 ;;; Set up f7 to start or switch to shell.
@@ -1476,16 +1488,6 @@ by using nxml's indentation rules."
   (setq mac-option-modifier 'super)
   )
 
-;;; This adds an isearch-mode keybinding for C-o to run Occur
-;;; with the current search string, without interrupting the isearch.
-;;; Way cool!
-(define-key isearch-mode-map (kbd "C-o")
-  (lambda ()
-    (interactive)
-    (let ((case-fold-search isearch-case-fold-search))
-      (occur (if isearch-regexp isearch-string
-               (regexp-quote isearch-string))))))
-
 (defun end-of-buffer-right-way ()
   "Put point at the end of the buffer and also at the bottom of the window."
   (interactive nil)
@@ -1637,6 +1639,7 @@ by using nxml's indentation rules."
  '(ecb-primary-secondary-mouse-buttons 'mouse-1--mouse-2)
  '(ecb-tip-of-the-day nil)
  '(ecb-windows-width 30)
+ '(edebug-print-length 500)
  '(egg-buffer-hide-section-type-on-start nil)
  '(egg-cmd-select-special-buffer t)
  '(egg-commit-box-chars [9608])
