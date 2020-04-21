@@ -237,7 +237,17 @@ Return the errors parsed with the error patterns of CHECKER."
 
 (use-package rg                         ; ripgrep: fast find, wgrep-capable
   :config
-  (rg-enable-default-bindings)          ; start w/ C-c s p, "rg-project"
+  (rg-enable-menu)          ; start w/ C-c s p, "rg-project"
+  ;; rg-mode binds C-n and C-p to go to next/prev file rather than by line
+  ;; which is a bit jarring.
+  (define-key rg-mode-map (kbd "C-n") nil)
+  (define-key rg-mode-map (kbd "C-p") nil)
+  (rg-define-search rg-search-all       ; C-c s a: search all in project
+    "Search all files in project with rg"
+    :files "all"
+    :dir project
+    :menu ("Search" "a" "All in project")
+    )
   )
 
 ;;; ripgrep seems better and works better on Windows, but keep this here for now:
@@ -665,6 +675,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (use-package counsel
     :config
     (counsel-mode 1)
+    :bind (("C-c g" . counsel-git)
+           )
     )
   (use-package swiper
     ;; use Ctrl-O to switch to swiper mode within isearch
@@ -695,7 +707,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (setq sml/shorten-directory t)
   (setq sml/shorten-modes t)
   ;; don't show these minor modes
-  (setq rm-blacklist '(" hl-p" " company" " ElDoc" " VHl" " Helm" " Fill"))
+  (setq rm-blacklist '(" hl-p" " company" " ElDoc" " VHl" " Helm" " Fill"
+                       " Filladapt" " counsel" " ivy" " yas" " GitGutter"))
   (add-to-list 'sml/replacer-regexp-list
                '("c:/dss/Product/Horizon/WebProjects/horizon-project/horizon" ":HZN:"))
   (sml/setup)
@@ -738,8 +751,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 ;;; (this is a little weird on Mac with emacs 25.3)
 ;(desktop-save-mode t)
 
-;;; Prefer utf-8 coding system everywhere
-(prefer-coding-system 'utf-8)
+;;; Prefer utf-8 coding system everywhere, with LF line endings
+(prefer-coding-system 'utf-8-unix)
 (set-charset-priority 'unicode)
 (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
 
