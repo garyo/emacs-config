@@ -63,15 +63,6 @@
 (setq straight-check-for-modifications
       '(check-on-save find-when-checking))
 
-;;; Default frame size - could make this variable depending on display params
-;;; but then it would have to go in the frame setup hook.
-;;; XXX: this overrides my new-frame-setup code below, so don't use it.
-;; (setq default-frame-alist '((top . 0)
-;;                              (left . 20)
-;;                             (width . 98)
-;;                             (fullscreen . fullheight)
-;;                             ))
-
 ;;;; FONTS ;;;;;;
 ;; Notes:
 ;; use M-x describe-font RET to describe current font
@@ -137,16 +128,20 @@
 	  (message "Using font %s: %s" font-info font)
 	  (set-face-attribute 'default frame :font font)
           (set-frame-width frame 100)
-          (set-frame-parameter frame 'fullscreen 'fullheight) ; full height
-          (if (equal window-system 'ns)
-              (set-frame-position frame 20 0)
-            (set-frame-position frame -20 0)) ; negative means right- or bottom-relative
+          (set-frame-height frame 48)
+          ;; Now using desktop-save-mode so don't bother setting frame position/size
+          ;(set-frame-parameter frame 'fullscreen 'fullheight) ; full height
+          ;(if (equal window-system 'ns)
+          ;    (set-frame-position frame 20 0)
+          ;  (set-frame-position frame -20 0)) ; negative means right- or bottom-relative
 	  )))
   )
 ;;; run on existing frames (non-daemon startup)
 (mapc 'new-frame-setup (frame-list))
 ;;; run when new frames created (daemon or server)
 (add-hook 'after-make-frame-functions 'new-frame-setup)
+
+(desktop-save-mode 1)
 
 ;;; I like italic comment face as long as the actual font supports it
 ;;; (which Hack does)
@@ -503,6 +498,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
     (add-to-list 'eglot-server-programs
                  '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
+    (add-to-list 'eglot-server-programs
+                 '((js-mode typescript-mode) . ("typescript-language-server" "--stdio" "--tsserver-log-file" "/tmp/tsserver.log")))
 
     (cl-defmethod eglot-initialization-options ((server eglot-vls))
       "Passes through required vetur initialization options to VLS."
@@ -619,6 +616,9 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
 (use-package yaml-mode
   :mode "\\.yaml\\'")
+
+(use-package json-mode
+  :mode "\\.json\\'")
 
 (use-package origami
   :bind (("C-c f" . origami-recursively-toggle-node)
