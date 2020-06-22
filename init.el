@@ -335,6 +335,12 @@ Return the errors parsed with the error patterns of CHECKER."
   :mode ("\\.gd$")
 )
 
+;;; Useful for folding, manipulating and navigating indented languages like yaml
+;;; (or even python)
+(use-package indent-tools
+  :bind (("C-c >" . 'indent-tools-hydra/body))
+  )
+
 (use-package typescript-mode
   :mode ("\\.ts$")
   )
