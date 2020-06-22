@@ -1110,9 +1110,12 @@ this is the first Monday of the month."
         (when (derived-mode-p 'org-agenda-mode)
           (org-agenda-redo t)))))
 ;; when modifying agenda files make sure to update appt
-(require 'filenotify)
-(dolist (file org-agenda-files)
-  (file-notify-add-watch file '(change) #'gco-org-agenda-file-notify))
+(if (file-exists-p org-directory)
+    (progn
+      (require 'filenotify)
+      (dolist (file org-agenda-files)
+	(file-notify-add-watch file '(change) #'gco-org-agenda-file-notify))
+      ))
 
 ;; use M-x idb to run the Intel debugger inside emacs (looks like 'dbx')
 (defvar idbpath "c:/Program Files/Intel/IDB/10.0/IA32/Bin")
