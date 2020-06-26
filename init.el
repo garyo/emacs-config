@@ -1673,6 +1673,7 @@ by using nxml's indentation rules."
  '(egg-log-buffer-marks [10004 9998 46 9733 62])
  '(egg-log-graph-chars [9608 124 45 47 92])
  '(egg-quit-window-actions '((egg-status-buffer-mode kill restore-windows)))
+ '(eldoc-echo-area-use-multiline-p t)
  '(exec-path-from-shell-arguments '("-l"))
  '(extended-command-suggest-shorter nil)
  '(flycheck-c/c++-cppcheck-executable "c:/Program Files/Cppcheck/cppcheck.exe")
