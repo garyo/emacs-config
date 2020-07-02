@@ -141,8 +141,6 @@
 ;;; run when new frames created (daemon or server)
 (add-hook 'after-make-frame-functions 'new-frame-setup)
 
-(desktop-save-mode 1)
-
 ;;; I like italic comment face as long as the actual font supports it
 ;;; (which Hack does)
 (set-face-italic font-lock-comment-face t)
@@ -755,8 +753,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (setq windmove-wrap-around t))
 
 ;;; save/restore window configs to disk automatically
-;;; (this is a little weird on Mac with emacs 25.3)
-;(desktop-save-mode t)
+(desktop-save-mode t)
+(setq desktop-files-not-to-save ".*")   ; don't save any files; just the window configuration
 
 ;;; Prefer utf-8 coding system everywhere, with LF line endings
 (prefer-coding-system 'utf-8-unix)
