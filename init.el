@@ -1607,7 +1607,6 @@ by using nxml's indentation rules."
  search-highlight t
  split-height-threshold (/ (frame-height) 2)
  tags-revert-without-query t
- tramp-default-method "pscp"		; for Windows; uses PuTTY
  truncate-partial-width-windows nil	; ECB needs this to avoid
 					; truncating source window
 					; since it's partial width.
@@ -1764,7 +1763,6 @@ by using nxml's indentation rules."
  '(speedbar-tag-hierarchy-method
    '(speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy))
  '(taskjuggler-command "tj3")
- '(tramp-syntax 'default nil (tramp))
  '(typescript-indent-level 2)
  '(vc-dired-recurse nil)
  '(visible-bell t)
