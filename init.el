@@ -360,6 +360,9 @@ Return the errors parsed with the error patterns of CHECKER."
   ;; Fix for mmm-mode bug https://github.com/purcell/mmm-mode/issues/100
   ;; (can remove once that's fixed & released)
   (add-to-list 'mmm-save-local-variables '(c-current-comment-prefix region))
+  ;; Fix for mmm-mode bug #107 where M-x occur fails while fontifying in Vue mode
+  (add-to-list 'mmm-save-local-variables '(typescript--quick-match-re-func region))
+  (add-to-list 'mmm-save-local-variables '(typescript--quick-match-re region))
   )
 
 ;;; Yasnippet -- autocomplete various language snippets
