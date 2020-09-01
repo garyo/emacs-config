@@ -23,6 +23,9 @@
 ;; don't GC after every 800k; only when idle.
 (setq gc-cons-threshold (eval-when-compile (* 1024 1024 1024)))
 (run-with-idle-timer 10 t (lambda () (garbage-collect)))
+(setq read-process-output-max (* 1024 1024)) ; improve LSP performance
+;; typescript language server, more RAM:
+(setenv "NODE_OPTIONS" "--max-old-space-size=8192")
 
 (defvar msys-root
   (cond ((file-exists-p "c:/tools/msys64/msys64")
@@ -162,7 +165,10 @@
                                         company-dabbrev company-etags
                                         company-keywords))
   (setq company-dabbrev-downcase nil	 ;make case-sensitive
-	company-dabbrev-ignore-case nil) ;make case-sensitive
+	company-dabbrev-ignore-case nil ;make case-sensitive
+        company-minimum-prefix-length 1
+        company-idle-delay 0.2
+        )
 )
 
 (use-package company-statistics
@@ -181,16 +187,17 @@
 ;; string manipulation routines
 (use-package s)
 
-(use-package flycheck-pos-tip)
-(use-package flycheck
-  :config
-  (global-flycheck-mode)
-  ;; show flycheck errors in popup, not in minimuffer. This is important
-  ;; because minibuffer may be showing documentation or something else,
-  ;; and without this flycheck errors/warnings overwrite that info.
-  ;; (alternately, could show doc strings in popup somehow)
-  (flycheck-pos-tip-mode)
-  )
+;; 2020-08-03 Eglot uses the rewritten flymake, so maybe try with just that?
+;; (use-package flycheck-pos-tip)
+;; (use-package flycheck
+;;   :config
+;;   (global-flycheck-mode)
+;;   ;; show flycheck errors in popup, not in minibuffer. This is important
+;;   ;; because minibuffer may be showing documentation or something else,
+;;   ;; and without this flycheck errors/warnings overwrite that info.
+;;   ;; (alternately, could show doc strings in popup somehow)
+;;   (flycheck-pos-tip-mode)
+;;   )
 
 ;;; for Windows, especially for emacs-lisp checker which passes
 ;;; lots of cmd-line args to emacs
@@ -357,6 +364,7 @@ Return the errors parsed with the error patterns of CHECKER."
   ;; remove once mmm-mode has a fix for this
   ;; (see https://github.com/purcell/mmm-mode/issues/99)
   (add-to-list 'mmm-save-local-variables '(syntax-ppss-table buffer))
+  (add-to-list 'mmm-save-local-variables '(sgml--syntax-propertize-ppss))
   ;; Fix for mmm-mode bug https://github.com/purcell/mmm-mode/issues/100
   ;; (can remove once that's fixed & released)
   (add-to-list 'mmm-save-local-variables '(c-current-comment-prefix region))
@@ -427,24 +435,19 @@ which is a lot faster."
 (unless (has-fast-json)
   (warn "This emacs is using older elisp json functions; maybe rebuild with libjansson?"))
 
-(defvar vls-exe
-  (cond ((file-exists-p (expand-file-name "~/src/vetur/server/bin/vls"))
-         (expand-file-name "~/src/vetur/server/bin/vls"))
-        (t "vls"))
-  "Vue Language Server path - normally just \"vls\" but can point to local install."
-  )
-
 ;; May 2019: Eglot is more responsive and simpler
 ;; Oct 2019: lsp-mode has more features, but it's very slow
 ;;           unless this Emacs has the fast C json lib (libjansson).
 ;;           ... and even then it's super slow for me.
-(defvar use-lsp-mode nil
+;; Aug 2020: lsp-mode is now faster and more reliable than eglot. Time to switch.
+(defvar use-lsp-mode t
   "T means use lsp-mode; nil means use eglot.
 Always uses eglot if this Emacs doesn't have fast JSON.")
 
 (defvar lsp-mode-verbose nil
   "Set to t to turn on lots of logging in lsp-mode.")
 
+;; for eglot
 (defvar vls-vetur-configuration
   `(:useWorkspaceDependencies: t
     :completion
@@ -479,6 +482,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     :prettier :json-false
     ))
 
+;; for eglot
 (defvar vls-workspace-configuration
   `((:vetur . ,vls-vetur-configuration)
     (:html . (:suggest ()))
@@ -506,7 +510,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     (add-to-list 'eglot-server-programs
                  '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
     (add-to-list 'eglot-server-programs
-                 '((js-mode typescript-mode) . ("typescript-language-server" "--stdio" "--tsserver-log-file" "/tmp/tsserver.log")))
+                 '((js-mode typescript-mode) . ("~/.yarn/bin/typescript-language-server" "--stdio" "--tsserver-log-file" "/tmp/tsserver.log")))
 
     (cl-defmethod eglot-initialization-options ((server eglot-vls))
       "Passes through required vetur initialization options to VLS."
@@ -523,20 +527,32 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     )
   )
 
+;; (defun lsp-ui-doc-font ()
+;;   (face-remap-add-relative 'default :family "Bitstream Charter" :height 120))
+
 (cond ((and use-lsp-mode (has-fast-json))
+       ;; Use custom recipe for now (2020-08-30), see
+       ;; https://github.com/melpa/melpa/blob/master/recipes/lsp-mode#L1-L4
+       (straight-use-package '(lsp-mode
+                      :repo "emacs-lsp/lsp-mode"
+                      :fetcher github
+                      :files (:defaults
+                              "clients/*.el")))
        ;; LSP mode: language server protocol for getting completions, definitions etc.
        (use-package lsp-mode
          :commands lsp
          :hook ((vue-mode . lsp)
                 (typescript-mode . lsp)
                 (python-mode . lsp))
+         :bind-keymap
+         ("C-c C-l" . lsp-command-map); default: super-l
          :config
-         (setq lsp-prefer-flymake nil
-               lsp-log-io lsp-mode-verbose
-               lsp-trace lsp-mode-verbose
+         (setq lsp-log-io lsp-mode-verbose
+               lsp-clients-typescript-log-verbosity (if lsp-mode-verbose "verbose" "normal")
                lsp-print-performance t
-               lsp-response-timeout 10
-               lsp-vetur-server-command vls-exe ; normally just "vls"
+               lsp-response-timeout 15
+               lsp-headerline-breadcrumb-enable t
+               lsp-headerline-breadcrumb-segments '(file symbols)
                )
          )
        (use-package lsp-ui
@@ -544,43 +560,19 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          :hook (lsp-mode . lsp-ui-mode)
          :config
          (setq lsp-ui-doc-enable t
-               lsp-ui-doc-use-childframe t
-               lsp-ui-doc-position 'top
+               lsp-ui-doc-use-childframe nil
+               lsp-ui-doc-use-webkit t
                lsp-ui-doc-include-signature t
-               lsp-ui-sideline-enable nil
-               lsp-ui-flycheck-enable t
-               lsp-ui-flycheck-list-position 'right
-               lsp-ui-flycheck-live-reporting t
-               lsp-ui-peek-enable t
                lsp-ui-peek-list-width 60
                lsp-ui-peek-peek-height 25
+               lsp-modeline-code-actions-mode nil
                )
 	 )
-       (use-package company-lsp
-         :config
-         (push 'company-lsp company-backends)
-         ;; Disable client-side cache because the LSP server does a better job (?)
-         (setq company-lsp-async t
-               company-lsp-cache-candidates nil
-               company-lsp-filter-candidates ; need to filter vls and jsts-ls
-               '((bingo . nil)
-                 (ccls . nil)
-                 (clangd . nil)
-                 (cquery . nil)
-                 (go-bingo . nil)
-                 (gopls . nil)
-                 (javacomp . nil)
-                 (jdtls . nil)
-                 (pyls . nil)
-                 (rls . nil)
-                 (jsts-ls . t)
-                 (vls . t)
-                 (t . t))
-               company-lsp-enable-snippet t
-               )
-         )
-       (use-package helm-lsp
-         )
+       (use-package flycheck)
+       (use-package lsp-ivy)
+       (use-package lsp-treemacs)
+       ;; doesn't work
+       ;; (add-hook 'lsp-ui-doc-mode-hook #'lsp-ui-doc-font)
 
        (if (not (featurep 'yasnippet))
            (warn "LSP: missing yasnippet, LSP won't work well"))
@@ -695,6 +687,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
     :config
     (ivy-mode 1)
     (setq ivy-use-virtual-buffers t
+          ivy-use-selectable-prompt t
           ivy-height 20
           ivy-count-format "(%d/%d) ")
     (setq projectile-completion-system 'ivy)
@@ -986,6 +979,9 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (ignore-errors
  (load-file "~/.emacs-orgmode")
 )
+
+;; always (?) enable electric-pair-mode to insert matching parens & braces
+(electric-pair-mode t)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Org agenda setup:
@@ -1779,6 +1775,10 @@ by using nxml's indentation rules."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(flycheck-fringe-info ((t (:foreground "#00dd00"))))
+ '(flycheck-info ((t (:underline (:color "#00ff00" :style wave)))))
+ '(lsp-ui-doc-background ((((background light)) (:background "#ffffbb")) (t (:background "#272A36"))))
+ '(lsp-ui-sideline-code-action ((t (:foreground "brown"))))
  '(magit-item-highlight ((t (:background "floral white"))))
  '(magit-section-highlight ((t (:background "floral white"))))
  '(org-agenda-date-today ((t (:inherit org-agenda-date :slant italic :weight bold :height 1.1))))
@@ -1791,6 +1791,8 @@ by using nxml's indentation rules."
 (put 'eval-expression 'disabled nil)
 (put 'narrow-to-region 'disabled nil)
 (put 'narrow-to-page 'disabled nil)
+
+;;; (setq debug-on-error t)                 ; XXX testing only
 
 (provide 'emacs)
 ;;; emacs ends here
