@@ -23,6 +23,10 @@
 ;; don't GC after every 800k; only when idle.
 (setq gc-cons-threshold (eval-when-compile (* 1024 1024 1024)))
 (run-with-idle-timer 10 t (lambda () (garbage-collect)))
+;; undo is pruned on GC; allow more undos (10x default)
+(set-variable 'undo-limit 1600000)
+(set-variable 'undo-strong-limit (* 10 undo-limit))
+
 (setq read-process-output-max (* 1024 1024)) ; improve LSP performance
 ;; typescript language server, more RAM:
 (setenv "NODE_OPTIONS" "--max-old-space-size=8192")
@@ -290,6 +294,7 @@ Return the errors parsed with the error patterns of CHECKER."
   ;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
   (remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
   (add-hook 'magit-status-mode-hook 'delete-other-windows)
+  (add-hook 'after-save-hook 'magit-after-save-refresh-status)
   )
 
 ;; Show git changes in fringe
@@ -308,6 +313,8 @@ Return the errors parsed with the error patterns of CHECKER."
   :config
   (volatile-highlights-mode t)
   )
+
+(use-package all-the-icons)
 
 ;;; This sets $PATH and exec-path by querying the shell.
 ;;; Much better than trying to keep them in sync as above.
@@ -405,23 +412,6 @@ move to the next field. Call `open-line' if nothing else applies."
 (use-package yasnippet-snippets
   :after yasnippet
   :config (yasnippet-snippets-initialize))
-
-;;; multiple major modes in a buffer; like multi-web-mode but more modern.
-;;; polymode may be better still but as of Sept 2018 it's still being rewritten.
-;; (use-package mmm-mode
-;;   :config
-;;   (mmm-add-mode-ext-class 'html-mode nil 'html-js) ; set up for js in html
-;;   (mmm-add-mode-ext-class 'html-mode nil 'html-css) ; set up for css in html
-;;   (setq mmm-global-mode 'maybe)
-;;   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
-;;   (setq mmm-major-mode-preferences
-;;         '((perl cperl-mode perl-mode)
-;;           (python python-mode python-mode)
-;;           (javascript js-mode c++-mode) ; only here because of this -- use js-mode
-;;           (java jde-mode java-mode c++-mode)
-;;           (css css-mode c++-mode))
-;;         )
-;;   )
 
 (defun has-fast-json ()
   "Return t if \"json-serialize\" is implemented as a C function.
@@ -534,10 +524,10 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        ;; Use custom recipe for now (2020-08-30), see
        ;; https://github.com/melpa/melpa/blob/master/recipes/lsp-mode#L1-L4
        (straight-use-package '(lsp-mode
-                      :repo "emacs-lsp/lsp-mode"
-                      :fetcher github
-                      :files (:defaults
-                              "clients/*.el")))
+                               :repo "emacs-lsp/lsp-mode"
+                               :fetcher github
+                               :files (:defaults
+                                       "clients/*.el")))
        ;; LSP mode: language server protocol for getting completions, definitions etc.
        (use-package lsp-mode
          :commands lsp
@@ -553,6 +543,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                lsp-response-timeout 15
                lsp-headerline-breadcrumb-enable t
                lsp-headerline-breadcrumb-segments '(file symbols)
+               flycheck-checker-error-threshold 1000 ; need more than default of 400
                )
          )
        (use-package lsp-ui
@@ -725,6 +716,14 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   ;; :hook (('text-mode-hook . 'filladapt-mode))
   :config
   (setq-default filladapt-mode t))      ; turn on by default everywhere
+
+;;; Ediff: split horizontally (A|B, like C-x 3) and
+;;; don't use the little floating control frame.
+(use-package ediff
+  :config
+  (setq ediff-split-window-function 'split-window-horizontally)
+  (setq ediff-window-setup-function 'ediff-setup-windows-plain)
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -925,7 +924,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (define-skeleton sh-skeleton
   "Default shell file skeleton"
   ""
-  "#! /bin/sh" \n
+  "#! /bin/bash" \n
   "\n"
   (copyright-for-skel "#" "")
   "\n"
@@ -982,6 +981,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
 ;; always (?) enable electric-pair-mode to insert matching parens & braces
 (electric-pair-mode t)
+(setq electric-pair-inhibit-predicate 'electric-pair-conservative-inhibit)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Org agenda setup:
@@ -1508,6 +1508,10 @@ by using nxml's indentation rules."
   (setq mac-option-modifier 'super)
   )
 
+(require 'misc)
+;; Trying this out; not sure if I'll ever use it.
+(global-set-key (kbd "M-<right>") 'forward-to-word)
+
 (defun end-of-buffer-right-way ()
   "Put point at the end of the buffer and also at the bottom of the window."
   (interactive nil)
@@ -1537,9 +1541,11 @@ by using nxml's indentation rules."
     (beginning-of-line (or (and arg (1+ arg)) 2))
     (if (and arg (not (= 1 arg))) (message "%d lines copied" arg)))
 
-(add-hook 'text-mode-hook
-	  (lambda ()
-	    (auto-fill-mode)))
+;; Don't do this -- turns on autofill in HTML mode too, which ends up turning it on
+;; in the entire .vue file (uses mmm-mode)
+; (add-hook 'text-mode-hook
+; 	  (lambda ()
+; 	    (auto-fill-mode)))
 
 (global-set-key "\M- " 'cycle-spacing) ; improvement over just-one-space; repeated calls cycle 1, 0, orig
 (global-set-key "\C-z" 'scroll-up-line) ; use emacs24 builtins
