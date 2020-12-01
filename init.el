@@ -738,7 +738,6 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (message "Starting edit server for Chrome...")
   (edit-server-start))
 
-
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
 ;;; windmove: shift+arrow keys to move between windows.
@@ -750,6 +749,22 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 ;;; save/restore window configs to disk automatically
 (desktop-save-mode t)
 (setq desktop-files-not-to-save ".*")   ; don't save any files; just the window configuration
+
+;;; Override stale desktop-file locks (from emacswiki)
+(defun garyo/desktop-owner-advice (original &rest args)
+  (let ((owner (apply original args)))
+    (if (and owner (/= owner (emacs-pid)))
+        (and (car (member owner (list-system-processes)))
+             (let (cmd (attrlist (process-attributes owner)))
+               (if (not attrlist) owner
+                 (dolist (attr attrlist)
+                   (and (car attr) (string= "comm" (car attr))
+                        (setq cmd (cdr attr))))
+                 (and cmd (string-match-p "[Ee]macs" cmd) owner))))
+      owner)))
+;; Ensure that dead system processes don't own it.
+(advice-add #'desktop-owner :around #'garyo/desktop-owner-advice)
+
 
 ;;; Prefer utf-8 coding system everywhere, with LF line endings
 (prefer-coding-system 'utf-8-unix)
@@ -882,6 +897,17 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        (prepend-PATH "/Users/garyo/python36/bin")
        (message "PATH: %s" (getenv "PATH"))
        ))
+
+;; Add node.js to PATH using fnm (fast version of nvm)
+(if (file-exists-p "~/.fnm/fnm")
+    (let* ((command "~/.fnm/fnm env --multi | grep 'export PATH' | sed 's/export PATH=\\(.*\\):.*/\\1/'")
+           (dir (replace-regexp-in-string
+                 "\n\\'" ""
+                 (shell-command-to-string command))))
+      (add-to-list 'exec-path dir)
+      (prepend-PATH dir)
+      )
+  )
 
 ;;; Use python-shell-interpreter to set python to run from emacs, not python-command
 ;;; NO:(setq-default python-command (or (executable-find "python") "c:/Python27/python"))
