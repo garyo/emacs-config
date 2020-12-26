@@ -413,6 +413,12 @@ move to the next field. Call `open-line' if nothing else applies."
   :after yasnippet
   :config (yasnippet-snippets-initialize))
 
+;;; show keybindings following prefix in a popup
+(use-package which-key
+  :config
+  (which-key-mode)
+  )
+
 (defun has-fast-json ()
   "Return t if \"json-serialize\" is implemented as a C function.
 This was done for Emacs 27 but not all builds include the C version,
@@ -534,8 +540,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          :hook ((vue-mode . lsp)
                 (typescript-mode . lsp)
                 (python-mode . lsp))
-         :bind-keymap
-         ("C-c C-l" . lsp-command-map); default: super-l
+         :init
+         (setq lsp-keymap-prefix "C-c C-l") ; default is super-l
          :config
          (setq lsp-log-io lsp-mode-verbose
                lsp-clients-typescript-log-verbosity (if lsp-mode-verbose "verbose" "normal")
@@ -544,22 +550,26 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                lsp-headerline-breadcrumb-enable t
                lsp-headerline-breadcrumb-segments '(file symbols)
                flycheck-checker-error-threshold 1000 ; need more than default of 400
+               lsp-ui-sideline-actions-kind-regex "quickfix.*" ; don't show refactor actions; too many (in vue mode)
                )
+         (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
          )
        (use-package lsp-ui
          :commands lsp-ui-mode
          :hook (lsp-mode . lsp-ui-mode)
          :config
          (setq lsp-ui-doc-enable t
-               lsp-ui-doc-use-childframe nil
                lsp-ui-doc-use-webkit t
                lsp-ui-doc-include-signature t
-               lsp-ui-peek-list-width 60
-               lsp-ui-peek-peek-height 25
+               lsp-ui-sideline-show-hover t ; show hover actions in the sideline
+               lsp-ui-doc-use-childframe nil ; childframe has bugs (12/2020); nil works fine
                lsp-modeline-code-actions-mode nil
                )
 	 )
        (use-package flycheck)
+       (use-package flycheck-pos-tip
+         :config
+         (flycheck-pos-tip-mode))
        (use-package lsp-ivy)
        (use-package lsp-treemacs)
        ;; doesn't work
@@ -598,6 +608,31 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 ;;   :config
 ;;   (set-face-background 'eldoc-box-body "#ffb")
 ;;   )
+
+(defhydra hydra-lsp (:exit t :hint nil)
+  "
+ Buffer^^               Server^^                   Symbol
+-------------------------------------------------------------------------------------
+ [_f_] format           [_M-r_] restart            [_d_] definition   [_i_] implementation  [_o_] documentation
+ [_m_] imenu            [_S_]   shutdown           [_D_] declaration  [_t_] type            [_r_] rename
+ [_x_] execute action   [_M-s_] describe session   [_R_] references   [_s_] signature"
+  ("d" lsp-ui-peek-find-definitions)
+  ("D" lsp-find-declaration)
+  ("R" lsp-ui-peek-find-references)
+  ("i" lsp-ui-peek-find-implementation)
+  ("t" lsp-find-type-definition)
+  ("s" lsp-signature-help)
+  ("o" lsp-describe-thing-at-point)
+  ("r" lsp-rename)
+
+  ("f" lsp-format-buffer)
+  ("m" lsp-ui-imenu)
+  ("x" lsp-execute-code-action)
+
+  ("M-s" lsp-describe-session)
+  ("M-r" lsp-restart-workspace)
+  ("S" lsp-shutdown-workspace))
+(global-set-key (kbd "C-c l") 'hydra-lsp/body)
 
 ;;; Work with python virtualenvs
 ;;; M-x venv-workon (has completion), M-x venv-deactivate, M-x venv-*
@@ -1037,11 +1072,12 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 ;(add-hook 'auto-save-hook 'org-save-all-org-buffers)            ; autosave always
 ;(advice-add 'org-agenda-quit :before 'org-save-all-org-buffers) ; autosave on quit agenda
 
-(global-set-key (kbd "C-c l") 'org-store-link)
-(global-set-key (kbd "C-c a") 'org-agenda)
-(global-set-key (kbd "<f9>") 'org-agenda) ; faster, one keystroke
-(global-set-key (kbd "<f8>") 'org-capture) ; faster, one keystroke
-(global-set-key (kbd "C-c c") 'org-capture)
+;;; Used these when I was trying org agenda
+;; (global-set-key (kbd "C-c l") 'org-store-link)
+;; (global-set-key (kbd "C-c a") 'org-agenda)
+;; (global-set-key (kbd "<f9>") 'org-agenda) ; faster, one keystroke
+;; (global-set-key (kbd "<f8>") 'org-capture) ; faster, one keystroke
+;; (global-set-key (kbd "C-c c") 'org-capture)
 
 (setq org-agenda-custom-commands        ; C-a a <cmd>
       '(("w" "At work"
@@ -1207,10 +1243,12 @@ this is the first Monday of the month."
 
 ;;; Save all backup(~) files and auto-save files in /tmp
 ;;; This keeps clutter down.
+(defconst emacs-tmp-dir (expand-file-name (format "emacs%d" (user-uid)) temporary-file-directory))
 (setq backup-directory-alist
-      `((".*" . ,temporary-file-directory)))
+      `((".*" . ,emacs-tmp-dir)))
 (setq auto-save-file-name-transforms
-      `((".*" ,temporary-file-directory t)))
+      `((".*" ,emacs-tmp-dir t)))
+(set-variable 'create-lockfiles nil)     ; dangerous but useful for file-watching recompiles
 
 (setq auto-mode-alist (cons '("\\.pl\\'" . cperl-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("SCons\\(truct\\|cript\\)\\'" . python-mode) auto-mode-alist))
@@ -1445,7 +1483,7 @@ by using nxml's indentation rules."
 
     (let ((candidates (get_src_from_build_path (fix-win-path filename)))
           (result nil))
-      (message (format "In process-error-filename: %s in %s: candidates = %s" filename spec-directory candidates))
+      ;; (message (format "In process-error-filename: %s in %s: candidates = %s" filename spec-directory candidates))
       (dolist (f candidates)
         (cond ((file-exists-p f)
 	       (setq result f))
@@ -1614,7 +1652,7 @@ by using nxml's indentation rules."
  backup-by-copying-when-linked t
  font-lock-maximum-decoration t
  compilation-window-height 15
- compilation-scroll-output t
+ compilation-scroll-output 'first-error
  compile-command "scons -D -j8 v=debug"
  delete-old-versions t
  diff-switches "-up"
