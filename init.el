@@ -366,18 +366,7 @@ Return the errors parsed with the error patterns of CHECKER."
   :mode "\\.vue$"
   :config
   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
-  ;; fix for Emacs27/mmm-mode bug (as of June 2019)
-  ;; without this, TAB doesn't indent in the <script> section
-  ;; remove once mmm-mode has a fix for this
-  ;; (see https://github.com/purcell/mmm-mode/issues/99)
-  (add-to-list 'mmm-save-local-variables '(syntax-ppss-table buffer))
   (add-to-list 'mmm-save-local-variables '(sgml--syntax-propertize-ppss))
-  ;; Fix for mmm-mode bug https://github.com/purcell/mmm-mode/issues/100
-  ;; (can remove once that's fixed & released)
-  (add-to-list 'mmm-save-local-variables '(c-current-comment-prefix region))
-  ;; Fix for mmm-mode bug #107 where M-x occur fails while fontifying in Vue mode
-  (add-to-list 'mmm-save-local-variables '(typescript--quick-match-re-func region))
-  (add-to-list 'mmm-save-local-variables '(typescript--quick-match-re region))
   )
 
 ;;; Yasnippet -- autocomplete various language snippets
@@ -539,6 +528,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          :commands lsp
          :hook ((vue-mode . lsp)
                 (typescript-mode . lsp)
+                (javascript-mode . lsp)
+                (js2-mode . lsp)
                 (python-mode . lsp))
          :init
          (setq lsp-keymap-prefix "C-c C-l") ; default is super-l
@@ -1040,9 +1031,16 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
  (load-file "~/.emacs-orgmode")
 )
 
-;; always (?) enable electric-pair-mode to insert matching parens & braces
+;; always enable electric-pair-mode to insert matching parens & braces
 (electric-pair-mode t)
-(setq electric-pair-inhibit-predicate 'electric-pair-conservative-inhibit)
+;; conservative-inhibit is better because it prevents more spurious pairs
+;; but it's still not perfect. I'm leaving this expression in here even though
+;; it's just calling electric-pair-conservative-inhibit so I can improve it later.
+(setq electric-pair-inhibit-predicate
+      (lambda (c)
+        (or
+         (electric-pair-conservative-inhibit c)
+         )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Org agenda setup:
