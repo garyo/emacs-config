@@ -48,6 +48,7 @@
     (push (msys-path "usr/bin") exec-path) ; for msys/linux "find", needed by straight.el
   )
 
+(require 'rx)       ; not sure why this is needed but it is, for pcase
 ;;; detect whether running under WSL 1 or 2, using /proc/version
 ;;; Sets constants "wsl-p", "wsl1-p", and "wsl2-p"
 (let* ((subproc-output
