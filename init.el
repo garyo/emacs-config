@@ -48,6 +48,37 @@
     (push (msys-path "usr/bin") exec-path) ; for msys/linux "find", needed by straight.el
   )
 
+;;; detect whether running under WSL 1 or 2, using /proc/version
+;;; Sets constants "wsl-p", "wsl1-p", and "wsl2-p"
+(let* ((subproc-output
+        (with-temp-buffer
+          (list (call-process "cat" nil (current-buffer) nil
+                              "/proc/version")
+                (buffer-string))))
+       (status (car subproc-output))
+       (output (cadr subproc-output))
+       (wsl-version (if (= status 0)    ;/proc/version found; check string
+                        (pcase output
+                          ((rx "WSL2") 'wsl2)
+                          ((rx "Microsoft@Microsoft.com") 'wsl1))
+                      nil)))
+  (message "WSL version is %s" wsl-version)
+  (defconst wsl-p (or (eq wsl-version 'wsl) (eq wsl-version 'wsl2))
+    "Running under Windows WSL (any version)")
+  (defconst wsl1-p (eq wsl-version 'wsl) "Running under Windows WSL (1, not 2)")
+  (defconst wsl2-p (eq wsl-version 'wsl2) "Running under Windows WSL2")
+  )
+
+;; frame title, with WSL indicator
+(let ((base-frame-title-format '("[%b] - " system-name " - Emacs " emacs-version)))
+  (cond (wsl1-p
+         (setq frame-title-format (append base-frame-title-format '(" (WSL1)"))))
+        (wsl2-p
+         (setq frame-title-format (append base-frame-title-format '(" (WSL2)"))))
+        (t
+         (setq frame-title-format base-frame-title-format)))
+  )
+
 ;;; Set up package system -- straight.el (better than built-in package.el)
 (defvar bootstrap-version)
 (let ((bootstrap-file
