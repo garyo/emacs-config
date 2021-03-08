@@ -63,9 +63,9 @@
                           ((rx "Microsoft@Microsoft.com") 'wsl1))
                       nil)))
   (message "WSL version is %s" wsl-version)
-  (defconst wsl-p (or (eq wsl-version 'wsl) (eq wsl-version 'wsl2))
+  (defconst wsl-p (or (eq wsl-version 'wsl1) (eq wsl-version 'wsl2))
     "Running under Windows WSL (any version)")
-  (defconst wsl1-p (eq wsl-version 'wsl) "Running under Windows WSL (1, not 2)")
+  (defconst wsl1-p (eq wsl-version 'wsl1) "Running under Windows WSL (1, not 2)")
   (defconst wsl2-p (eq wsl-version 'wsl2) "Running under Windows WSL2")
   )
 
