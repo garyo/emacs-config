@@ -452,6 +452,11 @@ which is a lot faster."
 (unless (has-fast-json)
   (warn "This emacs is using older elisp json functions; maybe rebuild with libjansson?"))
 
+(if (and (fboundp 'native-comp-available-p)
+         (native-comp-available-p))
+    (message "Native compilation is available!")
+  (message "Native complation is *not* available"))
+
 ;; May 2019: Eglot is more responsive and simpler
 ;; Oct 2019: lsp-mode has more features, but it's very slow
 ;;           unless this Emacs has the fast C json lib (libjansson).
@@ -795,6 +800,15 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (setq edit-server-new-frame nil)
   (message "Starting edit server for Chrome...")
   (edit-server-start))
+
+;; In WSL2, browse to URLs using Windows cmd.exe which will open
+;; default browser.
+(cond (wsl2-p
+       (setq
+        browse-url-generic-program  "/mnt/c/Windows/System32/cmd.exe"
+        browse-url-generic-args     '("/c" "start" "")
+        browse-url-browser-function 'browse-url-generic)
+       ))
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
