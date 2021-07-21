@@ -960,14 +960,14 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        (add-to-list 'exec-path "/usr/local/bin")
        (push "/Users/garyo/python36/bin" exec-path)
        (delete-dups exec-path)
-       (message "exec-path: %s" exec-path)
+       ;; (message "exec-path: %s" exec-path)
        ;; for SCons in compilation-mode. (emacs uses exec-path for
        ;; things it execs directly, but compilation-mode runs a shell
        ;; which invokes SCons, and doesn't seem to get my path -- that
        ;; could probably be fixed.)
        (prepend-PATH "/usr/local/bin")
        (prepend-PATH "/Users/garyo/python36/bin")
-       (message "PATH: %s" (getenv "PATH"))
+       ;; (message "PATH: %s" (getenv "PATH"))
        ))
 
 ;; Add node.js to PATH using fnm (fast version of nvm)
