@@ -455,7 +455,7 @@ which is a lot faster."
 (if (and (fboundp 'native-comp-available-p)
          (native-comp-available-p))
     (message "Native compilation is available!")
-  (message "Native complation is *not* available"))
+  (message "Native compilation is *not* available"))
 
 ;; May 2019: Eglot is more responsive and simpler
 ;; Oct 2019: lsp-mode has more features, but it's very slow
