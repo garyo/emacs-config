@@ -52,10 +52,12 @@
 ;;; detect whether running under WSL 1 or 2, using /proc/version
 ;;; Sets constants "wsl-p", "wsl1-p", and "wsl2-p"
 (let* ((subproc-output
-        (with-temp-buffer
-          (list (call-process "cat" nil (current-buffer) nil
-                              "/proc/version")
-                (buffer-string))))
+	(condition-case nil
+            (with-temp-buffer
+              (list (call-process "cat" nil (current-buffer) nil
+				  "/proc/version")
+                    (buffer-string)))
+	    (error '(-1 ""))))
        (status (car subproc-output))
        (output (cadr subproc-output))
        (wsl-version (if (= status 0)    ;/proc/version found; check string
