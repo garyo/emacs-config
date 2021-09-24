@@ -631,6 +631,11 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          )
        ))
 
+(with-eval-after-load 'lsp-mode
+  ;; no flake8: enabling this makes pyls very slow if it's not installed
+  (setq lsp-pyls-plugins-flake8-enabled nil)
+  (setq lsp-pylsp-plugins-flake8-enabled nil))
+
 ;;; Eglot uses eldoc to display docs for functions
 ;;; Try displaying those in a child frame:
 ;; (use-package eldoc-box
@@ -1081,14 +1086,16 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
 ;; always enable electric-pair-mode to insert matching parens & braces
 (electric-pair-mode t)
-;; conservative-inhibit is better because it prevents more spurious pairs
-;; but it's still not perfect. I'm leaving this expression in here even though
-;; it's just calling electric-pair-conservative-inhibit so I can improve it later.
-(setq electric-pair-inhibit-predicate
-      (lambda (c)
-        (or
-         (electric-pair-conservative-inhibit c)
-         )))
+(defun gco-inhibit-electric-pair-predicate (c)
+  (or
+   ;; if within a string started by the same char, inhibit pair insertion
+   (let ((s (syntax-ppss (- (point) 1))))
+     (eq (nth 3 s) c))
+   ;; else check the usual way
+   (electric-pair-default-inhibit c)
+   ))
+
+(setq electric-pair-inhibit-predicate 'gco-inhibit-electric-pair-predicate)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Org agenda setup:
