@@ -275,6 +275,7 @@ Return the errors parsed with the error patterns of CHECKER."
 
 (use-package rg                         ; ripgrep: fast find, wgrep-capable
   :config
+  (setq rg-executable "rg") ; defaults to (executable-find "rg") which can be wrong on Windows
   (rg-enable-menu)          ; start w/ C-c s p, "rg-project"
   ;; rg-mode binds C-n and C-p to go to next/prev file rather than by line
   ;; which is a bit jarring.
@@ -282,7 +283,7 @@ Return the errors parsed with the error patterns of CHECKER."
   (define-key rg-mode-map (kbd "C-p") nil)
   (rg-define-search rg-search-all       ; C-c s a: search all in project
     "Search all files in project with rg"
-    :files "all"
+    :files "everything"
     :dir project
     :menu ("Search" "a" "All in project")
     )
@@ -415,7 +416,7 @@ Return the errors parsed with the error patterns of CHECKER."
   ;; progress _and_ it has a snippet to expand, TAB doesn't work.
   ;; So this uses a function bound to C-o to either expand an active snippet,
   ;; or else do the usual open-line.
-  (global-set-key "\C-o" 'yasnippet-or-open-line)
+  (global-set-key (kbd "C-o") 'yasnippet-or-open-line)
   (defun yasnippet-or-open-line ()
     "Call `open-line', unless there are abbrevs or snippets at point.
 In that case expand them.  If there's a snippet expansion in progress,
@@ -569,7 +570,9 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                 (typescript-mode . lsp)
                 (javascript-mode . lsp)
                 (js2-mode . lsp)
-                (python-mode . lsp))
+                ;; no python LSP; it hangs sometimes
+                ;(python-mode . lsp)
+                )
          :init
          (setq lsp-keymap-prefix "C-c C-l") ; default is super-l
          :config
@@ -819,6 +822,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
 (winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
 
+(repeat-mode 1) ;; allow C-x ^^^^ to enlarge window with each press of ^ (same for C-x },{,v})
+
 ;;; windmove: shift+arrow keys to move between windows.
 ;;; Should be available since emacs 21.
 (when (fboundp 'windmove-default-keybindings)
@@ -901,6 +906,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (global-set-key [f7] 'shell-dwim)
 (global-set-key [f8] 'eshell)
 
+(global-set-key [remap count-words-region] #'count-words) ; better: uses region when active
+
 ; Dirtrack mode in shell buffers; finds prompts with dir name
 ; which should be better with msys2/cygwin where I can emit a
 ; Windows-style dir name in the prompt.
@@ -957,7 +964,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        (add-to-list 'exec-path (msys-path "usr/local/bin")) ; for GNU global/gtags
        (add-to-list 'exec-path "c:/bin")
        (add-to-list 'exec-path "c:/bin2")
-       (add-to-list 'exec-path "c:/ProgramData/Chocolatey/bin") ; rg, putty, etc.
+       ; (add-to-list 'exec-path "c:/ProgramData/Chocolatey/bin") ; rg, putty, etc.
        (prepend-PATH-msys "usr/local/bin")
        (prepend-PATH-msys "usr/bin")
        (prepend-PATH-msys "mingw64/bin")
@@ -1089,10 +1096,15 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (defun gco-inhibit-electric-pair-predicate (c)
   (or
    ;; if within a string started by the same char, inhibit pair insertion
-   (let ((s (syntax-ppss (- (point) 1))))
-     (eq (nth 3 s) c))
-   ;; else check the usual way
-   (electric-pair-default-inhibit c)
+   (save-excursion
+     (let ((s (syntax-ppss (- (point) 1))))
+       (eq (nth 3 s) c)))
+   ;; inhibit when it helps balance
+   (save-excursion
+     (electric-pair-inhibit-if-helps-balance c))
+   ;; inhibit when same char is next, or 2nd "" or ((, or next to a word
+   (save-excursion
+     (electric-pair-conservative-inhibit c))
    ))
 
 (setq electric-pair-inhibit-predicate 'gco-inhibit-electric-pair-predicate)
@@ -1664,18 +1676,18 @@ by using nxml's indentation rules."
 ; 	  (lambda ()
 ; 	    (auto-fill-mode)))
 
-(global-set-key "\M- " 'cycle-spacing) ; improvement over just-one-space; repeated calls cycle 1, 0, orig
-(global-set-key "\C-z" 'scroll-up-line) ; use emacs24 builtins
-(global-set-key "\M-z" 'scroll-down-line)
-(global-set-key "\M-k" 'copy-line)
-(global-set-key "\M->" 'end-of-buffer-right-way)
-(global-set-key "\C-X." 'goto-line)
-(global-set-key "\C-m" 'newline-and-indent)
-(global-set-key "\M-n" '(lambda ()
+(global-set-key (kbd "M-SPC") 'cycle-spacing) ; improvement over just-one-space; repeated calls cycle 1, 0, orig
+(global-set-key (kbd "C-z") 'scroll-up-line) ; use emacs24 builtins
+(global-set-key (kbd "M-z") 'scroll-down-line)
+(global-set-key (kbd "M-k") 'copy-line)
+(global-set-key (kbd "M->") 'end-of-buffer-right-way)
+(global-set-key (kbd "C-X .") 'goto-line)
+(global-set-key (kbd "C-m") 'newline-and-indent)
+(global-set-key (kbd "M-n") '(lambda ()
 			  "Move down 10 lines"
 			  (interactive)
 			  (next-line 10)))
-(global-set-key "\M-p" '(lambda ()
+(global-set-key (kbd "M-p") '(lambda ()
 			  "Move up 10 lines"
 			  (interactive)
 			  (previous-line 10)))
