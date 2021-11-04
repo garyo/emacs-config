@@ -84,6 +84,9 @@
 
 ;;; Set up package system -- straight.el (better than built-in package.el)
 (defvar bootstrap-version)
+(or (boundp 'native-comp-deferred-compilation-deny-list)
+    (setq native-comp-deferred-compilation-deny-list '()))
+
 (let ((bootstrap-file
        (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
       (bootstrap-version 5))
@@ -315,11 +318,7 @@ Return the errors parsed with the error patterns of CHECKER."
       (setq helm-ag-base-command "rg --no-heading --vimgrep --smart-case")
       ))
 
-(use-package gitconfig-mode
-  :mode "\\.gitconfig\\'")
-
-(use-package gitignore-mode
-  :mode "\\.gitignore\\'")
+(use-package git-modes)
 
 (use-package magit
   :bind (("C-x v =" . magit-status)
