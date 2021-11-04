@@ -584,6 +584,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                lsp-headerline-breadcrumb-segments '(file symbols)
                flycheck-checker-error-threshold 1000 ; need more than default of 400
                lsp-ui-sideline-actions-kind-regex "quickfix.*" ; don't show refactor actions; too many (in vue mode)
+               lsp-disabled-clients '(pylsp)                  ; pylsp randomly hangs for many seconds; don't use.
                )
          (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
          )
@@ -633,11 +634,6 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
          (my-eglot-init)
          )
        ))
-
-(with-eval-after-load 'lsp-mode
-  ;; no flake8: enabling this makes pyls very slow if it's not installed
-  (setq lsp-pyls-plugins-flake8-enabled nil)
-  (setq lsp-pylsp-plugins-flake8-enabled nil))
 
 ;;; Eglot uses eldoc to display docs for functions
 ;;; Try displaying those in a child frame:
