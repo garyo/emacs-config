@@ -72,6 +72,17 @@
   (defconst wsl2-p (eq wsl-version 'wsl2) "Running under Windows WSL2")
   )
 
+;; Stupid workaround for WSLg (Windows/WSL2 GUI mode) 1.0.28 as of Nov 2021
+;; see https://github.com/microsoft/wslg/issues/207
+(when wsl2-p
+  (defun delay-exit ()
+    (interactive)
+    (save-some-buffers)
+    (sit-for 0.4)
+    (kill-emacs))
+  (global-set-key (kbd "C-x C-c") 'delay-exit)
+  )
+
 ;; frame title, with WSL indicator
 (let ((base-frame-title-format '("[%b] - " system-name " - Emacs " emacs-version)))
   (cond (wsl1-p
@@ -189,12 +200,12 @@
 ;;; (which Hack does)
 (set-face-italic font-lock-comment-face t)
 
+;; Pick completion package: 'ivy or 'vertico (I like vertico as of 2021)
+(setq completion-package 'vertico)
+
 ;;;
 ;;; Packages
 ;;;
-(defvar helm-or-ivy 'ivy
-  "Whether to use Helm mode or Ivy mode for advanced completions")
-
 (use-package company
   :bind (("M-RET" . company-complete))
   :demand                               ; load it now (better for eglot)
@@ -309,15 +320,6 @@ Return the errors parsed with the error patterns of CHECKER."
   :hook (ag-mode . wgrep-ag-setup)
   )
 
-;;; M-x helm-ag: very nice for searching through files!
-;;; Requires ag or rg (silver searcher or ripgrep)
-(if (eq helm-or-ivy 'helm)
-    (use-package helm-ag
-      :config
-      ;; This is configured for ripgrep; comment out to use ag
-      (setq helm-ag-base-command "rg --no-heading --vimgrep --smart-case")
-      ))
-
 (use-package git-modes)
 
 (use-package magit
@@ -401,6 +403,10 @@ Return the errors parsed with the error patterns of CHECKER."
   :config
   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
   (add-to-list 'mmm-save-local-variables '(sgml--syntax-propertize-ppss))
+  )
+
+(use-package php-mode
+  :mode "\\.php$"
   )
 
 ;;; Yasnippet -- autocomplete various language snippets
@@ -603,7 +609,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        (use-package flycheck-pos-tip
          :config
          (flycheck-pos-tip-mode))
-       (use-package lsp-ivy)
+       (when (eq completion-package 'ivy)
+         (use-package lsp-ivy))
        (use-package lsp-treemacs)
        ;; doesn't work
        ;; (add-hook 'lsp-ui-doc-mode-hook #'lsp-ui-doc-font)
@@ -702,45 +709,13 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (setq projectile-mode-line-function 'projectile-mode-line)
   )
 
-(if (eq helm-or-ivy 'helm)
-    (use-package helm
-      :diminish helm-mode
-      :init
-      (progn
-        (require 'helm-config)
-        (setq helm-candidate-number-limit 100)
-        ;; From https://gist.github.com/antifuchs/9238468
-        (setq helm-idle-delay 0.0 ; update fast sources immediately (doesn't).
-              helm-input-idle-delay 0.01 ; this actually updates things
-                                        ; reeeelatively quickly.
-              helm-yas-display-key-on-candidate t
-              helm-quick-update t
-              helm-buffers-fuzzy-matching t
-              helm-M-x-requires-pattern nil
-              projectile-completion-system 'helm
-              helm-ff-skip-boring-files t)
-        (helm-mode))
-      :config
-      (setq projectile-completion-system 'helm)
-      :bind (("C-h a" . helm-apropos)
-             ("C-x C-b" . helm-buffers-list)
-             ("C-x b" . helm-mini)
-             ("M-y" . helm-show-kill-ring)
-                                        ; ("M-x" . helm-M-x)
-             ("C-x C-f" . helm-find-files)
-             ("C-x c o" . helm-occur)
-             ("C-x c SPC" . helm-all-mark-rings)))
-  ;; else Ivy
+;; Ivy completion (or vertico)
+(when (eq completion-package 'ivy)
   (use-package counsel
     :config
     (counsel-mode 1)
     :bind (("C-c g" . counsel-git)
            )
-    )
-  (use-package swiper
-    ;; use Ctrl-O to switch to swiper mode within isearch
-    :bind (:map isearch-mode-map
-                ("C-o" . swiper-from-isearch))
     )
   (use-package ivy
     :config
@@ -751,13 +726,130 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
           ivy-count-format "(%d/%d) ")
     (setq projectile-completion-system 'ivy)
     )
-  (use-package ivy-hydra)               ; C-o in ivy minibuffer to start hydra
+  (use-package ivy-hydra)       ; C-o in ivy minibuffer to start hydra
   (use-package ivy-rich
     :config
     (ivy-rich-mode 1)
     (setcdr (assq t ivy-format-functions-alist) #'ivy-format-function-line)
     )
+  )
+
+(when (eq completion-package 'vertico)
+  (use-package vertico
+    :init
+    (vertico-mode)
+    )
+
+  (use-package consult
+    :after projectile
+    :defines consult-buffer-sources
+    :bind (;; C-c bindings (mode-specific-map)
+	   ("C-c h" . consult-history)
+	   ("C-c m" . consult-mode-command)
+	   ("C-c b" . consult-bookmark)
+	   ("C-c k" . consult-kmacro)
+	   ;; C-x bindings (ctl-x-map)
+	   ("C-x M-:" . consult-complex-command) ;; orig. repeat-complex-command
+	   ([remap switch-to-buffer] . consult-buffer)
+	   ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+	   ("C-x 5 b" . consult-buffer-other-frame) ;; orig. switch-to-buffer-other-frame
+	   ;; Custom M-# bindings for fast register access
+	   ("M-#" . consult-register-load)
+	   ("M-'" . consult-register-store) ;; orig. abbrev-prefix-mark (unrelated)
+	   ("C-M-#" . consult-register)
+	   ;; Other custom bindings
+	   ("M-y" . consult-yank-pop)                ;; orig. yank-pop
+	   ("<help> a" . consult-apropos) ;; orig. apropos-command
+	   ;; M-g bindings (goto-map)
+	   ("M-g e" . consult-compile-error)
+	   ("M-g f" . consult-flymake) ;; Alternative: consult-flycheck
+	   ("M-g g" . consult-goto-line) ;; orig. goto-line
+	   ("M-g M-g" . consult-goto-line) ;; orig. goto-line
+	   ("M-g o" . consult-outline) ;; Alternative: consult-org-heading
+	   ("M-g m" . consult-mark)
+	   ("M-g k" . consult-global-mark)
+	   ("M-g i" . consult-imenu)
+	   ("M-g I" . consult-imenu-multi)
+	   ;; M-s bindings (search-map)
+	   ("M-s f" . consult-find)
+	   ("M-s F" . consult-locate)
+	   ("M-s g" . consult-grep)
+	   ("M-s G" . consult-git-grep)
+	   ("M-s r" . consult-ripgrep)
+	   ("M-s l" . consult-line)
+	   ("M-s L" . consult-line-multi)
+	   ("M-s m" . consult-multi-occur)
+	   ("M-s k" . consult-keep-lines)
+	   ("M-s u" . consult-focus-lines)
+	   ;; Isearch integration
+	   ("M-s e" . consult-isearch-history)
+	   :map isearch-mode-map
+	   ("M-e" . consult-isearch-history) ;; orig. isearch-edit-string
+	   ("M-s e" . consult-isearch-history) ;; orig. isearch-edit-string
+	   ("M-s l" . consult-line) ;; needed by consult-line to detect isearch
+	   ("M-s L" . consult-line-multi) ;; needed by consult-line to detect isearch
+	   )
+    :init
+    ;; Use Consult to select xref locations with preview
+    (setq xref-show-xrefs-function #'consult-xref
+	  xref-show-definitions-function #'consult-xref)
+
+    :config
+    (setq consult-project-root-function #'projectile-project-root)
+    (setq consult-narrow-key "<") ; use this to show different types of things in C-x b
+
+    (consult-customize
+     consult-theme
+     :preview-key '(:debounce 0.2 any)
+     consult-ripgrep consult-git-grep consult-grep
+     consult-bookmark consult-recent-file consult-xref
+     consult--source-recent-file consult--source-project-recent-file consult--source-bookmark
+     :preview-key (kbd "M-.")
+     )
+    ;; Use projects as a source for consult-buffer
+    ;; Works, but hides "file" sources -- use "<" to select other sources
+    (projectile-load-known-projects)
+    (setq my-consult-source-projectile-projects
+          `(:name "Projectile projects"
+                  :narrow   ?P
+                  :category project
+                  :action   ,#'projectile-switch-project-by-name
+                  :items    ,projectile-known-projects))
+    (add-to-list 'consult-buffer-sources my-consult-source-projectile-projects 'append)
+    )
+
+  ;; Optionally use the `orderless' completion style. See
+  ;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
+  ;; dispatcher. Additionally enable `partial-completion' for file path
+  ;; expansion. `partial-completion' is important for wildcard support.
+  ;; Multiple files can be opened at once with `find-file' if you enter a
+  ;; wildcard. You may also give the `initials' completion style a try.
+  (use-package orderless
+    :init
+    ;; Configure a custom style dispatcher (see the Consult wiki)
+    ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
+    ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+    (setq completion-styles '(orderless)
+          completion-category-defaults nil
+          completion-category-overrides '((file (styles partial-completion)))))
+
+  ;; show file metadata in buffer completion list (C-x b) etc.
+  (use-package marginalia
+    :init
+    (marginalia-mode))
 )
+
+(use-package swiper
+  ;; use Ctrl-O to switch to swiper mode within isearch
+  :bind (:map isearch-mode-map
+              ("C-o" . swiper-from-isearch))
+  )
+
+;;; Save minibuffer histories -- important w/ vertico, useful always
+(use-package savehist
+  :init
+  (savehist-mode)
+  )
 
 (use-package smart-mode-line
   :config
@@ -793,6 +885,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (setq ediff-window-setup-function 'ediff-setup-windows-plain)
   )
 
+(use-package ztree)                     ; file tree browser
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun maybe-require (feature)
@@ -826,8 +920,11 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   (setq windmove-wrap-around t))
 
 ;;; save/restore window configs to disk automatically
-(desktop-save-mode t)
-(setq desktop-files-not-to-save ".*")   ; don't save any files; just the window configuration
+;;; Doesn't seem to work in wsl2 for now
+(when (not wsl2-p)
+  (desktop-save-mode t)
+  (setq desktop-files-not-to-save ".*")   ; don't save any files; just the window configuration
+)
 
 ;;; Override stale desktop-file locks (from emacswiki)
 (defun garyo/desktop-owner-advice (original &rest args)
@@ -921,7 +1018,9 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                    "\\.ido\\.last"
                    "recentf"
                    "ido\\.last"
-                   ".tmp.babel-")
+                   ".tmp.babel-"
+                   "/[a-z]+:.*:"       ;don't save tramp files
+                   )
  recentf-max-menu-items 30
  recentf-max-saved-items 50)
 ;; emacs doesn't save recentf list until you "exit normally"
@@ -1832,6 +1931,7 @@ by using nxml's indentation rules."
  '(magit-refresh-status-buffer nil)
  '(markdown-command "pandoc")
  '(mhtml-tag-relative-indent nil)
+ '(mouse-wheel-tilt-scroll t)
  '(ns-command-modifier 'meta)
  '(org-babel-load-languages
    '((emacs-lisp . t)
@@ -1921,8 +2021,6 @@ by using nxml's indentation rules."
 (put 'eval-expression 'disabled nil)
 (put 'narrow-to-region 'disabled nil)
 (put 'narrow-to-page 'disabled nil)
-
-;;; (setq debug-on-error t)                 ; XXX testing only
 
 (provide 'emacs)
 ;;; emacs ends here
