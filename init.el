@@ -174,11 +174,16 @@
     (message "Setting up new graphic frame %s, current geom %s" frame (frame-geometry frame))
     (let ((font-info (find-first-font preferred-fonts frame)))
       (when font-info
-	(let* ((font (find-font (font-spec :family (car font-info)
+	(let* ((font (or (find-font (font-spec :family (car font-info)
+                                          :slant 'normal
+                                          :weight 'medium
+					  :size (float (cdr font-info)))
+				    frame)
+			  (find-font (font-spec :family (car font-info)
                                           :slant 'normal
                                           :weight 'normal
 					  :size (float (cdr font-info)))
-			       frame))
+			       frame)))
               )
 	  (message "Using font %s: %s" font-info font)
 	  (set-face-attribute 'default frame :font font)
