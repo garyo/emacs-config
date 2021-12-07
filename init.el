@@ -403,11 +403,27 @@ Return the errors parsed with the error patterns of CHECKER."
   )
 
 ;;; Vue mode, based on mmm-mode -- set up for .vue files (html/css/script)
-(use-package vue-mode
+;; (use-package vue-mode
+;;   :mode "\\.vue$"
+;;   :config
+;;   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
+;;   (add-to-list 'mmm-save-local-variables '(sgml--syntax-propertize-ppss))
+;;   )
+;; 2021: web-mode is better than vue-mode (simpler)
+(use-package web-mode
   :mode "\\.vue$"
   :config
-  (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
-  (add-to-list 'mmm-save-local-variables '(sgml--syntax-propertize-ppss))
+  (setq web-mode-code-indent-offset 2
+        web-mode-css-indent-offset 2
+        web-mode-markup-indent-offset 2
+        web-mode-sql-indent-offset 2
+        web-mode-script-padding 0       ; start script in col 0
+        web-mode-enable-current-column-highlight t
+        )
+  :custom-face
+  ;; light color for highlighting the current HTML element's column
+  (web-mode-current-column-highlight-face
+                      ((t (:background "#f0f0f0"))))
   )
 
 (use-package php-mode
