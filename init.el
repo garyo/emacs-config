@@ -126,7 +126,7 @@
 ;; To test a font, use Options menu -> Set Default Font...
 (defvar preferred-fonts
       '(
-        ("Hack" . 10)                   ; my new fave as of 2019 (very similar to DV Sans Mono)
+        ("Hack" . 10.5) ; my new fave as of 2019 (very similar to DV Sans Mono)
 	("DejaVu Sans Mono" . 10)       ; better ~ than Droid Sans Dotted Mono
 	;; Droid Sans Mono: quite nice.
 	;; 15 pixels total height at 10 point.  Clear & crisp.
@@ -148,19 +148,40 @@
 	("Courier New" . 10.5)
         ("Courier" . 10)))
 (cond
- ((eq window-system 'ns) ; Mac native emacs: above fonts are too small
+ ((eq window-system 'ns) ; Mac native emacs: above fonts are too small for hi DPI
   (setq preferred-fonts '(("Hack" . 13)
                           ("DejaVu Sans Mono" . 13)
                           ("Droid Sans Mono Dotted" . 13)
 			  ("Courier New" . 13)))
   ))
 
-(defun find-first-font (fonts &optional frame)
-  "Find first font for FRAME (nil for current) in list; FONTS is ((name . size) ...)."
-  (cl-find-if (lambda (f)
-	        (message "Checking %s..." f)
-	        (find-font (font-spec :family (car f)) frame))
-	      fonts))
+(defun font-exists-p (font-name &optional frame)
+  "Does this font exist? Returns font or nil."
+  (find-font (font-spec :family font-name) frame))
+
+(defun use-font (name size &optional frame)
+  "Use font NAME at height SIZE (in points, float or int).
+   FRAME of nil means all existing + new.
+   Returns t if font exists and was set, else nil."
+  (when (font-exists-p name)
+    (set-face-attribute 'default frame :family name :height (round (* size 10)))
+    (face-all-attributes 'default)))
+
+(defun my-dpi (&optional frame)
+  "Get the DPI of FRAME (or current if nil)."
+  (cl-flet ((pyth (lambda (w h)
+                    (sqrt (+ (* w w)
+                             (* h h)))))
+            (mm2in (lambda (mm)
+                     (/ mm 25.4))))
+    (let* ((atts (frame-monitor-attributes frame))
+           (pix-w (cl-fourth (assoc 'geometry atts)))
+           (pix-h (cl-fifth (assoc 'geometry atts)))
+           (pix-d (pyth pix-w pix-h))
+           (mm-w (cl-second (assoc 'mm-size atts)))
+           (mm-h (cl-third (assoc 'mm-size atts)))
+           (mm-d (pyth mm-w mm-h)))
+      (/ pix-d (mm2in mm-d)))))
 
 ;;; Note: display-graphic-p returns false when emacs is started in daemon mode,
 ;;; so we do much of the frame setup in the new-frame-setup hook, which is called
@@ -170,32 +191,17 @@
 (defun new-frame-setup (frame)
   "Set default font and frame attributes for FRAME."
   (when (display-graphic-p frame)
-    (tool-bar-mode 0))
+    (tool-bar-mode 0)
     (message "Setting up new graphic frame %s, current geom %s" frame (frame-geometry frame))
-    (let ((font-info (find-first-font preferred-fonts frame)))
+    (let ((font-info (cl-find-if (lambda (x) (font-exists-p (car x) frame))
+                                 preferred-fonts)))
       (when font-info
-	(let* ((font (or (find-font (font-spec :family (car font-info)
-                                          :slant 'normal
-                                          :weight 'medium
-					  :size (float (cdr font-info)))
-				    frame)
-			  (find-font (font-spec :family (car font-info)
-                                          :slant 'normal
-                                          :weight 'normal
-					  :size (float (cdr font-info)))
-			       frame)))
-              )
-	  (message "Using font %s: %s" font-info font)
-	  (set-face-attribute 'default frame :font font)
-          (set-frame-width frame 100)
-          (set-frame-height frame 48)
-          ;; Now using desktop-save-mode so don't bother setting frame position/size
-          ;(set-frame-parameter frame 'fullscreen 'fullheight) ; full height
-          ;(if (equal window-system 'ns)
-          ;    (set-frame-position frame 20 0)
-          ;  (set-frame-position frame -20 0)) ; negative means right- or bottom-relative
-	  )))
-  )
+	(message "Using font %s, at %.2f dpi" font-info (my-dpi))
+	(use-font (car font-info) (cdr font-info))
+        (set-frame-width frame 100)
+        (set-frame-height frame 48)
+	))))
+
 ;;; run on existing frames (non-daemon startup)
 (mapc 'new-frame-setup (frame-list))
 ;;; run when new frames created (daemon or server)
