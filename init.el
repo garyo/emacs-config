@@ -602,8 +602,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                 (typescript-mode . lsp)
                 (javascript-mode . lsp)
                 (js2-mode . lsp)
-                ;; no python LSP; it hangs sometimes
-                ;(python-mode . lsp)
+                ;; python LSP; it hangs sometimes?
+                (python-mode . lsp)
                 )
          :init
          (setq lsp-keymap-prefix "C-c C-l") ; default is super-l
@@ -615,8 +615,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                lsp-headerline-breadcrumb-enable t
                lsp-headerline-breadcrumb-segments '(file symbols)
                flycheck-checker-error-threshold 1000 ; need more than default of 400
-               lsp-ui-sideline-actions-kind-regex "quickfix.*" ; don't show refactor actions; too many (in vue mode)
-               lsp-disabled-clients '(pylsp)                  ; pylsp randomly hangs for many seconds; don't use.
+               lsp-pylsp-plugins-pylint-enabled nil ; too much! Other pylsp checkers do enough.
                )
          (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
          )
@@ -629,9 +628,13 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
                lsp-ui-doc-include-signature t
                lsp-ui-sideline-show-hover t ; show hover actions in the sideline
                lsp-ui-doc-use-childframe nil ; childframe has bugs (12/2020); nil works fine
+               lsp-ui-sideline-actions-kind-regex "quickfix.*" ; don't show refactor actions; too many (in vue mode)
+               lsp-ui-sideline-enable nil ; turn off the whole sideline (right sidebar doc & actions)
                lsp-modeline-code-actions-mode nil
                )
 	 )
+       (use-package lsp-pyright ; python type-checker, better than pylsp (Dec 2021)
+         :ensure t)
        (use-package flycheck)
        (use-package flycheck-pos-tip
          :config
