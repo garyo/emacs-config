@@ -229,8 +229,8 @@
                                         company-keywords))
   (setq company-dabbrev-downcase nil	 ;make case-sensitive
 	company-dabbrev-ignore-case nil ;make case-sensitive
-        company-minimum-prefix-length 1
-        company-idle-delay 0.2
+        company-minimum-prefix-length 3
+        company-idle-delay 1
         )
 )
 
@@ -604,6 +604,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
        (use-package lsp-mode
          :commands lsp
          :hook ((vue-mode . lsp)
+                (web-mode . lsp)
                 (typescript-mode . lsp)
                 (javascript-mode . lsp)
                 (js2-mode . lsp)
@@ -708,6 +709,10 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
   ("M-r" lsp-restart-workspace)
   ("S" lsp-shutdown-workspace))
 (global-set-key (kbd "C-c l") 'hydra-lsp/body)
+
+;; Volar is a good LSP client for Vue files
+(straight-use-package '(lsp-volar :type git :host github :repo "jadestrong/lsp-volar"))
+(use-package lsp-volar)
 
 ;;; Work with python virtualenvs
 ;;; M-x venv-workon (has completion), M-x venv-deactivate, M-x venv-*
