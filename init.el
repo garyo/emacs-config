@@ -247,6 +247,11 @@
 		             (ggtags-mode 1))))
   )
 
+;;; Looks cool but requires helm (?)
+; (use-package filetree)
+(use-package treemacs)
+(use-package treemacs-projectile)
+
 ;; string manipulation routines
 (use-package s)
 
