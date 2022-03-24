@@ -1,0 +1,2206 @@
+#+title: Gary Oberbrunner's Emacs Configuration
+#+author: Gary Oberbrunner
+#+email: garyo@oberbrunner.com
+#+property: header-args :tangle emacs-config.el
+#+options: toc:2 num:nil
+
+This is my "literate" org-mode Emacs config file. Parts of it are from
+the 1980s but most of it is fairly up to date.
+I intend for it to work on any recent (>=27.x) Emacs, on Windows,
+Linux, and Mac.
+
+For my org-mode conversion, I used some ideas from
+[https://github.com/hrs/dotfiles/blob/main/emacs/dot-emacs.d/configuration.org][Harry R. Schwarz's config]
+and [https://github.com/mxco86/emacs-config][Matthew Ryall's config].
+
+* Set up performance timing for loading init files
+#+BEGIN_SRC emacs-lisp
+
+(defvar gco-timer (float-time))
+(defun print-elapsed-time (loc)
+  "Show elapsed time since last call, at LOC (string)."
+    (let* ((now (float-time))
+           (elapsed (- now gco-timer)))
+      (setq gco-timer now)
+      (message "Elapsed time at %s: %s sec" loc elapsed)))
+#+END_SRC
+
+* Package manager: use ~straight.el~
+
+Set it up so ~use-package~ always uses ~straight.el~.
+
+#+BEGIN_SRC emacs-lisp
+;;; Meta-package system: use-package. Auto-installs and configures packages.
+(straight-use-package 'use-package)
+(defvar straight-use-package-by-default)
+(setq straight-use-package-by-default t) ; make use-package use straight
+(defvar straight-check-for-modifications)
+(setq straight-check-for-modifications
+      '(check-on-save find-when-checking))
+#+END_SRC
+
+* Set personal information
+
+#+BEGIN_SRC emacs-lisp
+;; Prefer .el file if newer than .elc
+;(setq load-prefer-newer t)
+
+(setq user-full-name "Gary Oberbrunner"
+      user-mail-address "garyo@darkstarsystems.com")
+
+#+END_SRC
+
+* Detect Emacs features
+
+#+BEGIN_SRC emacs-lisp
+
+(defun has-fast-json ()
+  "Return t if \"json-serialize\" is implemented as a C function.
+This was done for Emacs 27 but not all builds include the C version,
+which is a lot faster."
+  (and
+   (subrp (symbol-function 'json-serialize))
+   ;; test that it works -- on Windows the DLL (or deps) may be missing
+   (equal (json-serialize (json-parse-string "[123]")) "[123]")))
+
+(unless (has-fast-json)
+  (warn "This emacs is using older elisp json functions; maybe rebuild with libjansson?"))
+
+(if (and (fboundp 'native-comp-available-p)
+         (native-comp-available-p))
+    (message "Native compilation is available!")
+  (message "Native compilation is *not* available"))
+
+#+END_SRC
+
+* Low-level Emacs config
+
+Set up some low-level settings to prevent garbage collection as
+frequently, allow for more undos, and improve performance especially
+when using LSP.
+
+#+BEGIN_SRC emacs-lisp
+;; don't GC after every 800k; only when idle.
+(setq gc-cons-threshold (eval-when-compile (* 1024 1024 1024)))
+(run-with-idle-timer 10 t (lambda () (garbage-collect)))
+;; undo is pruned on GC; allow more undos (10x default)
+(set-variable 'undo-limit 1600000)
+(set-variable 'undo-strong-limit (* 10 undo-limit))
+
+(setq read-process-output-max (* 1024 1024)) ; improve LSP performance
+;; typescript language server, more RAM:
+(setenv "NODE_OPTIONS" "--max-old-space-size=8192")
+
+#+END_SRC
+
+* Coding systems: always use Unicode and utf-8
+#+begin_src emacs-lisp
+;;; Prefer utf-8 coding system everywhere, with LF line endings
+(prefer-coding-system 'utf-8-unix)
+(set-charset-priority 'unicode)
+(setq default-process-coding-system '(utf-8-unix . utf-8-unix))
+#+end_src
+
+* Basic packages
+
+#+begin_src emacs-lisp
+
+;; string manipulation routines
+(use-package s)
+
+#+end_src
+
+* System config
+
+Settings to determine system type, including WSL 1 and 2 on Windows.
+
+#+BEGIN_SRC emacs-lisp
+
+(defvar msys-root
+  (cond ((file-exists-p "c:/tools/msys64/msys64")
+         "c:/tools/msys64/msys64")
+        ((file-exists-p "c:/tools/msys64")
+         "c:/tools/msys64")
+        (t
+         "NO_MSYS"))
+  "Root of Msys64 install; should contain e.g. usr/bin/zsh.exe")
+
+(defmacro msys-path (file)
+  "Path within msys dir of FILE. FILE should be relative (no leading /)."
+  `(expand-file-name ,file msys-root))
+
+(if (eq system-type 'windows-nt)
+    (push (msys-path "usr/bin") exec-path) ; for msys/linux "find", needed by straight.el
+  )
+
+(require 'rx)       ; not sure why this is needed but it is, for pcase
+;;; detect whether running under WSL 1 or 2, using /proc/version
+;;; Sets constants "wsl-p", "wsl1-p", and "wsl2-p"
+(let* ((subproc-output
+	(condition-case nil
+            (with-temp-buffer
+              (list (call-process "cat" nil (current-buffer) nil
+				  "/proc/version")
+                    (buffer-string)))
+	    (error '(-1 ""))))
+       (status (car subproc-output))
+       (output (cadr subproc-output))
+       (wsl-version (if (= status 0)    ;/proc/version found; check string
+                        (pcase output
+                          ((rx "WSL2") 'wsl2)
+                          ((rx "Microsoft@Microsoft.com") 'wsl1))
+                      nil)))
+  (message "WSL version is %s" wsl-version)
+  (defconst wsl-p (or (eq wsl-version 'wsl1) (eq wsl-version 'wsl2))
+    "Running under Windows WSL (any version)")
+  (defconst wsl1-p (eq wsl-version 'wsl1) "Running under Windows WSL (1, not 2)")
+  (defconst wsl2-p (eq wsl-version 'wsl2) "Running under Windows WSL2")
+  )
+
+;; Stupid workaround for WSLg (Windows/WSL2 GUI mode) 1.0.28 as of Nov 2021
+;; see https://github.com/microsoft/wslg/issues/207
+(when wsl2-p
+  (defun delay-exit ()
+    (interactive)
+    (save-some-buffers)
+    (sit-for 0.4)
+    (kill-emacs))
+  (global-set-key (kbd "C-x C-c") 'delay-exit)
+  )
+
+;; frame title, with WSL indicator
+(let ((base-frame-title-format '("[%b] - " system-name " - Emacs " emacs-version)))
+  (cond (wsl1-p
+         (setq frame-title-format (append base-frame-title-format '(" (WSL1)"))))
+        (wsl2-p
+         (setq frame-title-format (append base-frame-title-format '(" (WSL2)"))))
+        (t
+         (setq frame-title-format base-frame-title-format)))
+  )
+
+#+END_SRC
+
+** Per-OS customizations
+
+#+begin_src emacs-lisp
+(cond ((eq system-type 'windows-nt)
+       (setq tramp-use-ssh-controlmaster-options nil)))
+
+;; make PC keyboard's Windows key be Super or Hyper (Windows only)
+;; (There are a few that aren't rebindable: Win-L, Win-G at least)
+;; This is nice because Super-p is the prefix for Projectile
+(when (eq system-type 'windows-nt)
+  (setq w32-pass-lwindow-to-system nil)
+  (setq w32-lwindow-modifier 'super) ; Left Windows key
+  (w32-register-hot-key [s-]) ; disable all Windows shortcuts while Emacs has focus
+
+  ;; I don't usually use right-windows but why not
+  (setq w32-pass-rwindow-to-system nil)
+  (setq w32-rwindow-modifier 'super) ; Right Windows key
+
+  ;; The menu/app key (to the right of the right Windows key) is
+  ;; pretty hard to reach with right pinky, so it's less useful, and
+  ;; only on certain keyboards, but my Das Keyboard has it, so why not.
+  (setq w32-apps-modifier 'hyper) ; Menu/App key
+  )
+;; Mac default setup has Command (⌘, clover) = meta
+;; Also set Option (⌥) to be super
+(when (eq system-type 'darwin)
+  (setq mac-option-modifier 'super)
+  )
+(cond ((eq system-type 'windows-nt)
+       (setq
+        find-dired-find-program "/bin/find"
+        find-program "/bin/find"
+        grep-program "/bin/grep"
+        )
+       ))
+
+#+end_src
+
+* Font and frame setup
+
+#+BEGIN_SRC emacs-lisp
+
+;;;; FONTS ;;;;;;
+;; Notes:
+;; use M-x describe-font RET to describe current font
+;; C-u C-x = describes font under point (and lots of other goodies).
+;; To list all fonts, in *scratch* buffer do (print (font-family-list))
+;; To test a font, use Options menu -> Set Default Font...
+(defvar preferred-fonts
+      '(
+        ("Hack" . 10.5) ; my new fave as of 2019 (very similar to DV Sans Mono)
+	("DejaVu Sans Mono" . 10)       ; better ~ than Droid Sans Dotted Mono
+	;; Droid Sans Mono: quite nice.
+	;; 15 pixels total height at 10 point.  Clear & crisp.
+	;; (e.g. http://www.fontex.org/download/Droid-sans-mono.ttf)
+	("Droid Sans Mono Dotted" . 10)
+	("Droid Sans Mono" . 10)
+	;; Consolas: download installer from Microsoft.
+	;; Quite beautiful and renders nicely, but a little light.
+	;; Pretty similar to Droid Sans Mono.
+	;; The slanted verticals on the capital M annoy me a little.
+	;; (16 pixels height)
+	("Consolas" . 10.5)
+	;; Inconsolata: lots of people like this.
+	;; http://www.levien.com/type/myfonts/inconsolata.html:
+	;; about same size as Consolas-10.5, but thicker and less leading
+	;; (17 pixels height) and not as smooth lines.  Feels chunky.
+	("Inconsolata" . 12)
+	;; default
+	("Courier New" . 10.5)
+        ("Courier" . 10)))
+(cond
+ ((eq window-system 'ns) ; Mac native emacs: above fonts are too small for hi DPI
+  (setq preferred-fonts '(("Hack" . 13)
+                          ("DejaVu Sans Mono" . 13)
+                          ("Droid Sans Mono Dotted" . 13)
+			  ("Courier New" . 13)))
+  ))
+
+(defun font-exists-p (font-name &optional frame)
+  "Does this font exist? Returns font or nil."
+  (find-font (font-spec :family font-name) frame))
+
+(defun use-font (name size &optional frame)
+  "Use font NAME at height SIZE (in points, float or int).
+   FRAME of nil means all existing + new.
+   Returns t if font exists and was set, else nil."
+  (when (font-exists-p name)
+    (set-face-attribute 'default frame :family name :height (round (* size 10)))
+    (face-all-attributes 'default)))
+
+(defun my-dpi (&optional frame)
+  "Get the DPI of FRAME (or current if nil)."
+  (cl-flet ((pyth (lambda (w h)
+                    (sqrt (+ (* w w)
+                             (* h h)))))
+            (mm2in (lambda (mm)
+                     (/ mm 25.4))))
+    (let* ((atts (frame-monitor-attributes frame))
+           (pix-w (cl-fourth (assoc 'geometry atts)))
+           (pix-h (cl-fifth (assoc 'geometry atts)))
+           (pix-d (pyth pix-w pix-h))
+           (mm-w (cl-second (assoc 'mm-size atts)))
+           (mm-h (cl-third (assoc 'mm-size atts)))
+           (mm-d (pyth mm-w mm-h)))
+      (/ pix-d (mm2in mm-d)))))
+
+;;; Note: display-graphic-p returns false when emacs is started in daemon mode,
+;;; so we do much of the frame setup in the new-frame-setup hook, which is called
+;;; after the new frame is created but before it's selected. That means we have to
+;;; use 'frame' everywhere here, not assume selected-frame is valid.
+;;; Note: for testing, use (selected-frame) to get the current frame.
+(defun new-frame-setup (frame)
+  "Set default font and frame attributes for FRAME."
+  (when (display-graphic-p frame)
+    (tool-bar-mode 0)
+    (message "Setting up new graphic frame %s, current geom %s" frame (frame-geometry frame))
+    (let ((font-info (cl-find-if (lambda (x) (font-exists-p (car x) frame))
+                                 preferred-fonts)))
+      (when font-info
+	(message "Using font %s, at %.2f dpi" font-info (my-dpi))
+	(use-font (car font-info) (cdr font-info))
+        (set-frame-width frame 100)
+        (set-frame-height frame 48)
+	))))
+
+;;; run on existing frames (non-daemon startup)
+(mapc 'new-frame-setup (frame-list))
+;;; run when new frames created (daemon or server)
+(add-hook 'after-make-frame-functions 'new-frame-setup)
+
+;;; I like italic comment face as long as the actual font supports it
+;;; (which Hack does)
+(set-face-italic font-lock-comment-face t)
+
+;; Set up faces:
+;; Use Shift-mouse-1 to select fonts interactively.
+;; Then use M-x describe-font to see the full name of the current font
+;; for use in set-frame-font (in emacs23 set-default-font is deprecated, use set-frame-font).
+;; As of emacs23 we can use <name>-<size> to select fonts, much easier!
+;; (cond ((eq system-type 'windows-nt)
+
+
+#+END_SRC
+
+* Paths
+
+#+begin_src emacs-lisp
+(defmacro prepend-PATH (dir)
+  "Prepend DIR (abs path) to PATH env var."
+  `(setenv "PATH" (concat ,dir
+                          path-separator
+                          (getenv "PATH"))))
+(defmacro prepend-PATH-msys (dir)
+  "Prepend msys DIR (path rel to msys root) to PATH env var."
+  `(setenv "PATH" (concat (msys-path ,dir)
+                          path-separator
+                          (getenv "PATH"))))
+
+(cond ((eq system-type 'windows-nt)
+       (add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Global
+       (add-to-list 'exec-path "c:/Program Files (x86)/Git/cmd") ; for Git
+       (add-to-list 'exec-path "c:/Program Files/Git/cmd") ; for Git
+       (add-to-list 'exec-path (msys-path "mingw64/bin")) ; for "ag"
+       (add-to-list 'exec-path (msys-path "usr/bin")) ; for zsh, git, etc.
+       (add-to-list 'exec-path (msys-path "usr/local/bin")) ; for GNU global/gtags
+       (add-to-list 'exec-path "c:/bin")
+       (add-to-list 'exec-path "c:/bin2")
+                                        ; (add-to-list 'exec-path "c:/ProgramData/Chocolatey/bin") ; rg, putty, etc.
+       (prepend-PATH-msys "usr/local/bin")
+       (prepend-PATH-msys "usr/bin")
+       (prepend-PATH-msys "mingw64/bin")
+       (prepend-PATH "/usr/local/bin")
+       )
+      (t
+       (add-to-list 'exec-path "/usr/local/bin")
+       (push "/Users/garyo/python36/bin" exec-path)
+       (delete-dups exec-path)
+       ;; (message "exec-path: %s" exec-path)
+       ;; for SCons in compilation-mode. (emacs uses exec-path for
+       ;; things it execs directly, but compilation-mode runs a shell
+       ;; which invokes SCons, and doesn't seem to get my path -- that
+       ;; could probably be fixed.)
+       (prepend-PATH "/usr/local/bin")
+       (prepend-PATH "/Users/garyo/python36/bin")
+       ;; (message "PATH: %s" (getenv "PATH"))
+       ))
+
+;; Add node.js to PATH using fnm (fast version of nvm)
+(if (file-exists-p "~/.fnm/fnm")
+    (let* ((command "~/.fnm/fnm env --multi | grep 'export PATH' | sed 's/export PATH=\\(.*\\):.*/\\1/'")
+           (dir (replace-regexp-in-string
+                 "\n\\'" ""
+                 (shell-command-to-string command))))
+      (add-to-list 'exec-path dir)
+      (prepend-PATH dir)
+      )
+  )
+#+end_src
+
+* Shell selection and mode setup
+#+begin_src emacs-lisp
+;; use zsh or bash.  Do this early on before loading any git stuff,
+;; otherwise that will try to use cmdproxy.exe.
+(cond ((file-exists-p (msys-path "usr/bin/zsh.exe"))
+       (setq explicit-shell-file-name (msys-path "usr/bin/zsh.exe")))
+      ((executable-find "zsh")
+       (setq explicit-shell-file-name "zsh"))
+      ((executable-find "bash")
+       (setq explicit-shell-file-name "bash"))
+      (t
+       (message "Can't find zsh!")))
+
+;; Setting this will make emacs use this shell for subprocesses
+;; (shell-command, start-file-process, compilations, etc.)
+;; Beware: on Windows with msys zsh, it'll translate paths
+;; which might be what you want sometimes, but not others!
+;; (so "grep /foo" will turn into "grep c:/tools/msys64/msys64/foo")
+;; In that case you can double the initial slash (maybe!).
+(setq shell-file-name explicit-shell-file-name)
+
+  ;;; Set up f7 to start or switch to shell.
+  ;;; Repeat presses switch to next shell buffer.
+  ;;; Would be nice if it worked with eshell.
+(defun sh-buf-filter (condp lst)
+  (delq nil (mapcar (lambda (x) (and (funcall condp x) x)) lst)))
+(defun shell-dwim (&optional create)
+  "Start or switch to an inferior shell process, in a smart way.
+    If a buffer with a running shell process exists, simply switch
+    to that buffer.  If a shell buffer exists, but the shell
+    process is not running, restart the shell.  If already in an
+    active shell buffer, switch to the next one, if any.  With
+    prefix argument CREATE always start a new
+    shell."
+  (interactive "P")
+  (let ((next-shell-buffer) (buffer)
+        (shell-buf-list (identity ;;used to be reverse
+                         (sort
+                          (sh-buf-filter (lambda (x) (string-match "^\\*shell\\*" (buffer-name x))) (buffer-list))
+                          #'(lambda (a b) (string< (buffer-name a) (buffer-name b)))))))
+    (setq next-shell-buffer
+          (if (string-match "^\\*shell\\*" (buffer-name buffer))
+              (get-buffer (cadr (member (buffer-name) (mapcar (function buffer-name) (append shell-buf-list shell-buf-list)))))
+            nil))
+    (setq buffer
+          (if create
+              (generate-new-buffer-name "*shell*")
+            next-shell-buffer))
+    (shell buffer)
+    ))
+(global-set-key [f7] 'shell-dwim)
+(global-set-key [f8] 'eshell)
+
+;;; Dirtrack mode in shell buffers; finds prompts with dir name
+;;; which should be better with msys2/cygwin where I can emit a
+;;; Windows-style dir name in the prompt.
+(require 'dirtrack)
+(add-hook 'shell-mode-hook
+          #'(lambda ()
+              (setq dirtrack-list '("(\\(.*?\\)\\( \\|) \\)" 1 t))
+              (dirtrack-mode 1)))
+
+(defface shell-hilight-face
+  '((t (:background "grey80")))
+  "Used for marking significant items in shell buffers."
+  :group 'shell)
+  ;;; Hilight compiler and linker output filenames so I can see them more easily
+(defvar my-shell-extra-keywords
+  '(("/OUT:[^ ]+" 1 shell-hilight-face)
+    ("/Fo[^ ]+" 1 shell-hilight-face)
+    ))
+(add-hook 'shell-mode-hook
+          (lambda ()
+            (font-lock-add-keywords nil my-shell-extra-keywords)))
+(add-hook 'shell-mode-hook 'ansi-color-for-comint-mode-on)
+(ignore-errors
+  (pcomplete-shell-setup)	; set up emacs24 programmable completion for shell mode; not that great but OK
+  )
+
+
+(setq
+ shell-pushd-regexp "pushd\\|1\\|2"
+ shell-pushd-dextract t
+ shell-pushd-dunique t
+                                        ;shell-cd-regexp nil			; autopushd in zsh
+ shell-chdrive-regexp "[a-z]:")		;
+
+;;This is from Voelker's emacs NT page:
+(defvar explicit-zsh-args)
+(setq explicit-bash-args '("--login" "--noediting" "-i")
+                                        ; explicit-zsh-args '("-i" "-o" "emacscygwinhack")
+      explicit-zsh-args '("-i")
+                                        ; explicit-sh-args '("-login" "-i") (only needed for bash)
+                                        ; comint-scroll-show-maximum-output 'this
+      comint-completion-addsuffix t
+                                        ; comint-process-echoes nil ;; t for command.com, nil for bash
+      comint-eol-on-send t
+      comint-input-ignoredups t
+      comint-input-ring-size 256
+      w32-quote-process-args ?\"
+      )
+
+(make-variable-buffer-local 'comint-completion-addsuffix)
+
+  ;;; eshell (shell implemented entirely in emacs, sometimes useful):
+(add-hook 'eshell-mode-hook
+          (function
+           (lambda ()
+             ;; This prevents vertical bars between letters in typed-in text
+             ;; (probably an emacs 21.1 bug?)
+             (setq cursor-type '(bar . 10))
+             )))
+
+(load-library "shell")
+
+#+end_src
+
+* Project management
+
+Projectile has gotten good over the last few years. I mostly use it for finding files in the project and with ripgrep.
+
+#+begin_src emacs-lisp
+(defun projectile-mode-line ()
+  "Report project name (only) in the modeline."
+  (let ((project-name (projectile-project-name))
+        (project-type (projectile-project-type)))
+    (format "%s[%s]"
+            projectile-mode-line-prefix
+            (or project-name "-")
+            )))
+(use-package projectile
+  :bind (("s-p" . projectile-command-map)
+         ("C-c p" . projectile-command-map))
+  :demand
+  :config
+  (projectile-mode +1)
+  (setq projectile-mode-line-prefix " Prj")
+  (setq projectile-mode-line-function 'projectile-mode-line)
+  (setq projectile-globally-ignored-directories
+        '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout"
+          "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
+  )
+#+end_src
+
+** Searching
+
+I use ~ripgrep~: fast recursive grep, wgrep-capable.
+
+#+begin_src emacs-lisp
+(use-package rg
+  :config
+  (setq rg-executable "rg") ; defaults to (executable-find "rg") which can be wrong on Windows
+  (rg-enable-menu)          ; start w/ C-c s p, "rg-project"
+  ;; rg-mode binds C-n and C-p to go to next/prev file rather than by line
+  ;; which is a bit jarring.
+  (define-key rg-mode-map (kbd "C-n") nil)
+  (define-key rg-mode-map (kbd "C-p") nil)
+  (rg-define-search rg-search-all       ; C-c s a: search all in project
+    "Search all files in project with rg"
+    :files "everything"
+    :dir project
+    :menu ("Search" "a" "All in project")
+    )
+  )
+
+  ;;; wgrep-change-to-wgrep-mode to edit right in a grep buffer (or ag/ripgrep)
+  ;;; Use C-c C-e to apply.
+(use-package wgrep
+  :commands wgrep-change-to-wgrep-mode
+  :config
+  (setq wgrep-auto-save-buffer t)
+  )
+
+  ;;; ripgrep seems better and works better on Windows, but could switch to 'ag' (silver searcher):
+;; M-x ag-project
+;; (use-package ag)
+  ;;; Need this for wgrep to understand ag-search buffers
+;; (use-package wgrep-ag
+;;   :hook (ag-mode . wgrep-ag-setup)
+;; )
+#+end_src
+
+* Completion
+
+I'm using company, consult with orderless, vertico, and marginalia now.
+There's some ivy config in here in case I want to switch back.
+
+#+BEGIN_SRC emacs-lisp
+
+;; Pick completion package: 'ivy or 'vertico (I like vertico as of 2021)
+(setq completion-package 'vertico)
+
+;;;
+;;; Packages
+;;;
+(use-package company
+  :bind (("M-RET" . company-complete))
+  :demand                               ; load it now (better for eglot)
+  :defines company-dabbrev-downcase company-dabbrev-ignore-case
+  :config
+  (global-company-mode)
+  ;; dabbrev mode seems closest to TMC completion
+  (setq company-backends '(company-capf company-semantic company-dabbrev-code
+                                        company-dabbrev company-etags
+                                        company-keywords))
+  (setq company-dabbrev-downcase nil	 ;make case-sensitive
+	company-dabbrev-ignore-case nil ;make case-sensitive
+        company-minimum-prefix-length 3
+        company-idle-delay 1
+        )
+)
+
+(use-package company-statistics
+  :after company
+  :hook (after-init . company-statistics-mode)
+  )
+
+;; Ivy completion (or vertico)
+(when (eq completion-package 'ivy)
+  (use-package counsel
+    :config
+    (counsel-mode 1)
+    :bind (("C-c g" . counsel-git)
+           )
+    )
+  (use-package ivy
+    :config
+    (ivy-mode 1)
+    (setq ivy-use-virtual-buffers t
+          ivy-use-selectable-prompt t
+          ivy-height 20
+          ivy-count-format "(%d/%d) ")
+    (setq projectile-completion-system 'ivy)
+    )
+  (use-package ivy-hydra)       ; C-o in ivy minibuffer to start hydra
+  (use-package ivy-rich
+    :config
+    (ivy-rich-mode 1)
+    (setcdr (assq t ivy-format-functions-alist) #'ivy-format-function-line)
+    )
+  )
+
+(when (eq completion-package 'vertico)
+  (use-package vertico
+    :init
+    (vertico-mode)
+    )
+
+  (use-package consult
+    :after projectile
+    :defines consult-buffer-sources
+    :bind (;; C-c bindings (mode-specific-map)
+	   ("C-c h" . consult-history)
+	   ("C-c m" . consult-mode-command)
+	   ("C-c b" . consult-bookmark)
+	   ("C-c k" . consult-kmacro)
+	   ;; C-x bindings (ctl-x-map)
+	   ("C-x M-:" . consult-complex-command) ;; orig. repeat-complex-command
+	   ([remap switch-to-buffer] . consult-buffer)
+	   ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+	   ("C-x 5 b" . consult-buffer-other-frame) ;; orig. switch-to-buffer-other-frame
+	   ;; Custom M-# bindings for fast register access
+	   ("M-#" . consult-register-load)
+	   ("M-'" . consult-register-store) ;; orig. abbrev-prefix-mark (unrelated)
+	   ("C-M-#" . consult-register)
+	   ;; Other custom bindings
+	   ("M-y" . consult-yank-pop)                ;; orig. yank-pop
+	   ("<help> a" . consult-apropos) ;; orig. apropos-command
+	   ;; M-g bindings (goto-map)
+	   ("M-g e" . consult-compile-error)
+	   ("M-g f" . consult-flycheck) ;; Alternative: consult-flymake
+	   ("M-g g" . consult-goto-line) ;; orig. goto-line
+	   ("M-g M-g" . consult-goto-line) ;; orig. goto-line
+	   ("M-g o" . consult-outline) ;; Alternative: consult-org-heading
+	   ("M-g m" . consult-mark)
+	   ("M-g k" . consult-global-mark)
+	   ("M-g i" . consult-imenu)
+	   ("M-g I" . consult-imenu-multi)
+	   ;; M-s bindings (search-map)
+	   ("M-s f" . consult-find)
+	   ("M-s F" . consult-locate)
+	   ("M-s g" . consult-grep)
+	   ("M-s G" . consult-git-grep)
+	   ("M-s r" . consult-ripgrep)
+	   ("M-s l" . consult-line)
+	   ("M-s L" . consult-line-multi)
+	   ("M-s m" . consult-multi-occur)
+	   ("M-s k" . consult-keep-lines)
+	   ("M-s u" . consult-focus-lines)
+	   ;; Isearch integration
+	   ("M-s e" . consult-isearch-history)
+	   :map isearch-mode-map
+	   ("M-e" . consult-isearch-history) ;; orig. isearch-edit-string
+	   ("M-s e" . consult-isearch-history) ;; orig. isearch-edit-string
+	   ("M-s l" . consult-line) ;; needed by consult-line to detect isearch
+	   ("M-s L" . consult-line-multi) ;; needed by consult-line to detect isearch
+	   )
+    :init
+    ;; Use Consult to select xref locations with preview
+    (setq xref-show-xrefs-function #'consult-xref
+	  xref-show-definitions-function #'consult-xref)
+
+    :config
+    (setq consult-project-root-function #'projectile-project-root)
+    (setq consult-narrow-key "<") ; use this to show different types of things in C-x b
+
+    (consult-customize
+     consult-theme
+     :preview-key '(:debounce 0.2 any)
+     consult-ripgrep consult-git-grep consult-grep
+     consult-bookmark consult-recent-file consult-xref
+     consult--source-recent-file consult--source-project-recent-file consult--source-bookmark
+     :preview-key (kbd "M-.")
+     )
+    ;; Use projects as a source for consult-buffer
+    ;; Works, but hides "file" sources -- use "<" to select other sources
+    (projectile-load-known-projects)
+    (setq my-consult-source-projectile-projects
+          `(:name "Projectile projects"
+                  :narrow   ?P
+                  :category project
+                  :action   ,#'projectile-switch-project-by-name
+                  :items    ,projectile-known-projects))
+    (add-to-list 'consult-buffer-sources my-consult-source-projectile-projects 'append)
+    )
+
+  ;; Optionally use the `orderless' completion style. See
+  ;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
+  ;; dispatcher. Additionally enable `partial-completion' for file path
+  ;; expansion. `partial-completion' is important for wildcard support.
+  ;; Multiple files can be opened at once with `find-file' if you enter a
+  ;; wildcard. You may also give the `initials' completion style a try.
+  (use-package orderless
+    :init
+    ;; Configure a custom style dispatcher (see the Consult wiki)
+    ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
+    ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+    (setq completion-styles '(orderless)
+          completion-category-defaults nil
+          completion-category-overrides '((file (styles partial-completion)))))
+
+  ;; show file metadata in buffer completion list (C-x b) etc.
+  (use-package marginalia
+    :init
+    (marginalia-mode))
+)
+#+END_SRC
+
+* Languages
+
+** Language modes
+
+Mostly programming-language related.
+
+#+begin_src emacs-lisp
+(use-package typescript-mode
+  :mode ("\\.ts$")
+  )
+
+(use-package js2-mode
+  :mode ("\\.js$")
+  )
+
+;;; Vue mode, based on mmm-mode -- set up for .vue files (html/css/script)
+;; (use-package vue-mode
+;;   :mode "\\.vue$"
+;;   :config
+;;   (setq mmm-submode-decoration-level 0) ; don't color background of sub-modes
+;;   (add-to-list 'mmm-save-local-variables '(sgml--syntax-propertize-ppss))
+;;   )
+;; 2021: web-mode is better than vue-mode (simpler)
+(use-package web-mode
+  :mode "\\.vue$"
+  :config
+  (setq web-mode-code-indent-offset 2
+        web-mode-css-indent-offset 2
+        web-mode-markup-indent-offset 2
+        web-mode-sql-indent-offset 2
+        web-mode-script-padding 0       ; start script in col 0
+        web-mode-enable-current-column-highlight t
+        )
+  :custom-face
+  ;; light color for highlighting the current HTML element's column
+  (web-mode-current-column-highlight-face
+                      ((t (:background "#f0f0f0"))))
+  )
+
+(use-package php-mode
+  :mode "\\.php$"
+  )
+
+(use-package yaml-mode
+  :mode "\\.yaml\\'")
+
+(use-package json-mode
+  :mode "\\.json\\'")
+
+(use-package gdscript-mode
+  :mode ("\\.gd$")
+)
+
+(use-package markdown-mode
+  :commands (markdown-mode gfm-mode)
+  :mode (("README\\.md\\'" . gfm-mode)
+         ("\\.md\\'" . markdown-mode)
+         ("\\.markdown\\'" . markdown-mode))
+  :init (setq markdown-command "multimarkdown"))
+
+;; instant live github markdown preview in markdown mode, C-c C-c g
+;; Requires 'grip', a python package (pip install grip) installed in system python
+(use-package grip-mode
+  :bind (:map markdown-mode-command-map
+         ("g" . grip-mode)))
+
+;;; Work with python virtualenvs
+;;; M-x venv-workon (has completion), M-x venv-deactivate, M-x venv-*
+;;; Looks in ~/.virtualenvs
+(use-package virtualenvwrapper
+  )
+#+end_src
+
+** Language Settings
+
+#+begin_src emacs-lisp
+(setq auto-mode-alist (cons '("\\.pl\\'" . cperl-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("SCons\\(truct\\|cript\\)\\'" . python-mode) auto-mode-alist))
+(autoload 'visual-basic-mode "visual-basic-mode" "Visual Basic mode." t)
+(setq-default visual-basic-mode-indent 4)
+(setq auto-mode-alist (cons '("\\(\\.vb\\|\\.bas\\)\\'" . visual-basic-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("\\.cu$" . c++-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("\\.cp$" . c++-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("\\.tjp$" . taskjuggler-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("\\.lua$" . lua-mode) auto-mode-alist))
+  ;;; .h files: interpret as C++ (for namespace etc.)
+(setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
+
+;;; prevent newlines from being inserted after semicolons when there
+;;; is a non-blank following line.
+(defun my-semicolon-criteria ()
+  (save-excursion
+    (if (and (eq last-command-event ?\;)
+             (zerop (forward-line 1))
+             (not (looking-at "^[ \t]*$")))
+        'stop
+      nil)))
+
+(defun my-c-mode-hook ()
+  "C style for Gary Oberbrunner."
+  (setq-default c-basic-offset 2
+                c-hanging-comment-ender-p nil
+                c-hanging-comment-start-p nil)
+  ;; Labels offset by 1 from parent, but keep case stmts
+  ;; offset by c-basic-offset.
+  (c-set-offset 'label 1)
+  (c-set-offset 'case-label 1)
+  (c-set-offset 'innamespace 0)		;don't indent in namespaces
+  (c-set-offset 'inextern-lang 0)	;don't indent in extern "C"
+  (c-set-offset 'inlambda 0)	; lambdas don't need any extra indent
+  (c-set-offset 'statement-case-intro (lambda (in)
+                                        (- c-basic-offset 1)))
+  (c-set-offset 'statement-case-open (lambda (in)
+                                       (- c-basic-offset 1)))
+  (c-set-offset 'substatement-open 0)
+  (c-set-offset 'statement-cont 'c-lineup-math)
+                                        ; prevent arg lists from going off right side of page:
+                                        ; longnamed_function(
+                                        ;     arg_t arg1,
+                                        ;     arg_t 2);
+  (c-set-offset 'arglist-intro '++)	; 1st line in arg list (after open)
+  (c-set-offset 'arglist-close '--)
+                                        ; you might think auto-fill in C mode is a bad idea, but
+                                        ; cc-mode is clever and only does it while in comments.
+                                        ; see c-ignore-auto-fill.
+                                        ; On the other hand, even doing it in comments can be annoying,
+                                        ; so I have it turned off now.
+                                        ; (turn-on-auto-fill)
+                                        ;(c-toggle-hungry-state 1)
+  (setq fill-column 77)
+  (setq c-hanging-semi&comma-criteria
+        (cons 'my-semicolon-criteria
+              c-hanging-semi&comma-criteria))
+  (setq-default c-hanging-braces-alist
+                '((brace-list-open)
+                  (brace-list-close)
+                  (brace-list-intro)
+                  (brace-list-entry)
+                  (substatement-open after)
+                  (topmost-intro after)
+                  (inline-open after)
+                  (block-close . c-snug-do-while)
+                  (extern-lang-open after)))
+
+  (setq c-cleanup-list (cons 'defun-close-semi c-cleanup-list)))
+
+(add-hook 'c-mode-common-hook
+          'my-c-mode-hook)
+
+(add-hook 'java-mode-hook
+          (function
+           (lambda ()
+             (setq-default c-basic-offset 4)
+             (local-set-key "\C-cc" 'compile)
+             )))
+
+;; always hilight XXX in programming modes
+(mapc (lambda (mode)
+        (font-lock-add-keywords
+         mode
+         '(("\\<XXX\\|TODO\\>" 0 font-lock-warning-face prepend)
+           )))
+      '(c-mode c++-mode java-mode lisp-mode emacs-lisp-mode python-mode))
+
+#+end_src
+
+** File skeletons and snippets
+
+Skeletons set up initial content for files in various programming
+languages, and snippets dynamically expand text.
+
+#+begin_src emacs-lisp
+
+(defun copyright-for-skel (comment-start comment-end)
+  "Skeleton for corporate copyright in a comment, using COMMENT-START and COMMENT-END."
+  (s-format
+   (concat "${cs} ----------------------------------------------------------------------${ce}\n"
+           "${cs} (c) Copyright " (substring (current-time-string) -4) ", Dark Star Systems, Inc.  All rights reserved.    ${ce}\n"
+           "${cs} This file may contain proprietary and confidential information.	${ce}\n"
+           "${cs} DO NOT COPY or distribute in any form without prior written consent. ${ce}\n"
+           "${cs} ----------------------------------------------------------------------${ce}\n")
+   'aget `(("cs" . ,comment-start) ("ce" . ,comment-end)))
+  )
+
+(define-skeleton cxx-skeleton
+  "Default C/C++ file skeleton"
+  ""
+  (copyright-for-skel "/*" "*/")
+  "\n"
+  > _ \n
+  "\n"
+  "/* end of " (file-name-nondirectory (buffer-file-name)) " */" > \n)
+
+(define-skeleton h-skeleton
+  "Default C/C++ header file skeleton"
+  ""
+  '(setq h-guard-name
+         (replace-regexp-in-string "-" "_" (upcase (file-name-base (buffer-file-name)))))
+  (copyright-for-skel "/*" "*/")
+  "\n"
+  "#ifndef __" h-guard-name "_H__" \n
+  "#define __" h-guard-name "_H__" \n
+  "\n"
+  > _ \n
+  "\n"
+  "#endif /*__" h-guard-name "_H__ */" \n
+  "/* end of " (file-name-nondirectory (buffer-file-name)) " */" > \n)
+
+(define-skeleton sh-skeleton
+  "Default shell file skeleton"
+  ""
+  "#! /bin/bash" \n
+  "\n"
+  (copyright-for-skel "#" "")
+  "\n"
+  > _ \n
+  "\n"
+  "\n"
+  "# end of " (file-name-nondirectory (buffer-file-name)) \n
+  )
+
+(define-skeleton py-skeleton
+  "Default Python file skeleton"
+  ""
+  "#! /usr/bin/env python" \n
+  "\n"
+  (copyright-for-skel "#" "")
+  "\n"
+  > _ \n
+  "\n"
+  "\n"
+  "# end of " (file-name-nondirectory (buffer-file-name)) \n
+  )
+
+(define-skeleton js-skeleton
+  "Default Javascript file skeleton"
+  ""
+  (copyright-for-skel "//" "")
+  "\n"
+  > _ \n
+  "\n"
+  )
+
+(auto-insert-mode)
+(setq-default auto-insert-alist
+              '((("\\.\\(CC?\\|cc\\|c\\|cxx\\|cpp\\|c++\\)\\'" . "C/C++ skeleton")
+                 . cxx-skeleton)
+                (("\\.\\(HH?\\|hh\\|h\\|hxx\\|hpp\\|h++\\)\\'" . "C/C++ header skeleton")
+                 . h-skeleton)
+                (("\\.\\(sh\\)\\'" . "Shell script skeleton")
+                 . sh-skeleton)
+                (("\\.\\(py\\)\\'" . "Python script skeleton")
+                 . py-skeleton)
+                (("\\.\\(jsx?\\|vue\\|tsx?\\)\\'" . "Javascript skeleton")
+                 . js-skeleton)
+                )
+              )
+
+;;; Yasnippet -- autocomplete various language snippets
+;;; TAB expands snippet "keys" (abbrevs) and moves to next field
+(use-package yasnippet
+  :diminish yas-minor-mode
+  :config
+  (yas-global-mode)
+  ;; This is a bit questionable: during an expansion, yasnippet normally uses
+  ;; TAB to accept a field and move to the next field. But company also binds
+  ;; TAB (to advance to common completion), so when a completion is in
+  ;; progress _and_ it has a snippet to expand, TAB doesn't work.
+  ;; So this uses a function bound to C-o to either expand an active snippet,
+  ;; or else do the usual open-line.
+  (global-set-key (kbd "C-o") 'yasnippet-or-open-line)
+  (defun yasnippet-or-open-line ()
+    "Call `open-line', unless there are abbrevs or snippets at point.
+In that case expand them.  If there's a snippet expansion in progress,
+move to the next field. Call `open-line' if nothing else applies."
+    (interactive)
+    (cond ((expand-abbrev))
+          ((yas-active-snippets)
+           (yas-next-field-or-maybe-expand))
+          ((ignore-errors
+             (yas-expand)))
+          (t
+           (open-line 1))))
+  )
+
+
+;;; all the snippets -- this is big!
+(use-package yasnippet-snippets
+  :after yasnippet
+  :config (yasnippet-snippets-initialize))
+
+#+end_src
+
+** Set up syntax checking with flycheck
+
+Syntax checker for many languages. Seems better than built-in flymake.
+Languages with LSP support override the flycheck checkers, but this can
+still be useful for other languages.
+
+#+BEGIN_SRC emacs-lisp
+
+(use-package flycheck)
+(use-package flycheck-pos-tip
+  :config
+  (global-flycheck-mode)
+  ;; show flycheck errors in popup, not in minibuffer. This is important
+  ;; because minibuffer may be showing documentation or something else,
+  ;; and without this flycheck errors/warnings overwrite that info.
+  ;; (alternately, could show doc strings in popup somehow)
+  (flycheck-pos-tip-mode))
+
+;;; for Windows, especially for emacs-lisp checker which passes
+;;; lots of cmd-line args to emacs
+(cond ((eq system-type 'windows-nt)
+       (setq flycheck-command-wrapper-function
+             (lambda (cmd)
+               (list "bash" "-c" (format "%s"
+                                         (mapconcat 'shell-quote-argument cmd " ")))))))
+
+;;; On Windows, commands run by flycheck may have CRs (\r\n line endings).
+;;; Strip them out before parsing.
+(defun flycheck-parse-output (output checker buffer)
+  "Parse OUTPUT from CHECKER in BUFFER.
+
+OUTPUT is a string with the output from the checker symbol
+CHECKER.  BUFFER is the buffer which was checked.
+
+Return the errors parsed with the error patterns of CHECKER."
+  (let ((sanitized-output (replace-regexp-in-string "\r" "" output))
+        )
+    (funcall (flycheck-checker-get checker 'error-parser) sanitized-output checker buffer)))
+#+END_SRC
+
+* Language Servers: lsp-mode (or eglot)
+
+#+BEGIN_SRC emacs-lisp
+
+;; May 2019: Eglot is more responsive and simpler
+;; Oct 2019: lsp-mode has more features, but it's very slow
+;;           unless this Emacs has the fast C json lib (libjansson).
+;;           ... and even then it's super slow for me.
+;; Aug 2020: lsp-mode is now faster and more reliable than eglot. Time to switch.
+(defvar use-lsp-mode t
+  "T means use lsp-mode; nil means use eglot.
+Always uses eglot if this Emacs doesn't have fast JSON.")
+
+(defvar lsp-mode-verbose nil
+  "Set to t to turn on lots of logging in lsp-mode.")
+
+#+end_src
+
+** Eglot (not used)
+
+#+begin_src emacs-lisp
+
+;; for eglot
+(defvar vls-vetur-configuration
+  `(:useWorkspaceDependencies: t
+                               :completion
+                               (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
+                               :grammar
+                               (:customBlocks
+                                (:docs "md" :i18n "json"))
+                               :validation
+                               (:template t :style t :script t)
+                               :format
+                               (:enable t
+                                        :options (:tabSize 2)      ; required, believe it or not
+                                        :defaultFormatter
+                                        (:html "prettyhtml" :css "prettier" :postcss "prettier"
+                                               :scss "prettier" :less "prettier"
+                                               :stylus "stylus-supremacy"
+                                               :js "prettier" :ts "prettier")
+                                        :defaultFormatterOptions
+                                        (:js-beautify-html
+                                         (:wrap_attributes "force-expand-multiline")
+                                         :prettyhtml
+                                         (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
+                                        :styleInitialIndent :json-false
+                                        :scriptInitialIndent :json-false)
+                               ,@(if lsp-mode-verbose
+                                     '(:trace
+                                       (:server "verbose")))
+                               :dev
+                               (:vlsPath "" :logLevel: "DEBUG")
+                               :html
+                               (:suggest nil)
+                               :prettier :json-false
+                               ))
+
+;; for eglot
+(defvar vls-workspace-configuration
+  `((:vetur . ,vls-vetur-configuration)
+    (:html . (:suggest ()))
+    (:prettier . :json-false)
+    (:javascript . (:format nil :suggest nil))
+    (:typescript . (:format nil :suggest nil))
+    (:emmet . ())
+    (:stylusSupremacy . ())
+    )
+  )
+
+(eval-after-load "eglot"
+  (defun my-eglot-init ()
+    """Initialize eglot."""
+
+    (defclass eglot-vls (eglot-lsp-server) ()
+      :documentation "Vue Language Server.")
+
+    (add-hook 'eglot-server-initialized-hook
+              (lambda (server)
+                (if (eglot-vls-p server)
+                    (setq eglot-workspace-configuration vls-workspace-configuration)
+                  )))
+
+    (add-to-list 'eglot-server-programs
+                 '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
+    (add-to-list 'eglot-server-programs
+                 '((js-mode typescript-mode) . ("~/.yarn/bin/typescript-language-server" "--stdio" "--tsserver-log-file" "/tmp/tsserver.log")))
+
+    (cl-defmethod eglot-initialization-options ((server eglot-vls))
+      "Passes through required vetur initialization options to VLS."
+      `(:config
+        (:vetur ,vls-vetur-configuration
+                :css (:suggest nil)
+                :html (:suggest nil)
+                :prettier :json-false
+                :javascript (:format nil :suggest nil)
+                :typescript (:format nil :suggest nil)
+                :emmet nil
+                :stylusSupremacy nil
+                )))
+    )
+  )
+
+#+end_src
+
+** LSP
+
+Since fast json and native compilation, lsp-mode is plenty fast, and quite nice.
+I use it for Javascript/typescript, Vue, python, and maybe C++.
+
+#+begin_src emacs-lisp
+
+;; (defun lsp-ui-doc-font ()
+;;   (face-remap-add-relative 'default :family "Bitstream Charter" :height 120))
+
+(cond ((and use-lsp-mode (has-fast-json))
+       ;; Use custom recipe for now (2020-08-30), see
+       ;; https://github.com/melpa/melpa/blob/master/recipes/lsp-mode#L1-L4
+       (straight-use-package '(lsp-mode
+                               :repo "emacs-lsp/lsp-mode"
+                               :fetcher github
+                               :files (:defaults
+                                       "clients/*.el")))
+       ;; LSP mode: language server protocol for getting completions, definitions etc.
+       (use-package lsp-mode
+         :commands lsp
+         :hook ((vue-mode . lsp)
+                (web-mode . lsp)
+                (typescript-mode . lsp)
+                (javascript-mode . lsp)
+                (js2-mode . lsp)
+                ;; python LSP; it hangs sometimes?
+                (python-mode . lsp)
+                )
+         :init
+         (setq lsp-keymap-prefix "C-c C-l") ; default is super-l
+         :config
+         (setq lsp-log-io lsp-mode-verbose
+               lsp-clients-typescript-log-verbosity (if lsp-mode-verbose "verbose" "normal")
+               lsp-print-performance t
+               lsp-response-timeout 15
+               lsp-headerline-breadcrumb-enable t
+               lsp-headerline-breadcrumb-segments '(file symbols)
+               flycheck-checker-error-threshold 1000 ; need more than default of 400
+               lsp-pylsp-plugins-pylint-enabled nil ; too much! Other pylsp checkers do enough.
+               )
+         (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
+         )
+       (use-package lsp-ui
+         :commands lsp-ui-mode
+         :hook (lsp-mode . lsp-ui-mode)
+         :config
+         (setq lsp-ui-doc-enable t
+               lsp-ui-doc-use-webkit t
+               lsp-ui-doc-include-signature t
+               lsp-ui-sideline-show-hover t ; show hover actions in the sideline
+               lsp-ui-doc-use-childframe nil ; childframe has bugs (12/2020); nil works fine
+               lsp-ui-sideline-actions-kind-regex "quickfix.*" ; don't show refactor actions; too many (in vue mode)
+               lsp-ui-sideline-enable nil ; turn off the whole sideline (right sidebar doc & actions)
+               lsp-modeline-code-actions-mode nil
+               )
+         )
+       (use-package lsp-pyright ; python type-checker, better than pylsp (Dec 2021)
+         :ensure t)
+       (when (eq completion-package 'ivy)
+         (use-package lsp-ivy))
+       (use-package lsp-treemacs)
+       ;; doesn't work
+       ;; (add-hook 'lsp-ui-doc-mode-hook #'lsp-ui-doc-font)
+
+       (if (not (featurep 'yasnippet))
+           (warn "LSP: missing yasnippet, LSP won't work well"))
+       )
+      (t
+       (use-package jsonrpc)
+       (use-package eglot
+         :straight (:host github
+                          :repo "joaotavora/eglot"
+                          :branch "master")
+         :commands eglot-ensure
+         :hook ((vue-mode . eglot-ensure)
+                (typescript-mode . eglot-ensure)
+                (javascript-mode . eglot-ensure))
+         :config
+         ;; note: company-mode must be loaded already
+         ;; eglot wants to replace all company backends with 'company-capf
+         ;; so I make sure that's first, but keep my other backends in case
+         ;; eglot doesn't have any completions (e.g. to use yasnippet or complete
+         ;; in strings and comments)
+         (add-to-list 'eglot-stay-out-of "company")
+         (add-to-list 'company-backends  'company-capf)
+         (define-key eglot-mode-map (kbd "C-c h") 'eglot-help-at-point)
+         (my-eglot-init)
+         )
+       ))
+
+  ;;; Eglot uses eldoc to display docs for functions
+  ;;; Try displaying those in a child frame:
+;; (use-package eldoc-box
+;;   :hook (eglot--managed-mode . eldoc-box-hover-mode)
+;;   :config
+;;   (set-face-background 'eldoc-box-body "#ffb")
+;;   )
+
+(defhydra hydra-lsp (:exit t :hint nil)
+  "
+   Buffer^^               Server^^                   Symbol
+  -------------------------------------------------------------------------------------
+   [_f_] format           [_M-r_] restart            [_d_] definition   [_i_] implementation  [_o_] documentation
+   [_m_] imenu            [_S_]   shutdown           [_D_] declaration  [_t_] type            [_r_] rename
+   [_x_] execute action   [_M-s_] describe session   [_R_] references   [_s_] signature"
+  ("d" lsp-ui-peek-find-definitions)
+  ("D" lsp-find-declaration)
+  ("R" lsp-ui-peek-find-references)
+  ("i" lsp-ui-peek-find-implementation)
+  ("t" lsp-find-type-definition)
+  ("s" lsp-signature-help)
+  ("o" lsp-describe-thing-at-point)
+  ("r" lsp-rename)
+
+  ("f" lsp-format-buffer)
+  ("m" lsp-ui-imenu)
+  ("x" lsp-execute-code-action)
+
+  ("M-s" lsp-describe-session)
+  ("M-r" lsp-restart-workspace)
+  ("S" lsp-shutdown-workspace))
+(global-set-key (kbd "C-c l") 'hydra-lsp/body)
+
+;; Volar is a good LSP client for Vue files
+(straight-use-package '(lsp-volar :type git :host github :repo "jadestrong/lsp-volar"))
+(use-package lsp-volar)
+
+#+end_src
+
+* Org mode
+
+#+begin_src emacs-lisp
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Org agenda setup:
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(setq org-directory "~/Dropbox/Personal/org-agenda") ; inbox.org, gtd.org, tickler.org ...
+(setq org-agenda-files (list org-directory)) ; all .org files in these dirs
+(setq org-default-notes-file (concat org-directory "/notes.org"))
+(setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
+(setq org-log-done 'time)
+(setq org-return-follows-link t)        ; Enter key to follow links
+(setq org-agenda-skip-scheduled-if-done t)
+(setq org-agenda-skip-deadline-if-done t)
+(setq org-agenda-start-on-weekday nil)  ; start on today
+;; Projects are headings with the :project: tag, shouldn't be inherited.
+(setq org-tags-exclude-from-inheritance '("project"))
+(setq org-tag-faces
+      '(("@work" . "#0066ff")
+        ("@home" . "#bb0000")
+        ("volunteer" . "#005500")))
+(setq org-refile-targets (quote ((nil :maxlevel . 4)
+                                 (org-agenda-files :maxlevel . 4))))
+
+(defun go/verify-refile-target ()
+  "Exclude TODOS as refile targets."
+  (not (member (nth 2 (org-heading-components)) (list "TODO" "DONE"))))
+(setq org-refile-target-verify-function 'go/verify-refile-target)
+                                        ;(add-hook 'auto-save-hook 'org-save-all-org-buffers)            ; autosave always
+                                        ;(advice-add 'org-agenda-quit :before 'org-save-all-org-buffers) ; autosave on quit agenda
+
+  ;;; Used these when I was trying org agenda
+;; (global-set-key (kbd "C-c l") 'org-store-link)
+;; (global-set-key (kbd "C-c a") 'org-agenda)
+;; (global-set-key (kbd "<f9>") 'org-agenda) ; faster, one keystroke
+;; (global-set-key (kbd "<f8>") 'org-capture) ; faster, one keystroke
+;; (global-set-key (kbd "C-c c") 'org-capture)
+
+(setq org-agenda-custom-commands        ; C-a a <cmd>
+      '(("w" "At work"
+         ((agenda "" ((org-agenda-span 2)))
+          (tags-todo "+PRIORITY=\"A\"") ; top priority
+          (tags-todo "@work")
+          )
+         ((org-agenda-compact-blocks t)))
+        ("h" "At home"
+         ((agenda "" ((org-agenda-span 4)))
+          (tags-todo "+PRIORITY=\"A\"") ; top priority
+          (tags-todo "@home")
+          )
+         ((org-agenda-compact-blocks t)))
+        ("i" "Inbox"
+         ((tags-todo "+CATEGORY=\"Inbox\"")
+          )
+         )
+        ("u" "Uncategorized"
+         ((tags-todo "-{.*}"
+                     ((org-agenda-overriding-header "Uncategorized TODOs")))
+          )
+         )
+        ("U" "Unscheduled"
+         ((todo ""
+                ((org-agenda-overriding-header "Unscheduled TODOs")
+                 (org-agenda-skip-function '(org-agenda-skip-entry-if 'scheduled))))
+          )
+         )
+        ;; other commands here
+        ))
+
+;; this is a "sexp diary" function -- "date" is provided by dynamic scoping.
+;; It's a list of (month day year).
+(defun first-of-month-unless-weekend ()
+  "Return t if date (provided dynamically) is the first of the month.
+  Unless the first falls on a weekend, in which case return t if
+  this is the first Monday of the month."
+  (let ((dayname (calendar-day-of-week date)) ; dayname is 0=Sun, 1=Mon, ...
+        (day (cadr date)))
+    (or (and (= day 1) (memq dayname '(1 2 3 4 5)))
+        (and (memq day '(2 3)) (= dayname 1)))
+    ))
+(defun first-of-quarter-unless-weekend ()
+  "Return t if date (provided dynamically) is the first day of the quarter.
+  Unless the first falls on a weekend, in which case return t if
+  this is the first Monday of the month."
+  (let ((month (car date)))
+    (and (memq month '(1 4 7 10))
+         (first-of-month-unless-weekend))
+    ))
+
+;; agenda template expansions: (e.g. C-c c t to capture a todo)
+;; ^G: prompt for tags
+;; ^t: prompt for timestamp
+;; %U: add inactive timestamp (creation time)
+(defvar org-capture-templates
+  '(("t" "Todo [inbox]" entry
+     (file+headline "inbox.org" "Tasks")
+     "* TODO %i%?\n  %U"
+     :prepend t)
+    ("." "Today" entry
+     (file+headline "inbox.org" "Tasks")
+     "* TODO %^{Task}\nSCHEDULED: %t\n"
+     :immediate-finish t)
+    ("s" "Scheduled TODO" entry
+     (file+headline "inbox.org" "Tasks") ;prompts for tags and schedule date (^G, ^t)
+     "* TODO %? %^G \nSCHEDULED: %^t\n  %U")
+    ("d" "Deadline" entry
+     (file+headline "inbox.org" "Tasks")
+     "* TODO %? %^G \n  DEADLINE: %^t"
+     :empty-lines 1)
+    ("w" "Work" entry
+     (file+headline "gtd.org" "Work")
+     "* TODO %i%?\n  %U"
+     :prepend t)
+    ("h" "Home" entry
+     (file+headline "gtd.org" "Home")
+     "* TODO %i%?\n  %U"
+     :prepend t)
+    ("T" "Tickler" entry
+     (file+headline "tickler.org" "Tickler")
+     "* TODO %i%? \n %U")
+    ))
+(defun gtd ()
+  (interactive)
+  (find-file (concat org-directory "/gtd.org")))
+
+;; Auto regenerate agenda when files change - use inotify
+(defun gco-org-agenda-file-notify (_event)
+  "Rebuild all agenda buffers when _EVENT specifies any org agenda files change."
+  (org-agenda-to-appt t)
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (derived-mode-p 'org-agenda-mode)
+        (org-agenda-redo t)))))
+;; when modifying agenda files make sure to update appt
+(if (file-exists-p org-directory)
+    (progn
+      (require 'filenotify)
+      (dolist (file org-agenda-files)
+        (file-notify-add-watch file '(change) #'gco-org-agenda-file-notify))
+      ))
+
+;; Load my special orgmode config
+(ignore-errors
+  (load-file "~/.emacs-orgmode")
+  )
+
+(setq
+ org-babel-load-languages
+   '((emacs-lisp . t)
+     (python . t)
+     (dot . t)
+     (ditaa . t)
+     (latex . t)
+     (sql . t)
+     (shell . t))
+ org-confirm-babel-evaluate nil
+ org-export-backends '(ascii html icalendar latex odt koma-letter)
+ org-export-coding-system 'utf-8
+ org-export-with-sub-superscripts '{}
+ org-export-with-toc nil
+ org-latex-listings t
+ org-latex-packages-alist
+   '(("cm" "fullpage" nil)
+     ("compact" "titlesec" nil)
+     ("" "paralist" nil)
+     ("" "enumitem" nil)
+     ("" "color" nil)
+     ("" "tabularx" nil)
+     ("" "enumitem" nil))
+ org-list-allow-alphabetical t
+ org-odt-convert-processes
+   '(("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 5/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
+     ("unoconv" "unoconv -f %f -o %d %i"))
+ org-odt-preferred-output-format "docx"
+ org-src-fontify-natively t
+ org-startup-folded nil
+ org-startup-indented nil
+ org-table-convert-region-max-lines 9999
+ org-use-sub-superscripts '{}
+ org-use-speed-commands t)
+
+#+end_src
+
+* Version control and magit
+
+#+begin_src emacs-lisp
+(autoload 'vc-git-root "vc-git" nil t)
+(autoload 'vc-git-grep "vc-git" nil t)
+
+(use-package git-modes)
+
+(use-package magit
+  :bind (("C-x v =" . magit-status)
+         ("C-x v b" . magit-blame)
+	 ("C-x v l" . magit-log-current))
+  :config
+  ;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
+  (remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
+  (add-hook 'magit-status-mode-hook 'delete-other-windows)
+  (add-hook 'after-save-hook 'magit-after-save-refresh-status)
+  :custom
+  (magit-backup-mode nil)
+  (magit-cygwin-mount-points '(("/c" . "c:")))
+  (magit-diff-expansion-threshold 999.0)
+  (magit-diff-refine-hunk t)
+  (magit-display-buffer-function 'magit-display-buffer-fullframe-status-v1)
+  (magit-expand-staged-on-commit 'full)
+  (magit-log-format-graph-function 'magit-log-format-unicode-graph)
+  (magit-log-format-unicode-graph-alist '((47 . 9585) (92 . 9586) (42 . 9642)))
+  (magit-pull-arguments '("--rebase"))
+  (magit-refresh-status-buffer nil)
+  :custom-face
+  (magit-item-highlight ((t (:background "floral white"))))
+  (magit-section-highlight ((t (:background "floral white"))))
+  )
+
+;; Show git changes in fringe
+(use-package git-gutter-fringe
+  :config
+  (dolist (p '((git-gutter:added    . "#0c0")
+               (git-gutter:deleted  . "#c00")
+               (git-gutter:modified . "#df0")))
+    (set-face-foreground (car p) (cdr p))
+    (set-face-background (car p) (cdr p)))
+  (global-git-gutter-mode)
+  )
+
+;; Like vc-git-grep from Emacs 25, but without the semi-useless "files" arg.
+(defun git-grep (regexp &optional dir)
+  "Run git grep, searching for REGEXP in directory DIR.
+
+  With \\[universal-argument] prefix, you can edit the constructed shell command line
+  before it is executed.
+  With two \\[universal-argument] prefixes, directly edit and run `grep-command'.
+
+  Collect output in a buffer.  While git grep runs asynchronously, you
+  can use \\[next-error] (M-x next-error), or \\<grep-mode-map>\\[compile-goto-error] \
+  in the grep output buffer,
+  to go to the lines where grep found matches.
+
+  This command shares argument histories with \\[rgrep] and \\[grep]."
+  (interactive
+   (progn
+     (grep-compute-defaults)
+     (cond
+      ((equal current-prefix-arg '(16))
+       (list (read-from-minibuffer "Run: " "git grep"
+                                   nil nil 'grep-history)
+             nil))
+      (t (let* ((regexp (grep-read-regexp))
+                (dir (read-directory-name "In directory: "
+                                          (vc-git-root default-directory) nil t)))
+           (list regexp dir))))))
+  (require 'grep)
+  (when (and (stringp regexp) (> (length regexp) 0))
+    (let ((command regexp))
+      (progn
+        (setq dir (file-name-as-directory (expand-file-name dir)))
+        (setq command
+              (grep-expand-template "git --no-pager grep -n -e <R>"
+                                    regexp))
+        (when command
+          (if (equal current-prefix-arg '(4))
+              (setq command
+                    (read-from-minibuffer "Confirm: "
+                                          command nil nil 'grep-history))
+            (add-to-history 'grep-history command))))
+      (when command
+        (let ((default-directory dir)
+              (compilation-environment (cons "PAGER=" compilation-environment)))
+          ;; Setting process-setup-function makes exit-message-function work
+          ;; even when async processes aren't supported.
+          (compilation-start command 'grep-mode))
+        (if (eq next-error-last-buffer (current-buffer))
+            (setq default-directory dir))))))
+
+#+end_src
+
+* Misc packages
+
+#+begin_src emacs-lisp
+
+(use-package origami
+  :bind (("C-c f" . origami-recursively-toggle-node)
+         ("C-c F" . origami-show-only-node))
+  )
+
+
+(use-package swiper
+  ;; use Ctrl-O to switch to swiper mode within isearch
+  :bind (:map isearch-mode-map
+              ("C-o" . swiper-from-isearch))
+  )
+
+  ;;; Save minibuffer histories -- important w/ vertico, useful always
+(use-package savehist
+  :init
+  (savehist-mode)
+  )
+
+(use-package smart-mode-line
+  :config
+  (setq sml/no-confirm-load-theme t)
+  (setq sml/name-width 40)
+  (setq sml/mode-width 'full)
+  (setq sml/shorten-directory t)
+  (setq sml/shorten-modes t)
+  ;; don't show these minor modes
+  (setq rm-blacklist '(" hl-p" " company" " ElDoc" " VHl" " Helm" " Fill"
+                       " Filladapt" " counsel" " ivy" " yas" " GitGutter"))
+  (add-to-list 'sml/replacer-regexp-list
+               '("c:/dss/Product/Horizon/WebProjects/horizon-project/horizon" ":HZN:"))
+  (sml/setup)
+  )
+
+;; unfill fills or unfills para, toggling each time you press M-q
+(use-package unfill
+  :bind ([remap fill-paragraph] . unfill-toggle))
+
+  ;;; adaptive fill mode
+(use-package filladapt
+  ;; to enable only in certain modes:
+  ;; :hook (('text-mode-hook . 'filladapt-mode))
+  :config
+  (setq-default filladapt-mode t))      ; turn on by default everywhere
+
+  ;;; Ediff: split horizontally (A|B, like C-x 3) and
+  ;;; don't use the little floating control frame.
+(use-package ediff
+  :config
+  (setq ediff-split-window-function 'split-window-horizontally)
+  (setq ediff-window-setup-function 'ediff-setup-windows-plain)
+  )
+
+(use-package ztree)                     ; file tree browser
+
+;;; Looks cool but requires helm (?)
+; (use-package filetree)
+(use-package treemacs)
+(use-package treemacs-projectile)
+
+;;; Temporarily highlight undo, yank, find-tag and a few other things
+(use-package volatile-highlights
+  :config
+  (volatile-highlights-mode t)
+  )
+
+(use-package all-the-icons)
+
+;;; This sets $PATH and exec-path by querying the shell.
+;;; Much better than trying to keep them in sync as above.
+;;; Only Mac for now, but could this be useful on Windows? Probably.
+;;; Also can copy other env vars, see exec-path-from-shell-copy-env.
+;(use-package exec-path-from-shell
+;  :if (memq window-system '(mac ns))
+;  :config
+;  (exec-path-from-shell-initialize))
+
+;; better visual paren matching
+(use-package mic-paren
+  :hook (c-mode-common .
+                       (lambda ()
+                        (paren-toggle-open-paren-context 1)))
+  :config
+  (paren-activate)
+  )
+
+;;; Useful for folding, manipulating and navigating indented languages like yaml
+;;; (or even python)
+(use-package indent-tools
+  :bind (("C-c >" . 'indent-tools-hydra/body))
+  )
+
+;;; show keybindings following prefix in a popup
+(use-package which-key
+  :config
+  (which-key-mode)
+  )
+#+end_src
+
+* Misc stuff to organize
+
+#+begin_src emacs-lisp
+
+(defun maybe-require (feature)
+  "Try to require FEATURE (symbol); return feature or nil."
+  (require feature nil t))
+
+;; edit server for Chrome (browser extension) (but only if installed):
+(when (maybe-require 'edit-server)
+  (defvar edit-server-new-frame)
+  (setq edit-server-new-frame nil)
+  (message "Starting edit server for Chrome...")
+  (edit-server-start))
+
+;; In WSL2, browse to URLs using Windows cmd.exe which will open
+;; default browser.
+(cond (wsl2-p
+       (setq
+        browse-url-generic-program  "/mnt/c/Windows/System32/cmd.exe"
+        browse-url-generic-args     '("/c" "start" "")
+        browse-url-browser-function 'browse-url-generic)
+       ))
+
+(winner-mode 1)	; restore window config w/ C-c left (C-c right to redo)
+
+(repeat-mode 1) ;; allow C-x ^^^^ to enlarge window with each press of ^ (same for C-x },{,v})
+
+  ;;; windmove: shift+arrow keys to move between windows.
+  ;;; Should be available since emacs 21.
+(when (fboundp 'windmove-default-keybindings)
+  (windmove-default-keybindings)
+  (setq windmove-wrap-around t))
+
+  ;;; save/restore window configs to disk automatically
+  ;;; Doesn't seem to work in wsl2 for now
+(when (not wsl2-p)
+  (desktop-save-mode t)
+  (setq desktop-files-not-to-save ".*")   ; don't save any files; just the window configuration
+  )
+
+  ;;; Override stale desktop-file locks (from emacswiki)
+(defun garyo/desktop-owner-advice (original &rest args)
+  (let ((owner (apply original args)))
+    (if (and owner (/= owner (emacs-pid)))
+        (and (car (member owner (list-system-processes)))
+             (let (cmd (attrlist (process-attributes owner)))
+               (if (not attrlist) owner
+                 (dolist (attr attrlist)
+                   (and (car attr) (string= "comm" (car attr))
+                        (setq cmd (cdr attr))))
+                 (and cmd (string-match-p "[Ee]macs" cmd) owner))))
+      owner)))
+;; Ensure that dead system processes don't own it.
+(advice-add #'desktop-owner :around #'garyo/desktop-owner-advice)
+
+
+  ;;; Recentf mode: remember recently visited files
+(recentf-mode t)
+(setq-default
+ recentf-exclude '("semantic.cache"
+                   "\\.completions"
+                   "\\.projects\\.ede"
+                   "\\.ido\\.last"
+                   "recentf"
+                   "ido\\.last"
+                   ".tmp.babel-"
+                   "/[a-z]+:.*:"       ;don't save tramp files
+                   )
+ recentf-max-menu-items 30
+ recentf-max-saved-items 50)
+;; emacs doesn't save recentf list until you "exit normally"
+;; which never really happens with emacs-server. So just save every 10
+;; min, and do it silently.
+(run-at-time nil 600 (lambda () (let ((save-silently t))
+                                  (recentf-save-list))))
+
+;;; Turn off visual-line-mode
+(visual-line-mode nil) ; next-line go to real next line, see also line-move-visual
+(global-visual-line-mode 0)
+(setq line-move-visual nil)			; C-n go to next real line
+
+
+  ;;; Use python-shell-interpreter to set python to run from emacs, not python-command
+  ;;; NO:(setq-default python-command (or (executable-find "python") "c:/Python27/python"))
+
+(setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
+
+(autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
+
+;; always enable electric-pair-mode to insert matching parens & braces
+(electric-pair-mode t)
+(defun gco-inhibit-electric-pair-predicate (c)
+  (or
+   ;; if within a string started by the same char, inhibit pair insertion
+   (save-excursion
+     (let ((s (syntax-ppss (- (point) 1))))
+       (eq (nth 3 s) c)))
+   ;; inhibit when it helps balance
+   (save-excursion
+     (electric-pair-inhibit-if-helps-balance c))
+   ;; inhibit when same char is next, or 2nd "" or ((, or next to a word
+   (save-excursion
+     (electric-pair-conservative-inhibit c))
+   ))
+
+(setq electric-pair-inhibit-predicate 'gco-inhibit-electric-pair-predicate)
+
+
+;; use M-x idb to run the Intel debugger inside emacs (looks like 'dbx')
+(defvar idbpath "c:/Program Files/Intel/IDB/10.0/IA32/Bin")
+(if (file-readable-p (concat idbpath "/idb.el"))
+    (progn (load-file (concat idbpath "/idb.el"))
+           (add-to-list 'exec-path idbpath))
+  )
+
+(blink-cursor-mode -1)	;this is annoying
+;;(mouse-avoidance-mode 'animate)
+(global-font-lock-mode 1)
+
+(add-hook 'sql-mode-hook
+          (lambda () (sql-highlight-mysql-keywords)))
+
+  ;;; whitespace and blank lines:
+(defcustom delete-trailing-whitespace-on-save
+  t "Delete trailing whitespace when buffer is saved."
+  :type '(boolean)
+  :group 'GCO)
+(make-variable-buffer-local 'delete-trailing-whitespace-on-save)
+(defun maybe-delete-trailing-whitespace ()
+  "Delete trailing whitespace on save, if enabled by delete-trailing-whitespace-on-save."
+  (if delete-trailing-whitespace-on-save
+      (delete-trailing-whitespace)))
+(add-hook 'before-save-hook 'maybe-delete-trailing-whitespace)
+(setq-default indicate-empty-lines t)
+
+(require 'uniquify)
+(setq uniquify-buffer-name-style 'post-forward-angle-brackets)
+
+  ;;; Automatically revert files that change on disk
+  ;;; (but only when the buffer is unmodified, so it's safe)
+(global-auto-revert-mode t)
+
+  ;;; Save all backup(~) files and auto-save files in /tmp
+  ;;; This keeps clutter down.
+(defconst emacs-tmp-dir (expand-file-name (format "emacs%d" (user-uid)) temporary-file-directory))
+(setq backup-directory-alist
+      `((".*" . ,emacs-tmp-dir)))
+(setq auto-save-file-name-transforms
+      `((".*" ,emacs-tmp-dir t)))
+(set-variable 'create-lockfiles nil)     ; dangerous but useful for file-watching recompiles
+
+;; Printing via GhostScript/GhostView
+(require 'ps-print)
+(setq ps-lpr-command "c:\\Program Files\\Ghostgum\\gsview\\gsprint.exe")
+;; -query causes ghostscript to query which printer to use.
+;; other options: -twoup, -landscape, ... (see c:/Ghostgum/gsview/csprint.htm)
+(setq ps-lpr-switches '("-query"))
+(setq ps-print-color-p t)		; or t or 'black-white
+(setq ps-printer-name t)
+(setq ps-left-margin 30)
+(setq ps-right-margin 10)
+(setq ps-header-lines 1)
+(setq ps-print-header-frame nil)
+(setq ps-font-size '(7 . 9))
+
+(defun bf-pretty-print-xml-region (begin end)
+  "Pretty format XML markup in region. You need to have nxml-mode
+  http://www.emacswiki.org/cgi-bin/wiki/NxmlMode installed to do
+  this.  The function inserts linebreaks to separate tags that have
+  nothing but whitespace between them.  It then indents the markup
+  by using nxml's indentation rules."
+  (interactive "r")
+  (save-excursion
+    (nxml-mode)
+    (goto-char begin)
+    (while (search-forward-regexp "\>[ \\t]*\<" nil t)
+      (backward-char) (insert "\n"))
+    (indent-region begin end))
+  (message "Ah, much better!"))
+
+(defun open-folder-in-explorer ()
+  "Call when editing a file in a buffer.
+
+    Open windows explorer in the current directory and select the current file"
+  (interactive)
+  (if default-directory
+      (browse-url-of-file (expand-file-name default-directory))
+    (error "No `default-directory' to open")))
+(global-set-key [f12] 'open-folder-in-explorer)
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun process-error-filename (filename &optional spec-directory)
+  "Process compile errors from FILENAME, looking for sources in SPEC-DIRECTORY.
+
+    SCons (with -D) starts builds from the top of the source tree,
+    and it builds into an 'SBuild' subdir. But we want to find the
+    original errors in the regular source dir, regardless of the
+    current directory when we run \\[compile]. Note
+    \"default-directory\" may not be what you expect here, and the
+    filenames are absolute, so need to remove surgically."
+
+  (let ((case-fold-search t)
+        (topdir (car (project-roots (project-current))))
+        )
+    ;; prepend dir
+    (if (and spec-directory
+             (not (file-name-absolute-p filename)))
+        (setq filename (concat spec-directory "/" filename)))
+
+    (let ((candidates (get_src_from_build_path (fix-win-path filename)))
+          (result nil))
+      ;; (message (format "In process-error-filename: %s in %s: candidates = %s" filename spec-directory candidates))
+      (dolist (f candidates)
+        (cond ((file-exists-p f)
+               (setq result f))
+              ((file-exists-p (concat topdir f))
+               (setq result (concat topdir f)))))
+      (if result result filename))))
+
+(defun fix-win-path (p)
+  "Convert backslashes to forward slashes in P so path-handling functions don't get confused."
+  (cond (p (replace-regexp-in-string "\\\\" "/" p)))
+  )
+
+(defun get_src_from_build_path (p)
+  "Strip Sbuild dirs from a pathname P."
+  (list
+   (replace-regexp-in-string
+    "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/" "" p)
+   (replace-regexp-in-string
+    "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/" "src/" p)
+   )
+  )
+
+  ;;; For emacs 21.1, this requires a patch to compile.el, which is in
+  ;;; Gary's email in the emacs folder (date around 10/25/2001).  Later
+  ;;; versions should already have it.
+(setq compilation-parse-errors-filename-function 'process-error-filename)
+
+(setq compilation-mode-font-lock-keywords
+      '(("^\"\\([^\"]*\", line [0-9]+:[ \t]*warning:[ \t]*\\)\\(.*$\\)"
+         2 font-lock-keyword-face)
+        ("^\"\\([^\"]*\", line [0-9]+:[ \t]*\\)\\(.*$\\)"
+         2 font-lock-function-name-face)))
+
+  ;;; For emacs23, long lines in buffers make emacs really slow.
+  ;;; This seems to ameliorate it a little.
+(add-hook 'compilation-mode-hook (lambda () (line-number-mode nil)))
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  ;;; Dired-x (extra functions for dired mode)
+(add-hook 'dired-load-hook
+          (lambda ()
+            (load "dired-x")
+            ;; Set dired-x global variables here.  For example:
+            ;; (setq dired-guess-shell-gnutar "gtar")
+            ;; (setq dired-x-hands-off-my-keys nil)
+            (setq dired-omit-localp nil) ; match full pathname (slower)
+            (setq dired-omit-files "/\\.svn/\\|\\.svn-base$\\|/SBuild/\\|/\\.?#\\|/\\.$\\|/\\.\\.$")
+            ))
+
+(setq ibuffer-formats '((mark modified read-only " " (name 16 16) " "
+                              (size 6 -1 :right) " " (mode 16 16 :center)
+                              " " (process 8 -1) " " filename)
+                        (mark " " (name 16 -1) " " filename))
+      ibuffer-elide-long-columns t
+      ibuffer-eliding-string "&")
+(require 'ibuffer)
+
+  ;;; Interactive buffer switching using minibuffer substring completion
+;;(setq ido-enable-tramp-completion nil)	    ; workaround tramp bug in emacs 23.1
+;;(ido-mode)
+
+(require 'misc)
+;; Trying this out; not sure if I'll ever use it.
+(global-set-key (kbd "M-<right>") 'forward-to-word)
+
+(defun end-of-buffer-right-way ()
+  "Put point at the end of the buffer and also at the bottom of the window."
+  (interactive nil)
+  (push-mark)
+  (goto-char (point-max))
+  (recenter -2))
+
+(defun copy-line (arg)
+  "Copy lines (as many as prefix ARG) into the kill ring.
+
+        Ease of use features:
+        - Move to start of next line.
+        - Appends the copy on sequential calls.
+        - Use newline as last char even on the last line of the buffer.
+        - If region is active, copy its lines."
+  (interactive "p")
+  (let ((beg (line-beginning-position))
+        (end (line-end-position arg)))
+    (when mark-active
+      (if (> (point) (mark))
+          (setq beg (save-excursion (goto-char (mark)) (line-beginning-position)))
+        (setq end (save-excursion (goto-char (mark)) (line-end-position)))))
+    (if (eq last-command 'copy-line)
+        (kill-append (buffer-substring beg end) (< end beg))
+      (kill-ring-save beg end)))
+  (kill-append "\n" nil)
+  (beginning-of-line (or (and arg (1+ arg)) 2))
+  (if (and arg (not (= 1 arg))) (message "%d lines copied" arg)))
+
+  ;;; We use .cp for C source files, but emacs ignores them by default.
+(setq completion-ignored-extensions
+      (remove nil
+              (remove ".log"
+                      (remove ".cp" completion-ignored-extensions))))
+
+;; This fixes the slow startup of query-replace when using Droid Sans Mono Dotted font
+;; The default value of this isn't in that font I guess? (In fact, even pasting it
+;; in here makes redisplay slow down!)
+(setq-default query-replace-from-to-separator " -> ")
+
+
+  ;;; This is very important to speed up display of long lines.
+  ;;; It's not perfect but it should help.
+(setq-default bidi-display-reordering nil)
+
+  ;;; Always use '(foo) rather than (quote (foo)) in customize
+  ;;; (custom-set-variables below)
+(advice-add 'custom-save-all :around
+            (lambda (orig)
+              (let ((print-quoted t))
+                (funcall orig))))
+
+  ;;; Start emacs server
+(require 'server)
+(unless (server-running-p)
+  (server-start))
+
+#+END_SRC
+
+* Global key bindings
+#+begin_src emacs-lisp
+(global-set-key (kbd "M-SPC") 'cycle-spacing) ; improvement over just-one-space; repeated calls cycle 1, 0, orig
+(global-set-key (kbd "C-z") 'scroll-up-line) ; use emacs24 builtins
+(global-set-key (kbd "M-z") 'scroll-down-line)
+(global-set-key (kbd "M-k") 'copy-line)
+(global-set-key (kbd "M->") 'end-of-buffer-right-way)
+(global-set-key (kbd "C-X .") 'goto-line)
+(global-set-key (kbd "C-m") 'newline-and-indent)
+(global-set-key (kbd "M-n") '(lambda ()
+                               "Move down 10 lines"
+                               (interactive)
+                               (next-line 10)))
+(global-set-key (kbd "M-p") '(lambda ()
+                               "Move up 10 lines"
+                               (interactive)
+                               (previous-line 10)))
+(global-set-key [f5] 'compile)
+(global-set-key [remap count-words-region] #'count-words) ; better: uses region when active
+
+#+end_src
+
+* Customizations
+
+#+BEGIN_SRC emacs-lisp
+
+(setq
+ backup-by-copying-when-linked t
+ font-lock-maximum-decoration t
+ compilation-window-height 15
+ compilation-scroll-output 'first-error
+ compile-command "scons -D -j8 v=debug"
+ delete-old-versions t
+ diff-switches "-up"
+ egg-switch-to-buffer t
+ enable-recursive-minibuffers t
+ fill-column 78
+ find-file-existing-other-name t
+ inhibit-startup-message t
+ initial-scratch-message ""   ; prevent the useless cruft in *scratch*
+ Info-enable-edit t
+ ;; isearch-allow-scroll nil  ; t means allow scroll, but prevent scrolling if would go off screen
+ kept-old-versions 1
+ line-number-mode t			; XXX: disable in compilation-mode buffers
+ mark-even-if-inactive t
+ mouse-drag-copy-region t ; default in emacs24 is nil; I like the old way.
+ require-final-newline t
+ next-line-add-newlines nil
+ scroll-step 2
+ scroll-conservatively 10
+ search-highlight t
+ split-height-threshold (/ (frame-height) 2)
+ tags-revert-without-query t
+ truncate-partial-width-windows nil	; ECB needs this to avoid
+                                        ; truncating source window
+                                        ; since it's partial width.
+ vc-make-backup-files t			; Make emacs backups even for
+                                        ; version-controlled files
+ version-control t
+ )
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(ag-arguments '("--smart-case"))
+ '(ag-highlight-search t)
+ '(ag-reuse-buffers t)
+ '(ag-reuse-window t)
+ '(align-to-tab-stop nil)
+ '(company-dabbrev-char-regexp "\\(\\sw\\|\\s_\\)")
+ '(company-dabbrev-code-modes
+   '(prog-mode batch-file-mode csharp-mode css-mode erlang-mode haskell-mode jde-mode lua-mode python-mode def-effects-mode))
+ '(custom-safe-themes
+   '("c74e83f8aa4c78a121b52146eadb792c9facc5b1f02c917e3dbb454fca931223" "3c83b3676d796422704082049fc38b6966bcad960f896669dfc21a7a37a748fa" "a27c00821ccfd5a78b01e4f35dc056706dd9ede09a8b90c6955ae6a390eb1c1e" default))
+ '(ecb-layout-name "left1")
+ '(ecb-layout-window-sizes
+   '(("left1"
+      (0.2698412698412698 . 0.30158730158730157)
+      (0.12698412698412698 . 0.31746031746031744)
+      (0.14285714285714285 . 0.31746031746031744)
+      (0.2698412698412698 . 0.31746031746031744))))
+ '(ecb-options-version "2.40")
+ '(ecb-primary-secondary-mouse-buttons 'mouse-1--mouse-2)
+ '(ecb-tip-of-the-day nil)
+ '(ecb-windows-width 30)
+ '(edebug-print-length 500)
+ '(egg-buffer-hide-section-type-on-start nil)
+ '(egg-cmd-select-special-buffer t)
+ '(egg-commit-box-chars [9608])
+ '(egg-commit-file-select-mark 10004)
+ '(egg-enable-tooltip t)
+ '(egg-log-HEAD-max-len 50)
+ '(egg-log-all-max-len 500)
+ '(egg-log-buffer-marks [10004 9998 46 9733 62])
+ '(egg-log-graph-chars [9608 124 45 47 92])
+ '(egg-quit-window-actions '((egg-status-buffer-mode kill restore-windows)))
+ '(eldoc-echo-area-use-multiline-p t)
+ '(exec-path-from-shell-arguments '("-l"))
+ '(extended-command-suggest-shorter nil)
+ '(flycheck-c/c++-cppcheck-executable "c:/Program Files/Cppcheck/cppcheck.exe")
+ '(flycheck-clang-args '("--std=c++17"))
+ '(flycheck-disabled-checkers '(typescript-tslint emacs-lisp-checkdoc))
+ '(flycheck-python-flake8-executable "python3")
+ '(flycheck-python-pycompile-executable "python3")
+ '(flycheck-python-pylint-executable "python3")
+ '(ggtags-enable-navigation-keys nil)
+ '(git-commit-summary-max-length 64)
+ '(helm-autoresize-mode t)
+ '(helm-buffers-fuzzy-matching t)
+ '(ido-auto-merge-delay-time 10)
+ '(ido-enable-flex-matching t)
+ '(ido-use-filename-at-point 'guess)
+ '(indent-tabs-mode nil)
+ '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
+ '(jit-lock-defer-time 0.2)
+ '(js-indent-level 2)
+ '(js2-strict-missing-semi-warning nil)
+ '(markdown-command "pandoc")
+ '(mhtml-tag-relative-indent nil)
+ '(mouse-wheel-tilt-scroll t)
+ '(ns-command-modifier 'meta)
+ '(ps-font-size '(7 . 10))
+ '(ps-paper-type 'letter)
+ '(py-python-command "c:/python27/python")
+ '(rng-nxml-auto-validate-flag t)
+ '(safe-local-variable-values
+   '((venv-location . "~/Library/Caches/pypoetry/virtualenvs")
+     (venv-location . ".")
+     (indent-tabs-mode . 2)
+     (eval pyvenv-activate "venv")
+     (eval venv-workon "venv")
+     (c-basic-offset 4)
+     (org-src-preserve-indentation . t)
+     (Mode . C++)
+     (Mode . C)
+     (test-case-name . twisted\.test\.test_protocols)
+     (Mode . c++)
+     (Mode . python)
+     (Mode . perl)
+     (Mode . cperl)
+     (comment-new_column . 0)))
+ '(same-window-regexps '("\\*shell.*\\*\\(\\|<[0-9]+>\\)"))
+ '(sentence-end-double-space nil)
+ '(speedbar-tag-hierarchy-method
+   '(speedbar-prefix-group-tag-hierarchy speedbar-trim-words-tag-hierarchy speedbar-sort-tag-hierarchy))
+ '(taskjuggler-command "tj3")
+ '(typescript-indent-level 2)
+ '(vc-dired-recurse nil)
+ '(visible-bell t)
+ '(w32-get-true-file-attributes nil t)
+ '(warning-suppress-log-types '((comp) (frameset) (\(undo\ discard-info\))))
+ '(warning-suppress-types '((frameset) (\(undo\ discard-info\))))
+ '(whitespace-style
+   '(face trailing tabs spaces newline empty indentation space-after-tab space-before-tab space-mark tab-mark newline-mark)))
+
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(flycheck-fringe-info ((t (:foreground "#00dd00"))))
+ '(flycheck-info ((t (:underline (:color "#00ff00" :style wave)))))
+ '(lsp-ui-doc-background ((((background light)) (:background "#ffffbb")) (t (:background "#272A36"))))
+ '(lsp-ui-sideline-code-action ((t (:foreground "brown"))))
+ '(org-agenda-date-today ((t (:inherit org-agenda-date :slant italic :weight bold :height 1.1))))
+ '(org-agenda-date-weekend ((t (:inherit org-agenda-date :foreground "deep sky blue" :weight thin))))
+ '(org-level-1 ((t (:inherit default :weight bold :height 1.3))))
+ '(org-level-2 ((t (:inherit outline-2 :weight bold :height 1.15))))
+ '(org-level-3 ((t (:inherit outline-3 :slant italic :height 1.1))))
+ '(web-mode-current-column-highlight-face ((t (:background "#f0f0f0")))))
+
+(put 'set-goal-column 'disabled nil)
+(put 'eval-expression 'disabled nil)
+(put 'narrow-to-region 'disabled nil)
+(put 'narrow-to-page 'disabled nil)
+
+#+END_SRC
+
+* Finally!
+
+#+begin_src emacs-lisp
+(provide 'emacs)
+#+end_src
+
+# @ Local variables:
+# @ org-src-preserve-indentation: t
+# @ End:

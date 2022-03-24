@@ -1,0 +1,5 @@
+#+title: Gary Oberbrunner's Emacs Configuration
+#+author: Gary Oberbrunner
+
+This is my Emacs config. Some parts date back to the 1980s, but I
+recently refactored it using org-mode to organize its sections.
