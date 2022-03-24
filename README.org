@@ -4,6 +4,6 @@
 This is my Emacs config. Some parts date back to the 1980s, but I
 recently refactored it using org-mode to organize its sections.
 
-Clone this repo into ~~/.config/emacs~ or ~~/.emacs.d~ so Emacs will
+Clone this repo into ~$HOME/.config/emacs~ or ~$HOME/.emacs.d~ so Emacs will
 find it. Should work on Windows (including WSL 1 and 2), Mac, and Linux.
 Supports Emacs 26 and later, mostly.
