@@ -564,38 +564,77 @@ I use ~ripgrep~: fast recursive grep, wgrep-capable.
 
 * Completion
 
-I'm using company, consult with orderless, vertico, and marginalia now.
-There's some ivy config in here in case I want to switch back.
+Company is an in-buffer completion framework, used for e.g. identifier
+completion in programming languages. It supports many backends, which
+are sources of completion candidates. It can use ~vertico~ as a UI,
+but its own UI is fine. The default backend is ~company-capf~ which in
+turn redirects to the completion-at-point-functions (which defaults to
+~tags-completion-at-point-functions~ I think, but gets rebound by
+various modes).
+
+I grew up using Jim Salem's TMC completion so M-RET is in my fingers.
+:-). In most modes I'd like to emulate that completion type, which
+remembered what you type and recorded contents of visited bufers, and
+used that cache to propose completions (based on initial substring
+match).
+
+Note that org-mode redefines ~M-RET~ as something else -- we rebind it
+in that mode so it works there too.
+
+You can invoke company backends interactively to test how they work,
+and use ~company-diag~ to debug.
+
+~company-statistics~ keeps stats on disk to rank completions based on
+the ones previously chosen.
+
+TODO: Each element in ~company-backends~ is tried, and the first that returns
+results is used. An element of that list can be a list itself, in which case
+the results of both backends are merged -- perhaps I should use that.
 
 #+BEGIN_SRC emacs-lisp
-
-;; Pick completion package: 'ivy or 'vertico (I like vertico as of 2021)
-(setq completion-package 'vertico)
-
-;;;
-;;; Packages
-;;;
+;; Completion system
 (use-package company
-  :bind (("M-RET" . company-complete))
-  :demand                               ; load it now (better for eglot)
+  :bind (("M-RET" . company-complete)
+         :map org-mode-map
+         ("M-RET" . company-complete) ; also bind in org-mode
+         )
+  :demand                             ; load it now (better for eglot)
   :defines company-dabbrev-downcase company-dabbrev-ignore-case
   :config
   (global-company-mode)
   ;; dabbrev mode seems closest to TMC completion
-  (setq company-backends '(company-capf company-semantic company-dabbrev-code
+  (setq company-backends '(company-capf company-dabbrev-code
                                         company-dabbrev company-etags
                                         company-keywords))
-  (setq company-dabbrev-downcase nil	 ;make case-sensitive
-	company-dabbrev-ignore-case nil ;make case-sensitive
+  (setq company-dabbrev-downcase nil	; make case-sensitive
+	company-dabbrev-ignore-case nil ; make case-sensitive
+        company-dabbrev-char-regexp "\\(\\sw\\|\\s_\\)"
         company-minimum-prefix-length 3
         company-idle-delay 1
         )
-)
+  )
 
 (use-package company-statistics
   :after company
   :hook (after-init . company-statistics-mode)
   )
+#+end_src
+
+** Completion UI
+
+Pick completion UI package: ivy or vertico. I like vertico, as of 2021.
+- Ivy means Ivy + Counsel + Swiper
+- With vertico, I set up vertico + consult + marginalia + orderless.
+
+Vertico is just a simple "vertical" completion UI -- no new commands.
+Consult adds completing vesrions of various commands, and those get
+presented by vertico.
+
+Why not ~selectrum~? Selectrum was the predecessor of Vertico, so
+Vertico seems to do what selectrum does but better in most cases.
+
+#+begin_src emacs-lisp
+(setq completion-package 'vertico)
 
 ;; Ivy completion (or vertico)
 (when (eq completion-package 'ivy)
@@ -620,6 +659,11 @@ There's some ivy config in here in case I want to switch back.
     (ivy-rich-mode 1)
     (setcdr (assq t ivy-format-functions-alist) #'ivy-format-function-line)
     )
+  (use-package swiper
+    ;; use Ctrl-O to switch to swiper mode within isearch
+    :bind (:map isearch-mode-map
+                ("C-o" . swiper-from-isearch))
+    )
   )
 
 (when (eq completion-package 'vertico)
@@ -627,6 +671,14 @@ There's some ivy config in here in case I want to switch back.
     :init
     (vertico-mode)
     )
+
+  ;; Use the ~substring~ completion style so calling this from isearch works properly
+  (defun consult-line-literal ()
+    (interactive)
+    (let ((completion-styles '(substring))
+          (completion-category-defaults nil)
+          (completion-category-overrides nil))
+      (consult-line)))
 
   (use-package consult
     :after projectile
@@ -664,7 +716,7 @@ There's some ivy config in here in case I want to switch back.
 	   ("M-s g" . consult-grep)
 	   ("M-s G" . consult-git-grep)
 	   ("M-s r" . consult-ripgrep)
-	   ("M-s l" . consult-line)
+	   ("M-s l" . consult-line-literal)
 	   ("M-s L" . consult-line-multi)
 	   ("M-s m" . consult-multi-occur)
 	   ("M-s k" . consult-keep-lines)
@@ -672,9 +724,10 @@ There's some ivy config in here in case I want to switch back.
 	   ;; Isearch integration
 	   ("M-s e" . consult-isearch-history)
 	   :map isearch-mode-map
-	   ("M-e" . consult-isearch-history) ;; orig. isearch-edit-string
+           ("C-o" . consult-line-literal)
+	   ("M-e" . consult-isearch-history)
 	   ("M-s e" . consult-isearch-history) ;; orig. isearch-edit-string
-	   ("M-s l" . consult-line) ;; needed by consult-line to detect isearch
+	   ("M-s l" . consult-line-literal) ;; needed by consult-line to detect isearch
 	   ("M-s L" . consult-line-multi) ;; needed by consult-line to detect isearch
 	   )
     :init
@@ -1327,7 +1380,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
                                         ;(add-hook 'auto-save-hook 'org-save-all-org-buffers)            ; autosave always
                                         ;(advice-add 'org-agenda-quit :before 'org-save-all-org-buffers) ; autosave on quit agenda
 
-  ;;; Used these when I was trying org agenda
+;;; Used these when I was trying org agenda
 ;; (global-set-key (kbd "C-c l") 'org-store-link)
 ;; (global-set-key (kbd "C-c a") 'org-agenda)
 ;; (global-set-key (kbd "<f9>") 'org-agenda) ; faster, one keystroke
@@ -1583,12 +1636,6 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
          ("C-c F" . origami-show-only-node))
   )
 
-
-(use-package swiper
-  ;; use Ctrl-O to switch to swiper mode within isearch
-  :bind (:map isearch-mode-map
-              ("C-o" . swiper-from-isearch))
-  )
 
   ;;; Save minibuffer histories -- important w/ vertico, useful always
 (use-package savehist
@@ -2086,7 +2133,6 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
  '(ag-reuse-buffers t)
  '(ag-reuse-window t)
  '(align-to-tab-stop nil)
- '(company-dabbrev-char-regexp "\\(\\sw\\|\\s_\\)")
  '(company-dabbrev-code-modes
    '(prog-mode batch-file-mode csharp-mode css-mode erlang-mode haskell-mode jde-mode lua-mode python-mode def-effects-mode))
  '(custom-safe-themes
