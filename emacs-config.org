@@ -618,6 +618,45 @@ the results of both backends are merged -- perhaps I should use that.
   :after company
   :hook (after-init . company-statistics-mode)
   )
+
+#+end_src
+
+** Completion actions: Embark
+
+~embark~ is bound to ~C-.~ and allows actions on the current thing at point,
+or the current completion candidate in the minibuffer.
+
+This is nice because you can use ~C-x C-f~ (find-file) but then decide
+to do something besides open it in a buffer using ~C-.~
+
+~C-.~ pops up a nice window of commands you can do on the current
+thing, so there's no learning curve.
+
+#+begin_src emacs-lisp
+(use-package embark
+  :bind
+  (("C-." . embark-act)
+   ("C-;" . embark-dwim)
+   ("C-h B" . embark-bindings)
+   )
+  :init
+  (setq prefix-help-command #'embark-prefix-help-command)
+  ;; Hide the mode line of the Embark live/completions buffers
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none)))))
+
+;; Consult users will also want the embark-consult package.
+(use-package embark-consult
+  :ensure t
+  :after (embark consult)
+  :demand t ; only necessary if you have the hook below
+  ;; if you want to have consult previews as you move around an
+  ;; auto-updating embark collect buffer
+  :hook
+  (embark-collect-mode . consult-preview-at-point-mode)
+  )
 #+end_src
 
 ** Completion UI
@@ -758,6 +797,13 @@ Vertico seems to do what selectrum does but better in most cases.
                   :items    ,projectile-known-projects))
     (add-to-list 'consult-buffer-sources my-consult-source-projectile-projects 'append)
     )
+
+  (use-package consult-dir
+    :ensure t
+    :bind (("C-x C-d" . consult-dir)
+           :map minibuffer-local-completion-map
+           ("C-x C-d" . consult-dir)
+           ("C-x C-j" . consult-dir-jump-file)))
 
   ;; Optionally use the `orderless' completion style. See
   ;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
