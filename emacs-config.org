@@ -1291,13 +1291,6 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 ;;   (face-remap-add-relative 'default :family "Bitstream Charter" :height 120))
 
 (cond ((and use-lsp-mode (has-fast-json))
-       ;; Use custom recipe for now (2020-08-30), see
-       ;; https://github.com/melpa/melpa/blob/master/recipes/lsp-mode#L1-L4
-       (straight-use-package '(lsp-mode
-                               :repo "emacs-lsp/lsp-mode"
-                               :fetcher github
-                               :files (:defaults
-                                       "clients/*.el")))
        ;; LSP mode: language server protocol for getting completions, definitions etc.
        (use-package lsp-mode
          :commands lsp
