@@ -2133,11 +2133,11 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 (global-set-key (kbd "M->") 'end-of-buffer-right-way)
 (global-set-key (kbd "C-X .") 'goto-line)
 (global-set-key (kbd "C-m") 'newline-and-indent)
-(global-set-key (kbd "M-n") '(lambda ()
+(global-set-key (kbd "M-n") #'(lambda ()
                                "Move down 10 lines"
                                (interactive)
                                (next-line 10)))
-(global-set-key (kbd "M-p") '(lambda ()
+(global-set-key (kbd "M-p") #'(lambda ()
                                "Move up 10 lines"
                                (interactive)
                                (previous-line 10)))
@@ -2311,4 +2311,5 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 
 # @ Local variables:
 # @ org-src-preserve-indentation: t
+# @ coding: utf-8
 # @ End:
