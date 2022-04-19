@@ -333,11 +333,30 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
   `(setenv "PATH" (concat ,dir
                           path-separator
                           (getenv "PATH"))))
+(defmacro append-PATH (dir)
+  "Append DIR (abs path) to PATH env var."
+  `(setenv "PATH" (concat (getenv "PATH")
+                          path-separator
+                          ,dir
+                          )))
+
 (defmacro prepend-PATH-msys (dir)
   "Prepend msys DIR (path rel to msys root) to PATH env var."
   `(setenv "PATH" (concat (msys-path ,dir)
                           path-separator
                           (getenv "PATH"))))
+
+(defun prepend-to-paths (dir)
+  "Prepend DIR to exec-path and $PATH"
+  (when (file-exists-p dir)
+    (prepend-PATH dir)
+    (push dir exec-path)))
+
+(defun append-to-paths (dir)
+  "Append DIR to exec-path and $PATH"
+  (when (file-exists-p dir)
+    (append-PATH dir)
+    (push dir exec-path)))
 
 (cond ((eq system-type 'windows-nt)
        (add-to-list 'exec-path "c:/Program Files/GnuGlobal/bin") ; for Global
@@ -348,25 +367,23 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
        (add-to-list 'exec-path (msys-path "usr/local/bin")) ; for GNU global/gtags
        (add-to-list 'exec-path "c:/bin")
        (add-to-list 'exec-path "c:/bin2")
-                                        ; (add-to-list 'exec-path "c:/ProgramData/Chocolatey/bin") ; rg, putty, etc.
+     ; (add-to-list 'exec-path "c:/ProgramData/Chocolatey/bin") ; rg, putty, etc.
        (prepend-PATH-msys "usr/local/bin")
        (prepend-PATH-msys "usr/bin")
        (prepend-PATH-msys "mingw64/bin")
        (prepend-PATH "/usr/local/bin")
        )
       (t
-       (add-to-list 'exec-path "/usr/local/bin")
-       (push "/Users/garyo/python36/bin" exec-path)
+       (append-to-paths "/usr/local/bin")
+       (prepend-to-paths "/opt/homebrew/bin")
+       (prepend-to-paths "~/.pyenv/shims")
+       (prepend-to-paths "~/bin")
+       (prepend-to-paths "~/.poetry/bin")
        (delete-dups exec-path)
        ;; (message "exec-path: %s" exec-path)
-       ;; for SCons in compilation-mode. (emacs uses exec-path for
-       ;; things it execs directly, but compilation-mode runs a shell
-       ;; which invokes SCons, and doesn't seem to get my path -- that
-       ;; could probably be fixed.)
-       (prepend-PATH "/usr/local/bin")
-       (prepend-PATH "/Users/garyo/python36/bin")
        ;; (message "PATH: %s" (getenv "PATH"))
-       ))
+       )
+      )
 
 ;; Add node.js to PATH using fnm (fast version of nvm)
 (if (file-exists-p "~/.fnm/fnm")
@@ -374,8 +391,7 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
            (dir (replace-regexp-in-string
                  "\n\\'" ""
                  (shell-command-to-string command))))
-      (add-to-list 'exec-path dir)
-      (prepend-PATH dir)
+      (prepend-to-paths dir)
       )
   )
 #+end_src
