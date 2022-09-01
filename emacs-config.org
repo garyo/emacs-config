@@ -13,6 +13,11 @@ For my org-mode conversion, I used some ideas from
 [https://github.com/hrs/dotfiles/blob/main/emacs/dot-emacs.d/configuration.org][Harry R. Schwarz's config]
 and [https://github.com/mxco86/emacs-config][Matthew Ryall's config].
 
+To write ~emacs-config.el~, use ~M-x org-babel-tangle~. To edit and
+eval source blocks in this file, use ~C-c '~ (~org-edit-special~) to
+open them in a temp emacs-lisp buffer. Exit that mode with ~C-c '~
+again. Or just ~C-c C-c~ to eval the block.
+
 * Set up performance timing for loading init files
 #+BEGIN_SRC emacs-lisp
 
@@ -322,6 +327,7 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 ;; As of emacs23 we can use <name>-<size> to select fonts, much easier!
 ;; (cond ((eq system-type 'windows-nt)
 
+(pixel-scroll-precision-mode t)
 
 #+END_SRC
 
@@ -914,6 +920,35 @@ Mostly programming-language related.
 ;;; Looks in ~/.virtualenvs
 (use-package virtualenvwrapper
   )
+
+(use-package dumb-jump
+  :init (add-hook 'xref-backend-functions #'dumb-jump-xref-activate)
+  )
+
+#+end_src
+
+*** Format C++ buffers with clang-format
+#+begin_src emacs-lisp
+
+(use-package clang-format)
+
+(defun clang-format-save-hook-for-this-buffer ()
+  "Create a buffer local save hook."
+  (add-hook 'before-save-hook
+            (lambda ()
+              (when (locate-dominating-file "." ".clang-format")
+                (clang-format-buffer))
+              ;; Continue to save.
+              nil)
+            nil
+            ;; Buffer local hook.
+            t))
+
+;; Run this for each mode you want to use the hook.
+(add-hook 'c-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
+(add-hook 'c++-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
+(add-hook 'glsl-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
+
 #+end_src
 
 ** Language Settings
@@ -930,6 +965,7 @@ Mostly programming-language related.
 (setq auto-mode-alist (cons '("\\.lua$" . lua-mode) auto-mode-alist))
   ;;; .h files: interpret as C++ (for namespace etc.)
 (setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("\\.mm$" . objc-mode) auto-mode-alist))
 
 ;;; prevent newlines from being inserted after semicolons when there
 ;;; is a non-blank following line.
@@ -1301,6 +1337,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
                 (js2-mode . lsp)
                 ;; python LSP; it hangs sometimes?
                 (python-mode . lsp)
+                (cc-mode . lsp)
                 )
          :init
          (setq lsp-keymap-prefix "C-c C-l") ; default is super-l
@@ -1341,6 +1378,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
        (if (not (featurep 'yasnippet))
            (warn "LSP: missing yasnippet, LSP won't work well"))
        )
+      ;; else use eglot
       (t
        (use-package jsonrpc)
        (use-package eglot
