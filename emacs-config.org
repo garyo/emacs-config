@@ -694,10 +694,27 @@ presented by vertico.
 Why not ~selectrum~? Selectrum was the predecessor of Vertico, so
 Vertico seems to do what selectrum does but better in most cases.
 
+There's some good samples of customizations at
+https://kristofferbalintona.me/posts/202202211546/#extensions
+
 #+begin_src emacs-lisp
 (use-package vertico
+  :straight (vertico :files (:defaults "extensions/*")
+                     :includes (vertico-indexed
+                                vertico-flat
+                                vertico-grid
+                                vertico-mouse
+                                vertico-quick
+                                vertico-buffer
+                                vertico-repeat
+                                vertico-reverse
+                                vertico-directory
+                                vertico-multiform
+                                vertico-unobtrusive
+                                ))
   :init
   (vertico-mode)
+  :hook (rfn-eshadow-update-overlay . vertico-directory-tidy) ; Correct file path when changed
   )
 
 ;; Use the ~substring~ completion style so calling this from isearch works properly
@@ -805,9 +822,11 @@ Vertico seems to do what selectrum does but better in most cases.
   ;; Configure a custom style dispatcher (see the Consult wiki)
   ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
   ;;       orderless-component-separator #'orderless-escapable-split-on-space)
-  (setq completion-styles '(orderless)
-        completion-category-defaults nil
-        completion-category-overrides '((file (styles partial-completion)))))
+  :custom
+  (completion-styles '(orderless))
+  (completion-category-defaults nil)
+  (completion-category-overrides '((file (styles partial-completion))))
+  )
 
 ;; show file metadata in buffer completion list (C-x b) etc.
 (use-package marginalia
