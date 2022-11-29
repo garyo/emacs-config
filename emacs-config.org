@@ -688,165 +688,132 @@ Pick completion UI package: ivy or vertico. I like vertico, as of 2021.
 - With vertico, I set up vertico + consult + marginalia + orderless.
 
 Vertico is just a simple "vertical" completion UI -- no new commands.
-Consult adds completing vesrions of various commands, and those get
+Consult adds completing versions of various commands, and those get
 presented by vertico.
 
 Why not ~selectrum~? Selectrum was the predecessor of Vertico, so
 Vertico seems to do what selectrum does but better in most cases.
 
 #+begin_src emacs-lisp
-(setq completion-package 'vertico)
-
-;; Ivy completion (or vertico)
-(when (eq completion-package 'ivy)
-  (use-package counsel
-    :config
-    (counsel-mode 1)
-    :bind (("C-c g" . counsel-git)
-           )
-    )
-  (use-package ivy
-    :config
-    (ivy-mode 1)
-    (setq ivy-use-virtual-buffers t
-          ivy-use-selectable-prompt t
-          ivy-height 20
-          ivy-count-format "(%d/%d) ")
-    (setq projectile-completion-system 'ivy)
-    )
-  (use-package ivy-hydra)       ; C-o in ivy minibuffer to start hydra
-  (use-package ivy-rich
-    :config
-    (ivy-rich-mode 1)
-    (setcdr (assq t ivy-format-functions-alist) #'ivy-format-function-line)
-    )
-  (use-package swiper
-    ;; use Ctrl-O to switch to swiper mode within isearch
-    :bind (:map isearch-mode-map
-                ("C-o" . swiper-from-isearch))
-    )
+(use-package vertico
+  :init
+  (vertico-mode)
   )
 
-(when (eq completion-package 'vertico)
-  (use-package vertico
-    :init
-    (vertico-mode)
-    )
+;; Use the ~substring~ completion style so calling this from isearch works properly
+(defun consult-line-literal ()
+  (interactive)
+  (let ((completion-styles '(substring))
+        (completion-category-defaults nil)
+        (completion-category-overrides nil))
+    (consult-line)))
 
-  ;; Use the ~substring~ completion style so calling this from isearch works properly
-  (defun consult-line-literal ()
-    (interactive)
-    (let ((completion-styles '(substring))
-          (completion-category-defaults nil)
-          (completion-category-overrides nil))
-      (consult-line)))
+(use-package consult
+  :after projectile
+  :defines consult-buffer-sources
+  :bind (;; C-c bindings (mode-specific-map)
+         ("C-c h" . consult-history)
+         ("C-c m" . consult-mode-command)
+         ("C-c b" . consult-bookmark)
+         ("C-c k" . consult-kmacro)
+         ;; C-x bindings (ctl-x-map)
+         ("C-x M-:" . consult-complex-command) ;; orig. repeat-complex-command
+         ([remap switch-to-buffer] . consult-buffer)
+         ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+         ("C-x 5 b" . consult-buffer-other-frame) ;; orig. switch-to-buffer-other-frame
+         ;; Custom M-# bindings for fast register access
+         ("M-#" . consult-register-load)
+         ("M-'" . consult-register-store) ;; orig. abbrev-prefix-mark (unrelated)
+         ("C-M-#" . consult-register)
+         ;; Other custom bindings
+         ("M-y" . consult-yank-pop)                ;; orig. yank-pop
+         ("<help> a" . consult-apropos) ;; orig. apropos-command
+         ;; M-g bindings (goto-map)
+         ("M-g e" . consult-compile-error)
+         ("M-g f" . consult-flycheck) ;; Alternative: consult-flymake
+         ("M-g g" . consult-goto-line) ;; orig. goto-line
+         ("M-g M-g" . consult-goto-line) ;; orig. goto-line
+         ("M-g o" . consult-outline) ;; Alternative: consult-org-heading
+         ("M-g m" . consult-mark)
+         ("M-g k" . consult-global-mark)
+         ("M-g i" . consult-imenu)
+         ("M-g I" . consult-imenu-multi)
+         ;; M-s bindings (search-map)
+         ("M-s f" . consult-find)
+         ("M-s F" . consult-locate)
+         ("M-s g" . consult-grep)
+         ("M-s G" . consult-git-grep)
+         ("M-s r" . consult-ripgrep)
+         ("M-s l" . consult-line-literal)
+         ("M-s L" . consult-line-multi)
+         ("M-s m" . consult-multi-occur)
+         ("M-s k" . consult-keep-lines)
+         ("M-s u" . consult-focus-lines)
+         ;; Isearch integration
+         ("M-s e" . consult-isearch-history)
+         :map isearch-mode-map
+         ("C-o" . consult-line-literal)
+         ("M-e" . consult-isearch-history)
+         ("M-s e" . consult-isearch-history) ;; orig. isearch-edit-string
+         ("M-s l" . consult-line-literal) ;; needed by consult-line to detect isearch
+         ("M-s L" . consult-line-multi) ;; needed by consult-line to detect isearch
+         )
+  :init
+  ;; Use Consult to select xref locations with preview
+  (setq xref-show-xrefs-function #'consult-xref
+        xref-show-definitions-function #'consult-xref)
 
-  (use-package consult
-    :after projectile
-    :defines consult-buffer-sources
-    :bind (;; C-c bindings (mode-specific-map)
-	   ("C-c h" . consult-history)
-	   ("C-c m" . consult-mode-command)
-	   ("C-c b" . consult-bookmark)
-	   ("C-c k" . consult-kmacro)
-	   ;; C-x bindings (ctl-x-map)
-	   ("C-x M-:" . consult-complex-command) ;; orig. repeat-complex-command
-	   ([remap switch-to-buffer] . consult-buffer)
-	   ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
-	   ("C-x 5 b" . consult-buffer-other-frame) ;; orig. switch-to-buffer-other-frame
-	   ;; Custom M-# bindings for fast register access
-	   ("M-#" . consult-register-load)
-	   ("M-'" . consult-register-store) ;; orig. abbrev-prefix-mark (unrelated)
-	   ("C-M-#" . consult-register)
-	   ;; Other custom bindings
-	   ("M-y" . consult-yank-pop)                ;; orig. yank-pop
-	   ("<help> a" . consult-apropos) ;; orig. apropos-command
-	   ;; M-g bindings (goto-map)
-	   ("M-g e" . consult-compile-error)
-	   ("M-g f" . consult-flycheck) ;; Alternative: consult-flymake
-	   ("M-g g" . consult-goto-line) ;; orig. goto-line
-	   ("M-g M-g" . consult-goto-line) ;; orig. goto-line
-	   ("M-g o" . consult-outline) ;; Alternative: consult-org-heading
-	   ("M-g m" . consult-mark)
-	   ("M-g k" . consult-global-mark)
-	   ("M-g i" . consult-imenu)
-	   ("M-g I" . consult-imenu-multi)
-	   ;; M-s bindings (search-map)
-	   ("M-s f" . consult-find)
-	   ("M-s F" . consult-locate)
-	   ("M-s g" . consult-grep)
-	   ("M-s G" . consult-git-grep)
-	   ("M-s r" . consult-ripgrep)
-	   ("M-s l" . consult-line-literal)
-	   ("M-s L" . consult-line-multi)
-	   ("M-s m" . consult-multi-occur)
-	   ("M-s k" . consult-keep-lines)
-	   ("M-s u" . consult-focus-lines)
-	   ;; Isearch integration
-	   ("M-s e" . consult-isearch-history)
-	   :map isearch-mode-map
-           ("C-o" . consult-line-literal)
-	   ("M-e" . consult-isearch-history)
-	   ("M-s e" . consult-isearch-history) ;; orig. isearch-edit-string
-	   ("M-s l" . consult-line-literal) ;; needed by consult-line to detect isearch
-	   ("M-s L" . consult-line-multi) ;; needed by consult-line to detect isearch
-	   )
-    :init
-    ;; Use Consult to select xref locations with preview
-    (setq xref-show-xrefs-function #'consult-xref
-	  xref-show-definitions-function #'consult-xref)
+  :config
+  (setq consult-project-root-function #'projectile-project-root)
+  (setq consult-narrow-key "<") ; use this to show different types of things in C-x b
 
-    :config
-    (setq consult-project-root-function #'projectile-project-root)
-    (setq consult-narrow-key "<") ; use this to show different types of things in C-x b
+  (consult-customize
+   consult-theme
+   :preview-key '(:debounce 0.2 any)
+   consult-ripgrep consult-git-grep consult-grep
+   consult-bookmark consult-recent-file consult-xref
+   consult--source-recent-file consult--source-project-recent-file consult--source-bookmark
+   :preview-key (kbd "M-.")
+   )
+  ;; Use projects as a source for consult-buffer
+  ;; Works, but hides "file" sources -- use "<" to select other sources
+  (projectile-load-known-projects)
+  (setq my-consult-source-projectile-projects
+        `(:name "Projectile projects"
+                :narrow   ?P
+                :category project
+                :action   ,#'projectile-switch-project-by-name
+                :items    ,projectile-known-projects))
+  (add-to-list 'consult-buffer-sources my-consult-source-projectile-projects 'append)
+  )
 
-    (consult-customize
-     consult-theme
-     :preview-key '(:debounce 0.2 any)
-     consult-ripgrep consult-git-grep consult-grep
-     consult-bookmark consult-recent-file consult-xref
-     consult--source-recent-file consult--source-project-recent-file consult--source-bookmark
-     :preview-key (kbd "M-.")
-     )
-    ;; Use projects as a source for consult-buffer
-    ;; Works, but hides "file" sources -- use "<" to select other sources
-    (projectile-load-known-projects)
-    (setq my-consult-source-projectile-projects
-          `(:name "Projectile projects"
-                  :narrow   ?P
-                  :category project
-                  :action   ,#'projectile-switch-project-by-name
-                  :items    ,projectile-known-projects))
-    (add-to-list 'consult-buffer-sources my-consult-source-projectile-projects 'append)
-    )
+(use-package consult-dir
+  :ensure t
+  :bind (("C-x C-d" . consult-dir)
+         :map minibuffer-local-completion-map
+         ("C-x C-d" . consult-dir)
+         ("C-x C-j" . consult-dir-jump-file)))
 
-  (use-package consult-dir
-    :ensure t
-    :bind (("C-x C-d" . consult-dir)
-           :map minibuffer-local-completion-map
-           ("C-x C-d" . consult-dir)
-           ("C-x C-j" . consult-dir-jump-file)))
+;; Optionally use the `orderless' completion style. See
+;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
+;; dispatcher. Additionally enable `partial-completion' for file path
+;; expansion. `partial-completion' is important for wildcard support.
+;; Multiple files can be opened at once with `find-file' if you enter a
+;; wildcard. You may also give the `initials' completion style a try.
+(use-package orderless
+  :init
+  ;; Configure a custom style dispatcher (see the Consult wiki)
+  ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
+  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+  (setq completion-styles '(orderless)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles partial-completion)))))
 
-  ;; Optionally use the `orderless' completion style. See
-  ;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
-  ;; dispatcher. Additionally enable `partial-completion' for file path
-  ;; expansion. `partial-completion' is important for wildcard support.
-  ;; Multiple files can be opened at once with `find-file' if you enter a
-  ;; wildcard. You may also give the `initials' completion style a try.
-  (use-package orderless
-    :init
-    ;; Configure a custom style dispatcher (see the Consult wiki)
-    ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
-    ;;       orderless-component-separator #'orderless-escapable-split-on-space)
-    (setq completion-styles '(orderless)
-          completion-category-defaults nil
-          completion-category-overrides '((file (styles partial-completion)))))
+;; show file metadata in buffer completion list (C-x b) etc.
+(use-package marginalia
+  :init
+  (marginalia-mode))
 
-  ;; show file metadata in buffer completion list (C-x b) etc.
-  (use-package marginalia
-    :init
-    (marginalia-mode))
-)
 #+END_SRC
 
 * Languages
@@ -925,6 +892,10 @@ Mostly programming-language related.
   :init (add-hook 'xref-backend-functions #'dumb-jump-xref-activate)
   )
 
+;;; clojure: for logseq config (.edn files)
+;;; (clojure is a web language with lisp-like syntax)
+(use-package clojure-mode)
+
 #+end_src
 
 *** Format C++ buffers with clang-format
@@ -953,6 +924,22 @@ Mostly programming-language related.
 
 ** Language Settings
 
+*** Install modes
+
+#+begin_src emacs-lisp
+(use-package metal-mode
+  :straight (:host github
+                   :repo "masfj/metal-mode"
+                   :branch "master")
+  :config
+  ;; quick & dirty hack: don't reformat metal-mode buffers with clang-format
+  ;; metal mode is derived from C mode and we set up before-save-hook there.
+  (add-hook 'metal-mode-hook (lambda () (setq before-save-hook nil)))
+  )
+#+end_src
+
+*** Set up auto modes and settings
+
 #+begin_src emacs-lisp
 (setq auto-mode-alist (cons '("\\.pl\\'" . cperl-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("SCons\\(truct\\|cript\\)\\'" . python-mode) auto-mode-alist))
@@ -966,6 +953,8 @@ Mostly programming-language related.
   ;;; .h files: interpret as C++ (for namespace etc.)
 (setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.mm$" . objc-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("\\.metal$" . metal-mode) auto-mode-alist))
+
 
 ;;; prevent newlines from being inserted after semicolons when there
 ;;; is a non-blank following line.
@@ -1369,8 +1358,6 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
          )
        (use-package lsp-pyright ; python type-checker, better than pylsp (Dec 2021)
          :ensure t)
-       (when (eq completion-package 'ivy)
-         (use-package lsp-ivy))
        (use-package lsp-treemacs)
        ;; doesn't work
        ;; (add-hook 'lsp-ui-doc-mode-hook #'lsp-ui-doc-font)
