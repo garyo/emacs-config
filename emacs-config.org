@@ -113,6 +113,8 @@ when using LSP.
 ;; string manipulation routines
 (use-package s)
 
+(use-package diminish)
+
 #+end_src
 
 * System config
@@ -1061,8 +1063,9 @@ and other upcoming features.
 
 #+begin_src emacs-lisp
 (when (functionp 'module-load)
-  (use-package 'tree-sitter)
-  (use-package 'tree-sitter-langs)
+  (use-package tree-sitter
+    :diminish tree-sitter-mode)
+  (use-package tree-sitter-langs)
   (global-tree-sitter-mode)
   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
   )
@@ -1832,6 +1835,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 
 ;;; show keybindings following prefix in a popup
 (use-package which-key
+  :diminish which-key-mode
   :config
   (which-key-mode)
   )
