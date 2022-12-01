@@ -1053,6 +1053,21 @@ Mostly programming-language related.
 
 #+end_src
 
+** Tree-sitter for syntax highlighting
+
+Tree-sitter is a new (as of Nov 2022) multi-language parser that
+produces a full AST. It enables faster and better syntax highlighting,
+and other upcoming features.
+
+#+begin_src emacs-lisp
+(when (functionp 'module-load)
+  (use-package 'tree-sitter)
+  (use-package 'tree-sitter-langs)
+  (global-tree-sitter-mode)
+  (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
+  )
+#+end_src
+
 ** File skeletons and snippets
 
 Skeletons set up initial content for files in various programming
