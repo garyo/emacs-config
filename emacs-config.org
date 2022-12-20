@@ -1363,7 +1363,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
                 (js2-mode . lsp)
                 ;; python LSP; it hangs sometimes?
                 (python-mode . lsp)
-                (cc-mode . lsp)
+                (c-mode-common . lsp)
                 )
          :init
          (setq lsp-keymap-prefix "C-c C-l") ; default is super-l
