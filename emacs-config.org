@@ -952,10 +952,6 @@ Mostly programming-language related.
   :straight (:host github
                    :repo "masfj/metal-mode"
                    :branch "master")
-  :config
-  ;; quick & dirty hack: don't reformat metal-mode buffers with clang-format
-  ;; metal mode is derived from C mode and we set up before-save-hook there.
-  (add-hook 'metal-mode-hook (lambda () (setq before-save-hook nil)))
   )
 #+end_src
 
