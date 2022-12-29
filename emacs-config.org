@@ -1057,6 +1057,8 @@ Tree-sitter is a new (as of Nov 2022) multi-language parser that
 produces a full AST. It enables faster and better syntax highlighting,
 and other upcoming features.
 
+Run `tree-sitter-langs-install-grammars` periodically to install new grammars.
+
 #+begin_src emacs-lisp
 (when (functionp 'module-load)
   (use-package tree-sitter
@@ -1066,6 +1068,38 @@ and other upcoming features.
   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
   )
 #+end_src
+
+*** Tree-sitter based code folding
+
+#+begin_src emacs-lisp
+(use-package hydra)
+
+(defhydra hydra-ts-fold (:exit t :hint nil)
+  "
+Tree-sitter code folding
+Point^^                     Recursive^^             All^^
+^^^^^^---------------------------------------------------------------
+[_f_] toggle fold at point
+[_o_] open at point         [_O_] open recursively  [_M-o_] open all
+[_c_] close at point         ^ ^                    [_M-c_] close all"
+  ("f" ts-fold-toggle)
+  ("o" ts-fold-open)
+  ("c" ts-fold-close)
+  ("O" ts-fold-open-recursively)
+  ("M-o" ts-fold-open-all)
+  ("M-c" ts-fold-close-all))
+
+(use-package ts-fold
+  :straight (ts-fold :type git :host github :repo "emacs-tree-sitter/ts-fold")
+  :config (global-ts-fold-indicators-mode)
+
+  :bind (("C-c f" . hydra-ts-fold/body)
+         )
+  )
+#+end_src
+
+#+RESULTS:
+: hydra-ts-fold/body
 
 ** File skeletons and snippets
 
@@ -1744,10 +1778,12 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 
 #+begin_src emacs-lisp
 
-(use-package origami
-  :bind (("C-c f" . origami-recursively-toggle-node)
-         ("C-c F" . origami-show-only-node))
-  )
+
+;;; Turned off Dec 2022 in favor of ts-fold (tree-sitter based folding)
+;; (use-package origami
+;;   :bind (("C-c f" . origami-recursively-toggle-node)
+;;          ("C-c F" . origami-show-only-node))
+;;   )
 
 
   ;;; Save minibuffer histories -- important w/ vertico, useful always
