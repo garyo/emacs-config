@@ -10,7 +10,7 @@ I intend for it to work on any recent (>=27.x) Emacs, on Windows,
 Linux, and Mac.
 
 For my org-mode conversion, I used some ideas from
-[https://github.com/hrs/dotfiles/blob/main/emacs/dot-emacs.d/configuration.org][Harry R. Schwarz's config]
+[https://github.com/hrs/dotfiles/blob/main/emacs/.config/emacs/configuration.org][Harry R. Schwarz's config]
 and [https://github.com/mxco86/emacs-config][Matthew Ryall's config].
 
 To write ~emacs-config.el~, use ~M-x org-babel-tangle~. To edit and
@@ -108,13 +108,10 @@ when using LSP.
 
 * Basic packages
 
+** Diminish: hide minor modes in modeline
 #+begin_src emacs-lisp
-
-;; string manipulation routines
-(use-package s)
-
+;; To use: see ":diminish" in use-package specs
 (use-package diminish)
-
 #+end_src
 
 * System config
