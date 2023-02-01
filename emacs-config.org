@@ -810,6 +810,9 @@ https://kristofferbalintona.me/posts/202202211546/#extensions
          ("C-x C-d" . consult-dir)
          ("C-x C-j" . consult-dir-jump-file)))
 
+;; flycheck integration - nice. ~M-g f~
+(use-package consult-flycheck)
+
 ;; Optionally use the `orderless' completion style. See
 ;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
 ;; dispatcher. Additionally enable `partial-completion' for file path
@@ -1269,6 +1272,8 @@ move to the next field. Call `open-line' if nothing else applies."
 Syntax checker for many languages. Seems better than built-in flymake.
 Languages with LSP support override the flycheck checkers, but this can
 still be useful for other languages.
+
+Bindings begin with ~C-c !~ or use Consult ~M-g f~
 
 #+BEGIN_SRC emacs-lisp
 
