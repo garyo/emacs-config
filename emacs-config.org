@@ -937,6 +937,7 @@ Mostly programming-language related.
 (add-hook 'c-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 (add-hook 'c++-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 (add-hook 'glsl-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
+(add-hook 'c-ts-base-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 
 #+end_src
 
@@ -968,6 +969,8 @@ Mostly programming-language related.
 (setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.mm$" . objc-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.metal$" . metal-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("\\.cmake$" . cmake-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("CMakeLists\\.txt$" . cmake-mode) auto-mode-alist))
 
 
 ;;; prevent newlines from being inserted after semicolons when there
@@ -1030,6 +1033,8 @@ Mostly programming-language related.
 
 (add-hook 'c-mode-common-hook
           'my-c-mode-hook)
+(add-hook 'c-ts-base-mode-hook
+          'my-c-mode-hook)
 
 (add-hook 'java-mode-hook
           (function
@@ -1039,13 +1044,12 @@ Mostly programming-language related.
              )))
 
 ;; always hilight XXX in programming modes
-(mapc (lambda (mode)
-        (font-lock-add-keywords
-         mode
-         '(("\\<XXX\\|TODO\\>" 0 font-lock-warning-face prepend)
-           )))
-      '(c-mode c++-mode java-mode lisp-mode emacs-lisp-mode python-mode))
-
+(add-hook 'prog-mode-hook
+          (lambda ()
+            (font-lock-add-keywords
+             nil
+             '(("\\<XXX\\|TODO\\|FIXME\\>" 0 font-lock-warning-face prepend)
+               ))))
 #+end_src
 
 ** Tree-sitter for syntax highlighting
@@ -1056,10 +1060,42 @@ and other upcoming features.
 
 Run `tree-sitter-langs-install-grammars` periodically to install new grammars.
 
+Built-in treesit (as of Jan 2023) requires compiled grammars in lib
+path or ~~/.config/emacs/tree-sitter~. Build those using
+https://github.com/casouri/tree-sitter-module.git.
+
 #+begin_src emacs-lisp
-(when (functionp 'module-load)
+
+;;; Enable built-in treesit support, or dynamically loaded tree-sitter
+;;; Q: can these coexist? ts-fold wants to use tree-sitter, for instance.
+(when (and (functionp 'treesit-available-p) (treesit-available-p))
+  ;; Use built-in treesit -- best as of Jan 2023
+  (setq using-treesit t)
+
+  ;; remap modes to use *-ts-mode
+  (push '(css-mode . css-ts-mode) major-mode-remap-alist)
+  (push '(python-mode . python-ts-mode) major-mode-remap-alist)
+  (push '(javascript-mode . js-ts-mode) major-mode-remap-alist)
+  (push '(js-json-mode . json-ts-mode) major-mode-remap-alist)
+  (push '(json-mode . json-ts-mode) major-mode-remap-alist)
+  (push '(typescript-mode . typescript-ts-mode) major-mode-remap-alist)
+  (push '(c-mode . c-ts-mode) major-mode-remap-alist)
+  (push '(c++-mode . c++-ts-mode) major-mode-remap-alist)
+  (push '(yaml-mode . yaml-ts-mode) major-mode-remap-alist)
+  (push '(css-mode . css-ts-mode) major-mode-remap-alist)
+  (push '(cmake-mode . cmake-ts-mode) major-mode-remap-alist)
+  (push '(sh-mode . bash-ts-mode) major-mode-remap-alist)
+  )
+
+;; Also use tree-sitter minor mode (?)
+;; Actually it doesn't play perfectly with treesit; ts-fold at least
+;; doesn't work properly and that's the point of using this mode.
+(when (and (functionp 'module-load) (not using-treesit)
   (use-package tree-sitter
-    :diminish tree-sitter-mode)
+    :diminish tree-sitter-mode
+    :config
+    (push '(c++-ts-mode . cpp) tree-sitter-major-mode-language-alist)
+    )
   (use-package tree-sitter-langs)
   (global-tree-sitter-mode)
   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
@@ -1067,6 +1103,9 @@ Run `tree-sitter-langs-install-grammars` periodically to install new grammars.
 #+end_src
 
 *** Tree-sitter based code folding
+
+Very nice language-aware code folding with sidebar markers.
+This depends on ~tree-sitter-mode~.
 
 #+begin_src emacs-lisp
 (use-package hydra)
@@ -1386,11 +1425,16 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
          :hook ((vue-mode . lsp)
                 (web-mode . lsp)
                 (typescript-mode . lsp)
+                (typescript-ts-mode . lsp)
                 (javascript-mode . lsp)
+                (javascript-ts-mode . lsp)
                 (js2-mode . lsp)
+                (js2-ts-mode . lsp)
                 ;; python LSP; it hangs sometimes?
                 (python-mode . lsp)
+                (python-ts-mode . lsp)
                 (c-mode-common . lsp)
+                (c-ts-base-mode . lsp)
                 )
          :init
          (setq lsp-keymap-prefix "C-c C-l") ; default is super-l
@@ -1849,9 +1893,13 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 
 ;; better visual paren matching
 (use-package mic-paren
-  :hook (c-mode-common .
+  :hook ((c-mode-common .
                        (lambda ()
                         (paren-toggle-open-paren-context 1)))
+         (c-ts-base-mode .
+                       (lambda ()
+                        (paren-toggle-open-paren-context 1)))
+         )
   :config
   (paren-activate)
   )
