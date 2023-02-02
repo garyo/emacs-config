@@ -18,6 +18,13 @@ eval source blocks in this file, use ~C-c '~ (~org-edit-special~) to
 open them in a temp emacs-lisp buffer. Exit that mode with ~C-c '~
 again. Or just ~C-c C-c~ to eval the block.
 
+* Init debugging
+
+#+BEGIN_SRC emacs-lisp
+(setq debug-on-error nil)
+(setq load-prefer-newer t)
+#+END_SRC
+
 * Set up performance timing for loading init files
 #+BEGIN_SRC emacs-lisp
 
@@ -1102,7 +1109,7 @@ https://github.com/casouri/tree-sitter-module.git.
   (use-package tree-sitter-langs)
   (global-tree-sitter-mode)
   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
-  )
+  ))
 #+end_src
 
 *** Tree-sitter based code folding
@@ -1128,13 +1135,33 @@ Point^^                     Recursive^^             All^^
   ("M-o" ts-fold-open-all)
   ("M-c" ts-fold-close-all))
 
-(use-package ts-fold
-  :straight (ts-fold :type git :host github :repo "emacs-tree-sitter/ts-fold")
-  :config (global-ts-fold-indicators-mode)
+(cond (using-treesit
+       (message "Using native treesit for ts-fold")
+       (use-package ts-fold
+         :straight (ts-fold :type git :host github
+                            :repo "AndrewSwerlick/ts-fold"
+                            :branch "andrew-sw/treesit-el-support"
+                            :fork (:host github
+                                         :repo "garyo/ts-fold"
+                                         :branch "garyo/treesit-el-patches")
+                            )
 
-  :bind (("C-c f" . hydra-ts-fold/body)
+         :config (global-ts-fold-indicators-mode)
+
+         :bind (("C-c f" . hydra-ts-fold/body)
+                )
          )
-  )
+       )
+      (t
+       (message "Using tree-sitter version of ts-fold")
+       (use-package ts-fold
+         :straight (ts-fold :type git :host github :repo "emacs-tree-sitter/ts-fold")
+         :config (global-ts-fold-indicators-mode)
+
+         :bind (("C-c f" . hydra-ts-fold/body)
+                )
+         )
+       ))
 #+end_src
 
 #+RESULTS:
