@@ -1334,6 +1334,15 @@ Return the errors parsed with the error patterns of CHECKER."
   (let ((sanitized-output (replace-regexp-in-string "\r" "" output))
         )
     (funcall (flycheck-checker-get checker 'error-parser) sanitized-output checker buffer)))
+
+;;; Set flycheck list window to be small -- fit to content
+(add-to-list 'display-buffer-alist
+             `(,(regexp-quote "*Flycheck errors*")
+               (display-buffer-reuse-window
+                display-buffer-pop-up-window)
+               (window-height . fit-window-to-buffer)))
+
+
 #+END_SRC
 
 * Language Servers: lsp-mode (or eglot)
