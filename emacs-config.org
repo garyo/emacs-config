@@ -23,6 +23,11 @@ again. Or just ~C-c C-c~ to eval the block.
 #+BEGIN_SRC emacs-lisp
 (setq debug-on-error nil)
 (setq load-prefer-newer t)
+
+(message (concat "*****************\n"
+                 (emacs-version)
+                 "\nconfig: " system-configuration-features
+                 "\n********************"))
 #+END_SRC
 
 * Set up performance timing for loading init files
@@ -82,6 +87,10 @@ which is a lot faster."
          (native-comp-available-p))
     (message "Native compilation is available!")
   (message "Native compilation is *not* available"))
+
+;; Bug workaround, 2023-02-26:
+(if (not (boundp 'comp-enable-subr-trampolines))
+    (setq comp-enable-subr-trampolines nil))
 
 #+END_SRC
 
@@ -307,7 +316,7 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
   "Set default font and frame attributes for FRAME."
   (when (display-graphic-p frame)
     (tool-bar-mode 0)
-    (message "Setting up new graphic frame %s, current geom %s" frame (frame-geometry frame))
+    ;; (message "Setting up new graphic frame %s, current geom %s" frame (frame-geometry frame))
     (let ((font-info (cl-find-if (lambda (x) (font-exists-p (car x) frame))
                                  preferred-fonts)))
       (when font-info
@@ -571,6 +580,12 @@ I use ~ripgrep~: fast recursive grep, wgrep-capable.
     :dir project
     :menu ("Search" "a" "All in project")
     )
+  (rg-define-search rg-search-dir       ; C-c s d: search in current dir
+    "Search in current dir with rg"
+    :files "everything"
+    :dir current
+    :menu ("Search" "C" "All in current dir")
+    )
   )
 
   ;;; wgrep-change-to-wgrep-mode to edit right in a grep buffer (or ag/ripgrep)
@@ -796,7 +811,7 @@ https://kristofferbalintona.me/posts/202202211546/#extensions
    consult-ripgrep consult-git-grep consult-grep
    consult-bookmark consult-recent-file consult-xref
    consult--source-recent-file consult--source-project-recent-file consult--source-bookmark
-   :preview-key (kbd "M-.")
+   :preview-key "M-."
    )
   ;; Use projects as a source for consult-buffer
   ;; Works, but hides "file" sources -- use "<" to select other sources
@@ -1089,10 +1104,10 @@ https://github.com/casouri/tree-sitter-module.git.
   (push '(js-json-mode . json-ts-mode) major-mode-remap-alist)
   (push '(json-mode . json-ts-mode) major-mode-remap-alist)
   (push '(typescript-mode . typescript-ts-mode) major-mode-remap-alist)
-  (push '(c-mode . c-ts-mode) major-mode-remap-alist)
-  (push '(c++-mode . c++-ts-mode) major-mode-remap-alist)
+  ;; Not ready 2023-03-23
+  ;(push '(c-mode . c-ts-mode) major-mode-remap-alist)
+  ;(push '(c++-mode . c++-ts-mode) major-mode-remap-alist)
   (push '(yaml-mode . yaml-ts-mode) major-mode-remap-alist)
-  (push '(css-mode . css-ts-mode) major-mode-remap-alist)
   (push '(cmake-mode . cmake-ts-mode) major-mode-remap-alist)
   (push '(sh-mode . bash-ts-mode) major-mode-remap-alist)
   )
@@ -1957,6 +1972,15 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
   :config
   (which-key-mode)
   )
+
+;;; Use M-x mc/<TAB> to see commands
+(use-package multiple-cursors
+  )
+
+;;; Useful when switching git branches
+(use-package revert-buffer-all
+  :commands (revert-buffer-all))
+
 #+end_src
 
 * Misc stuff to organize
