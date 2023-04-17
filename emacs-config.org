@@ -807,11 +807,10 @@ https://kristofferbalintona.me/posts/202202211546/#extensions
 
   (consult-customize
    consult-theme
-   :preview-key '(:debounce 0.2 any)
+   :preview-key '(:debounce 0.4 any)
    consult-ripgrep consult-git-grep consult-grep
    consult-bookmark consult-recent-file consult-xref
    consult--source-recent-file consult--source-project-recent-file consult--source-bookmark
-   :preview-key "M-."
    )
   ;; Use projects as a source for consult-buffer
   ;; Works, but hides "file" sources -- use "<" to select other sources
@@ -1101,8 +1100,8 @@ https://github.com/casouri/tree-sitter-module.git.
   (push '(css-mode . css-ts-mode) major-mode-remap-alist)
   (push '(python-mode . python-ts-mode) major-mode-remap-alist)
   (push '(javascript-mode . js-ts-mode) major-mode-remap-alist)
-  (push '(js-json-mode . json-ts-mode) major-mode-remap-alist)
-  (push '(json-mode . json-ts-mode) major-mode-remap-alist)
+  ; NOT READY (push '(js-json-mode . json-ts-mode) major-mode-remap-alist)
+  ; NOT READY (push '(json-mode . json-ts-mode) major-mode-remap-alist)
   (push '(typescript-mode . typescript-ts-mode) major-mode-remap-alist)
   ;; Not ready 2023-03-23
   ;(push '(c-mode . c-ts-mode) major-mode-remap-alist)
@@ -1334,15 +1333,18 @@ Bindings begin with ~C-c !~ or use Consult ~M-g f~
 
 #+BEGIN_SRC emacs-lisp
 
-(use-package flycheck)
-(use-package flycheck-pos-tip
+(use-package flycheck
+  :config (global-flycheck-mode)
+)
+
+;; show flycheck errors in popup, not in minibuffer. This is important
+;; because minibuffer may be showing documentation or something else,
+;; and without this flycheck errors/warnings overwrite that info.
+(use-package flycheck-posframe
+  :after flycheck
   :config
-  (global-flycheck-mode)
-  ;; show flycheck errors in popup, not in minibuffer. This is important
-  ;; because minibuffer may be showing documentation or something else,
-  ;; and without this flycheck errors/warnings overwrite that info.
-  ;; (alternately, could show doc strings in popup somehow)
-  (flycheck-pos-tip-mode))
+  (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode)
+  (flycheck-posframe-configure-pretty-defaults))
 
 ;;; for Windows, especially for emacs-lisp checker which passes
 ;;; lots of cmd-line args to emacs
