@@ -1110,8 +1110,23 @@ https://github.com/casouri/tree-sitter-module.git.
   (push '(yaml-mode . yaml-ts-mode) major-mode-remap-alist)
   (push '(cmake-mode . cmake-ts-mode) major-mode-remap-alist)
   (push '(sh-mode . bash-ts-mode) major-mode-remap-alist)
+  ; include a few more sexp types than the default
+  (add-hook 'c++-mode (lambda ()
+                       (setq-local treesit-sexp-type-regexp
+                                   (regexp-opt '("preproc"
+                                                 "declarator"
+                                                 "qualifier"
+                                                 "type"
+                                                 "parameter"
+                                                 "expression"
+                                                 "literal"
+                                                 "string"
+                                                 "return"    ; added by garyo
+                                                 "init"      ; added by garyo
+                                                 )))
+                       )
+            )
   )
-
 ;; Also use tree-sitter minor mode (?)
 ;; Actually it doesn't play perfectly with treesit; ts-fold at least
 ;; doesn't work properly and that's the point of using this mode.
