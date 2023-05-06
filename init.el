@@ -28,7 +28,7 @@
 (straight-use-package
  '(org
    :mode (("\\.org$" . org-mode))
-   :commands org-mode
+   :commands '(org-mode org-babel-load-file)
    :config
    (require 'org-mouse)
    ))
