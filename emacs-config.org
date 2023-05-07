@@ -18,16 +18,23 @@ eval source blocks in this file, use ~C-c '~ (~org-edit-special~) to
 open them in a temp emacs-lisp buffer. Exit that mode with ~C-c '~
 again. Or just ~C-c C-c~ to eval the block.
 
+#+begin_src emacs-lisp
+;; -*- lexical-binding: t; -*-
+#+end_src
+
+
 * Init debugging
 
 #+BEGIN_SRC emacs-lisp
 (setq debug-on-error nil)
 (setq load-prefer-newer t)
 
-(message (concat "*****************\n"
-                 (emacs-version)
-                 "\nconfig: " system-configuration-features
-                 "\n********************"))
+(message "*****************
+%s
+config: %s
+********************"
+         (emacs-version)
+         system-configuration-features)
 #+END_SRC
 
 * Set up performance timing for loading init files
@@ -90,7 +97,7 @@ which is a lot faster."
 
 ;; Bug workaround, 2023-02-26:
 (if (not (boundp 'comp-enable-subr-trampolines))
-    (setq comp-enable-subr-trampolines nil))
+    (setq comp-enable-subr-trampolines native-comp-enable-subr-trampolines))
 
 #+END_SRC
 
@@ -156,7 +163,8 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 (require 'rx)       ; not sure why this is needed but it is, for pcase
 ;;; detect whether running under WSL 1 or 2, using /proc/version
 ;;; Sets constants "wsl-p", "wsl1-p", and "wsl2-p"
-(let* ((subproc-output
+(defconst wsl-version
+  (let* ((subproc-output
 	(condition-case nil
             (with-temp-buffer
               (list (call-process "cat" nil (current-buffer) nil
@@ -171,11 +179,12 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
                           ((rx "Microsoft@Microsoft.com") 'wsl1))
                       nil)))
   (message "WSL version is %s" wsl-version)
-  (defconst wsl-p (or (eq wsl-version 'wsl1) (eq wsl-version 'wsl2))
-    "Running under Windows WSL (any version)")
-  (defconst wsl1-p (eq wsl-version 'wsl1) "Running under Windows WSL (1, not 2)")
-  (defconst wsl2-p (eq wsl-version 'wsl2) "Running under Windows WSL2")
-  )
+  wsl-version)
+  "If running under WSL, the WSL version as wsl1 or wsl2, else nil")
+(defconst wsl-p (or (eq wsl-version 'wsl1) (eq wsl-version 'wsl2))
+  "Running under Windows WSL (any version)")
+(defconst wsl1-p (eq wsl-version 'wsl1) "Running under Windows WSL (1, not 2)")
+(defconst wsl2-p (eq wsl-version 'wsl2) "Running under Windows WSL2")
 
 ;; Stupid workaround for WSLg (Windows/WSL2 GUI mode) 1.0.28 as of Nov 2021
 ;; see https://github.com/microsoft/wslg/issues/207
@@ -203,44 +212,67 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 ** Per-OS customizations
 
 #+begin_src emacs-lisp
-(cond ((eq system-type 'windows-nt)
-       (setq tramp-use-ssh-controlmaster-options nil)))
+;; This is a bit long but I want to avoid any evaluation of code for
+;; other OSes, even by the byte compiler, to avoid byte-compiler warnings
+;; (and thus flycheck squiggles).
+(eval-when-compile
+  (if (eq system-type 'darwin)
+      (defmacro when-mac (&rest body)
+        "Evaluate BODY only when `system-type' is `darwin'."
+        `(progn ,@body))
+      (defmacro when-mac (&rest body)
+        "Evaluate BODY only when `system-type' is `darwin'."
+        )
+      )
+  (if (eq system-type 'windows-nt)
+      (defmacro when-windows (&rest body)
+        "Evaluate BODY only when `system-type' is `windows-nt'."
+        `(progn ,@body))
+      (defmacro when-windows (&rest body)
+        "Evaluate BODY only when `system-type' is `windows-nt'."
+        )
+      )
+  )
+
+(when-windows
+ (setq tramp-use-ssh-controlmaster-options nil))
 
 ;; make PC keyboard's Windows key be Super or Hyper (Windows only)
 ;; (There are a few that aren't rebindable: Win-L, Win-G at least)
 ;; This is nice because Super-p is the prefix for Projectile
-(when (eq system-type 'windows-nt)
+(when-windows
   (setq w32-pass-lwindow-to-system nil)
-  (setq w32-lwindow-modifier 'super) ; Left Windows key
+  (setq w32-lwindow-modifier 'super)    ; Left Windows key
   (w32-register-hot-key [s-]) ; disable all Windows shortcuts while Emacs has focus
 
   ;; I don't usually use right-windows but why not
   (setq w32-pass-rwindow-to-system nil)
-  (setq w32-rwindow-modifier 'super) ; Right Windows key
+  (setq w32-rwindow-modifier 'super)    ; Right Windows key
 
   ;; The menu/app key (to the right of the right Windows key) is
   ;; pretty hard to reach with right pinky, so it's less useful, and
   ;; only on certain keyboards, but my Das Keyboard has it, so why not.
-  (setq w32-apps-modifier 'hyper) ; Menu/App key
+  (setq w32-apps-modifier 'hyper)       ; Menu/App key
   )
 ;; Mac default setup has Command (⌘, clover) = meta
 ;; Also set Option (⌥) to be super
-(when (eq system-type 'darwin)
+(when-mac
   (setq mac-option-modifier 'super)
   )
-(cond ((eq system-type 'windows-nt)
+
+(when-windows
        (setq
         find-dired-find-program "/bin/find"
         find-program "/bin/find"
         grep-program "/bin/grep"
         )
-       ))
+       )
 
 #+end_src
 
 * Font and frame setup
 
-#+BEGIN_SRC emacs-lisp
+#+begin_src emacs-lisp
 
 ;;;; FONTS ;;;;;;
 ;; Notes:
@@ -419,8 +451,11 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 
 * Shell selection and mode setup
 #+begin_src emacs-lisp
+(require 'shell)
+
 ;; use zsh or bash.  Do this early on before loading any git stuff,
 ;; otherwise that will try to use cmdproxy.exe.
+
 (cond ((file-exists-p (msys-path "usr/bin/zsh.exe"))
        (setq explicit-shell-file-name (msys-path "usr/bin/zsh.exe")))
       ((executable-find "zsh")
@@ -516,8 +551,9 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
       comint-eol-on-send t
       comint-input-ignoredups t
       comint-input-ring-size 256
-      w32-quote-process-args ?\"
       )
+(when-windows
+ (setq w32-quote-process-args ?\"))
 
 (make-variable-buffer-local 'comint-completion-addsuffix)
 
@@ -539,14 +575,6 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 Projectile has gotten good over the last few years. I mostly use it for finding files in the project and with ripgrep.
 
 #+begin_src emacs-lisp
-(defun projectile-mode-line ()
-  "Report project name (only) in the modeline."
-  (let ((project-name (projectile-project-name))
-        (project-type (projectile-project-type)))
-    (format "%s[%s]"
-            projectile-mode-line-prefix
-            (or project-name "-")
-            )))
 (use-package projectile
   :bind (("s-p" . projectile-command-map)
          ("C-c p" . projectile-command-map))
@@ -558,6 +586,13 @@ Projectile has gotten good over the last few years. I mostly use it for finding 
   (setq projectile-globally-ignored-directories
         '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout"
           "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
+  (defun projectile-mode-line ()
+    "Report project name (only) in the modeline."
+    (let ((project-name (projectile-project-name)))
+      (format "%s[%s]"
+              projectile-mode-line-prefix
+              (or project-name "-")
+              )))
   )
 #+end_src
 
@@ -1149,20 +1184,21 @@ This depends on ~tree-sitter-mode~.
 #+begin_src emacs-lisp
 (use-package hydra)
 
-(defhydra hydra-ts-fold (:exit t :hint nil)
-  "
+(with-eval-after-load 'hydra
+  (defhydra hydra-ts-fold (:exit t :hint nil)
+    "
 Tree-sitter code folding
 Point^^                     Recursive^^             All^^
 ^^^^^^---------------------------------------------------------------
 [_f_] toggle fold at point
 [_o_] open at point         [_O_] open recursively  [_M-o_] open all
 [_c_] close at point         ^ ^                    [_M-c_] close all"
-  ("f" ts-fold-toggle)
-  ("o" ts-fold-open)
-  ("c" ts-fold-close)
-  ("O" ts-fold-open-recursively)
-  ("M-o" ts-fold-open-all)
-  ("M-c" ts-fold-close-all))
+    ("f" ts-fold-toggle)
+    ("o" ts-fold-open)
+    ("c" ts-fold-close)
+    ("O" ts-fold-open-recursively)
+    ("M-o" ts-fold-open-all)
+    ("M-c" ts-fold-close-all)))
 
 (cond (using-treesit
        (message "Using native treesit for ts-fold")
@@ -1578,29 +1614,30 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 ;;   (set-face-background 'eldoc-box-body "#ffb")
 ;;   )
 
-(defhydra hydra-lsp (:exit t :hint nil)
-  "
+(with-eval-after-load 'hydra
+  (defhydra hydra-lsp (:exit t :hint nil)
+    "
    Buffer^^               Server^^                   Symbol
   -------------------------------------------------------------------------------------
    [_f_] format           [_M-r_] restart            [_d_] definition   [_i_] implementation  [_o_] documentation
    [_m_] imenu            [_S_]   shutdown           [_D_] declaration  [_t_] type            [_r_] rename
    [_x_] execute action   [_M-s_] describe session   [_R_] references   [_s_] signature"
-  ("d" lsp-ui-peek-find-definitions)
-  ("D" lsp-find-declaration)
-  ("R" lsp-ui-peek-find-references)
-  ("i" lsp-ui-peek-find-implementation)
-  ("t" lsp-find-type-definition)
-  ("s" lsp-signature-help)
-  ("o" lsp-describe-thing-at-point)
-  ("r" lsp-rename)
+    ("d" lsp-ui-peek-find-definitions)
+    ("D" lsp-find-declaration)
+    ("R" lsp-ui-peek-find-references)
+    ("i" lsp-ui-peek-find-implementation)
+    ("t" lsp-find-type-definition)
+    ("s" lsp-signature-help)
+    ("o" lsp-describe-thing-at-point)
+    ("r" lsp-rename)
 
-  ("f" lsp-format-buffer)
-  ("m" lsp-ui-imenu)
-  ("x" lsp-execute-code-action)
+    ("f" lsp-format-buffer)
+    ("m" lsp-ui-imenu)
+    ("x" lsp-execute-code-action)
 
-  ("M-s" lsp-describe-session)
-  ("M-r" lsp-restart-workspace)
-  ("S" lsp-shutdown-workspace))
+    ("M-s" lsp-describe-session)
+    ("M-r" lsp-restart-workspace)
+    ("S" lsp-shutdown-workspace)))
 (global-set-key (kbd "C-c l") 'hydra-lsp/body)
 
 ;; Volar is a good LSP client for Vue files

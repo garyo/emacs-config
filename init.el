@@ -1,7 +1,8 @@
+;; -*- lexical-binding: t; -*-
 ;;; Gary Oberbrunner's Emacs init file
 
-(message (concat "User-emacs-directory is " user-emacs-directory))
-(message (concat "Loading init.el, ~ is " (expand-file-name "~")))
+(message "User-emacs-directory is %S" user-emacs-directory)
+(message "Loading init.el, ~ is %S" (expand-file-name "~"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Bootstrap: load straight.el
