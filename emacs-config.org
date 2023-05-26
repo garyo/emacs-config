@@ -1863,16 +1863,16 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
   (magit-section-highlight ((t (:background "floral white"))))
   )
 
-;; Show git changes in fringe
-(use-package git-gutter-fringe
+;; (use-package diff-hl
+;;   :config
+;;   (global-diff-hl-mode))
+(use-package git-gutter
   :config
   (dolist (p '((git-gutter:added    . "#0c0")
-               (git-gutter:deleted  . "#c00")
+               (git-gutter:deleted  . "#c88")
                (git-gutter:modified . "#df0")))
-    (set-face-foreground (car p) (cdr p))
     (set-face-background (car p) (cdr p)))
-  (global-git-gutter-mode)
-  )
+  (global-git-gutter-mode +1))
 
 ;; Like vc-git-grep from Emacs 25, but without the semi-useless "files" arg.
 (defun git-grep (regexp &optional dir)
