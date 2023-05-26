@@ -29,12 +29,19 @@ again. Or just ~C-c C-c~ to eval the block.
 (setq debug-on-error nil)
 (setq load-prefer-newer t)
 
+(defun emacs-build-description-string ()
+  "Run `emacs-build-description' in a temp buffer, return result as string."
+  (with-temp-buffer
+    (emacs-build-description)
+    (buffer-string)))
+
 (message "*****************
 %s
 config: %s
-********************"
-         (emacs-version)
+,************************"
+         (emacs-build-description-string)
          system-configuration-features)
+
 #+END_SRC
 
 * Set up performance timing for loading init files
