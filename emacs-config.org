@@ -4,19 +4,12 @@
 #+property: header-args :tangle emacs-config.el
 #+options: toc:2 num:nil
 
-This is my "literate" org-mode Emacs config file. Parts of it are from
-the 1980s but most of it is fairly up to date.
-I intend for it to work on any recent (>=27.x) Emacs, on Windows,
-Linux, and Mac.
+This is my "literate" org-mode Emacs config file. Parts of it are from the 1980s but most of it is fairly up to date. I intend for it to work on any recent (>=27.x) Emacs, on Windows, Linux, and Mac.
 
-For my org-mode conversion, I used some ideas from
-[https://github.com/hrs/dotfiles/blob/main/emacs/.config/emacs/configuration.org][Harry R. Schwarz's config]
+For my org-mode conversion, I used some ideas from [https://github.com/hrs/dotfiles/blob/main/emacs/.config/emacs/configuration.org][Harry R. Schwarz's config]
 and [https://github.com/mxco86/emacs-config][Matthew Ryall's config].
 
-To write ~emacs-config.el~, use ~M-x org-babel-tangle~. To edit and
-eval source blocks in this file, use ~C-c '~ (~org-edit-special~) to
-open them in a temp emacs-lisp buffer. Exit that mode with ~C-c '~
-again. Or just ~C-c C-c~ to eval the block.
+To write ~emacs-config.el~, use ~M-x org-babel-tangle~. To edit and eval source blocks in this file, use ~C-c '~ (~org-edit-special~) to open them in a temp emacs-lisp buffer. Exit that mode with ~C-c '~ again. Or just ~C-c C-c~ to eval the block.
 
 #+begin_src emacs-lisp
 ;; -*- lexical-binding: t; -*-
@@ -110,9 +103,7 @@ which is a lot faster."
 
 * Low-level Emacs config
 
-Set up some low-level settings to prevent garbage collection as
-frequently, allow for more undos, and improve performance especially
-when using LSP.
+Set up some low-level settings to prevent garbage collection as frequently, allow for more undos, and improve performance especially when using LSP.
 
 #+BEGIN_SRC emacs-lisp
 ;; don't GC after every 800k; only when idle.
@@ -223,22 +214,18 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 ;; other OSes, even by the byte compiler, to avoid byte-compiler warnings
 ;; (and thus flycheck squiggles).
 (eval-when-compile
-  (if (eq system-type 'darwin)
-      (defmacro when-mac (&rest body)
-        "Evaluate BODY only when `system-type' is `darwin'."
-        `(progn ,@body))
-      (defmacro when-mac (&rest body)
-        "Evaluate BODY only when `system-type' is `darwin'."
-        )
-      )
-  (if (eq system-type 'windows-nt)
-      (defmacro when-windows (&rest body)
-        "Evaluate BODY only when `system-type' is `windows-nt'."
-        `(progn ,@body))
-      (defmacro when-windows (&rest body)
-        "Evaluate BODY only when `system-type' is `windows-nt'."
-        )
-      )
+  (defmacro when-mac (&rest body)
+    "Evaluate BODY only when `system-type' is `darwin'."
+    (if (eq system-type 'darwin)
+        `(progn ,@body)
+      nil)
+    )
+  (defmacro when-windows (&rest body)
+    "Evaluate BODY only when `system-type' is `windows-nt'."
+    (if (eq system-type 'windows-nt)
+        `(progn ,@body)
+      nil)
+    )
   )
 
 (when-windows
@@ -248,32 +235,32 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 ;; (There are a few that aren't rebindable: Win-L, Win-G at least)
 ;; This is nice because Super-p is the prefix for Projectile
 (when-windows
-  (setq w32-pass-lwindow-to-system nil)
-  (setq w32-lwindow-modifier 'super)    ; Left Windows key
-  (w32-register-hot-key [s-]) ; disable all Windows shortcuts while Emacs has focus
+ (setq w32-pass-lwindow-to-system nil)
+ (setq w32-lwindow-modifier 'super)     ; Left Windows key
+ (w32-register-hot-key [s-]) ; disable all Windows shortcuts while Emacs has focus
 
-  ;; I don't usually use right-windows but why not
-  (setq w32-pass-rwindow-to-system nil)
-  (setq w32-rwindow-modifier 'super)    ; Right Windows key
+ ;; I don't usually use right-windows but why not
+ (setq w32-pass-rwindow-to-system nil)
+ (setq w32-rwindow-modifier 'super)     ; Right Windows key
 
-  ;; The menu/app key (to the right of the right Windows key) is
-  ;; pretty hard to reach with right pinky, so it's less useful, and
-  ;; only on certain keyboards, but my Das Keyboard has it, so why not.
-  (setq w32-apps-modifier 'hyper)       ; Menu/App key
-  )
+ ;; The menu/app key (to the right of the right Windows key) is
+ ;; pretty hard to reach with right pinky, so it's less useful, and
+ ;; only on certain keyboards, but my Das Keyboard has it, so why not.
+ (setq w32-apps-modifier 'hyper)        ; Menu/App key
+ )
 ;; Mac default setup has Command (⌘, clover) = meta
 ;; Also set Option (⌥) to be super
 (when-mac
-  (setq mac-option-modifier 'super)
-  )
+ (setq mac-option-modifier 'super)
+ )
 
 (when-windows
-       (setq
-        find-dired-find-program "/bin/find"
-        find-program "/bin/find"
-        grep-program "/bin/grep"
-        )
-       )
+ (setq
+  find-dired-find-program "/bin/find"
+  find-program "/bin/find"
+  grep-program "/bin/grep"
+  )
+ )
 
 #+end_src
 
@@ -383,7 +370,14 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 
 (pixel-scroll-precision-mode t)
 
-#+END_SRC
+    (use-package mixed-pitch
+      :hook (org-mode . mixed-pitch-mode))
+
+  ;; Geneva works & looks good on Mac
+  ;; or try Lucida Grande
+  (set-face-attribute 'variable-pitch nil :font "Lucida Grande" :weight 'light :height 1.3)
+
+#+end_src
 
 * Paths
 
@@ -649,32 +643,17 @@ I use ~ripgrep~: fast recursive grep, wgrep-capable.
 
 * Completion
 
-Company is an in-buffer completion framework, used for e.g. identifier
-completion in programming languages. It supports many backends, which
-are sources of completion candidates. It can use ~vertico~ as a UI,
-but its own UI is fine. The default backend is ~company-capf~ which in
-turn redirects to the completion-at-point-functions (which defaults to
-~tags-completion-at-point-functions~ I think, but gets rebound by
-various modes).
+Company is an in-buffer completion framework, used for e.g. identifier completion in programming languages. It supports many backends, which are sources of completion candidates. It can use ~vertico~ as a UI, but its own UI is fine. The default backend is ~company-capf~ which in turn redirects to the completion-at-point-functions (which defaults to ~tags-completion-at-point-functions~ I think, but gets rebound by various modes).
 
-I grew up using Jim Salem's TMC completion so M-RET is in my fingers.
-:-). In most modes I'd like to emulate that completion type, which
-remembered what you type and recorded contents of visited bufers, and
-used that cache to propose completions (based on initial substring
-match).
+I grew up using Jim Salem's TMC completion so M-RET is in my fingers. :-). In most modes I'd like to emulate that completion type, which remembered what you type and recorded contents of visited bufers, and used that cache to propose completions (based on initial substring match).
 
-Note that org-mode redefines ~M-RET~ as something else -- we rebind it
-in that mode so it works there too.
+Note that org-mode redefines ~M-RET~ as something else -- we rebind it in that mode so it works there too.
 
-You can invoke company backends interactively to test how they work,
-and use ~company-diag~ to debug.
+You can invoke company backends interactively to test how they work, and use ~company-diag~ to debug.
 
-~company-statistics~ keeps stats on disk to rank completions based on
-the ones previously chosen.
+~company-statistics~ keeps stats on disk to rank completions based on the ones previously chosen.
 
-TODO: Each element in ~company-backends~ is tried, and the first that returns
-results is used. An element of that list can be a list itself, in which case
-the results of both backends are merged -- perhaps I should use that.
+TODO: Each element in ~company-backends~ is tried, and the first that returns results is used. An element of that list can be a list itself, in which case the results of both backends are merged -- perhaps I should use that.
 
 #+BEGIN_SRC emacs-lisp
 ;; Completion system
@@ -708,14 +687,9 @@ the results of both backends are merged -- perhaps I should use that.
 
 ** Completion actions: Embark
 
-~embark~ is bound to ~C-.~ and allows actions on the current thing at point,
-or the current completion candidate in the minibuffer.
+~embark~ is bound to ~C-.~ and allows actions on the current thing at point, or the current completion candidate in the minibuffer. This is nice because you can use ~C-x C-f~ (find-file) but then decide to do something besides open it in a buffer using ~C-.~
 
-This is nice because you can use ~C-x C-f~ (find-file) but then decide
-to do something besides open it in a buffer using ~C-.~
-
-~C-.~ pops up a nice window of commands you can do on the current
-thing, so there's no learning curve.
+~C-.~ pops up a nice window of commands you can do on the current thing, so there's no learning curve.
 
 #+begin_src emacs-lisp
 (use-package embark
@@ -750,15 +724,11 @@ Pick completion UI package: ivy or vertico. I like vertico, as of 2021.
 - Ivy means Ivy + Counsel + Swiper
 - With vertico, I set up vertico + consult + marginalia + orderless.
 
-Vertico is just a simple "vertical" completion UI -- no new commands.
-Consult adds completing versions of various commands, and those get
-presented by vertico.
+Vertico is just a simple "vertical" completion UI -- no new commands. Consult adds completing versions of various commands, and those get presented by vertico.
 
-Why not ~selectrum~? Selectrum was the predecessor of Vertico, so
-Vertico seems to do what selectrum does but better in most cases.
+Why not ~selectrum~? Selectrum was the predecessor of Vertico, so Vertico seems to do what selectrum does but better in most cases.
 
-There's some good samples of customizations at
-https://kristofferbalintona.me/posts/202202211546/#extensions
+There's some good samples of customizations at https://kristofferbalintona.me/posts/202202211546/#extensions
 
 #+begin_src emacs-lisp
 (use-package vertico
@@ -1120,15 +1090,11 @@ Mostly programming-language related.
 
 ** Tree-sitter for syntax highlighting
 
-Tree-sitter is a new (as of Nov 2022) multi-language parser that
-produces a full AST. It enables faster and better syntax highlighting,
-and other upcoming features.
+Tree-sitter is a new (as of Nov 2022) multi-language parser that produces a full AST. It enables faster and better syntax highlighting, and other upcoming features.
 
 Run `tree-sitter-langs-install-grammars` periodically to install new grammars.
 
-Built-in treesit (as of Jan 2023) requires compiled grammars in lib
-path or ~~/.config/emacs/tree-sitter~. Build those using
-https://github.com/casouri/tree-sitter-module.git.
+Built-in treesit (as of Jan 2023) requires compiled grammars in lib path or ~~/.config/emacs/tree-sitter~. Build those using https://github.com/casouri/tree-sitter-module.git.
 
 #+begin_src emacs-lisp
 
@@ -1185,8 +1151,7 @@ https://github.com/casouri/tree-sitter-module.git.
 
 *** Tree-sitter based code folding
 
-Very nice language-aware code folding with sidebar markers.
-This depends on ~tree-sitter-mode~.
+Very nice language-aware code folding with sidebar markers. This depends on ~tree-sitter-mode~.
 
 #+begin_src emacs-lisp
 (use-package hydra)
@@ -1241,8 +1206,7 @@ Point^^                     Recursive^^             All^^
 
 ** File skeletons and snippets
 
-Skeletons set up initial content for files in various programming
-languages, and snippets dynamically expand text.
+Skeletons set up initial content for files in various programming languages, and snippets dynamically expand text.
 
 #+begin_src emacs-lisp
 
@@ -1368,9 +1332,7 @@ move to the next field. Call `open-line' if nothing else applies."
 
 ** Set up syntax checking with flycheck
 
-Syntax checker for many languages. Seems better than built-in flymake.
-Languages with LSP support override the flycheck checkers, but this can
-still be useful for other languages.
+Syntax checker for many languages. Seems better than built-in flymake. Languages with LSP support override the flycheck checkers, but this can still be useful for other languages.
 
 Bindings begin with ~C-c !~ or use Consult ~M-g f~
 
@@ -1660,7 +1622,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 ;; Org agenda setup:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(setq org-directory "~/Dropbox/Personal/org-agenda") ; inbox.org, gtd.org, tickler.org ...
+(setq org-directory "~/Documents/org-agenda") ; inbox.org, gtd.org, tickler.org ...
 (setq org-agenda-files (list org-directory)) ; all .org files in these dirs
 (setq org-default-notes-file (concat org-directory "/notes.org"))
 (setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
@@ -1677,6 +1639,14 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
         ("volunteer" . "#005500")))
 (setq org-refile-targets (quote ((nil :maxlevel . 4)
                                  (org-agenda-files :maxlevel . 4))))
+
+;; Exporting source blocks to HTML needs this
+(use-package htmlize)
+;; Live preview of HTML exports:
+;; (Use org-preview-html-mode)
+(use-package org-preview-html
+  :config
+  (setq org-preview-html-viewer 'xwidget))
 
 (defun go/verify-refile-target ()
   "Exclude TODOS as refile targets."
@@ -1747,37 +1717,37 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 ;; ^G: prompt for tags
 ;; ^t: prompt for timestamp
 ;; %U: add inactive timestamp (creation time)
-(defvar org-capture-templates
-  '(("t" "Todo [inbox]" entry
-     (file+headline "inbox.org" "Tasks")
-     "* TODO %i%?\n  %U"
-     :prepend t)
-    ("." "Today" entry
-     (file+headline "inbox.org" "Tasks")
-     "* TODO %^{Task}\nSCHEDULED: %t\n"
-     :immediate-finish t)
-    ("s" "Scheduled TODO" entry
-     (file+headline "inbox.org" "Tasks") ;prompts for tags and schedule date (^G, ^t)
-     "* TODO %? %^G \nSCHEDULED: %^t\n  %U")
-    ("d" "Deadline" entry
-     (file+headline "inbox.org" "Tasks")
-     "* TODO %? %^G \n  DEADLINE: %^t"
-     :empty-lines 1)
-    ("w" "Work" entry
-     (file+headline "gtd.org" "Work")
-     "* TODO %i%?\n  %U"
-     :prepend t)
-    ("h" "Home" entry
-     (file+headline "gtd.org" "Home")
-     "* TODO %i%?\n  %U"
-     :prepend t)
-    ("T" "Tickler" entry
-     (file+headline "tickler.org" "Tickler")
-     "* TODO %i%? \n %U")
-    ))
-(defun gtd ()
-  (interactive)
-  (find-file (concat org-directory "/gtd.org")))
+;; (defvar org-capture-templates
+;;   '(("t" "Todo [inbox]" entry
+;;      (file+headline "inbox.org" "Tasks")
+;;      "* TODO %i%?\n  %U"
+;;      :prepend t)
+;;     ("." "Today" entry
+;;      (file+headline "inbox.org" "Tasks")
+;;      "* TODO %^{Task}\nSCHEDULED: %t\n"
+;;      :immediate-finish t)
+;;     ("s" "Scheduled TODO" entry
+;;      (file+headline "inbox.org" "Tasks") ;prompts for tags and schedule date (^G, ^t)
+;;      "* TODO %? %^G \nSCHEDULED: %^t\n  %U")
+;;     ("d" "Deadline" entry
+;;      (file+headline "inbox.org" "Tasks")
+;;      "* TODO %? %^G \n  DEADLINE: %^t"
+;;      :empty-lines 1)
+;;     ("w" "Work" entry
+;;      (file+headline "gtd.org" "Work")
+;;      "* TODO %i%?\n  %U"
+;;      :prepend t)
+;;     ("h" "Home" entry
+;;      (file+headline "gtd.org" "Home")
+;;      "* TODO %i%?\n  %U"
+;;      :prepend t)
+;;     ("T" "Tickler" entry
+;;      (file+headline "tickler.org" "Tickler")
+;;      "* TODO %i%? \n %U")
+;;     ))
+;; (defun gtd ()
+;;   (interactive)
+;;   (find-file (concat org-directory "/gtd.org")))
 
 ;; Auto regenerate agenda when files change - use inotify
 (defun gco-org-agenda-file-notify (_event)
@@ -1795,10 +1765,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
         (file-notify-add-watch file '(change) #'gco-org-agenda-file-notify))
       ))
 
-;; Load my special orgmode config
-(ignore-errors
-  (load-file "~/.emacs-orgmode")
-  )
+(require 'org-tempo)
 
 (setq
  org-babel-load-languages
@@ -1830,11 +1797,65 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
  org-odt-preferred-output-format "docx"
  org-src-fontify-natively t
  org-startup-folded nil
- org-startup-indented nil
+ org-startup-indented t                 ; indent content
  org-table-convert-region-max-lines 9999
  org-use-sub-superscripts '{}
  org-use-speed-commands t)
+#+end_src
 
+** Prettify org-mode buffers
+
+Use variable-pitch mode and use bullet symbols for bullet lists with ~+~ and ~-~.
+TODO: is there any way to hide or de-emphasize the tildes org-mode uses for source snippets?
+
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook
+          (lambda ()
+            (mixed-pitch-mode 1)
+            (visual-line-mode 1)))
+
+;; Tried this but it de-indents content when using indent mode
+;; (use-package org-bullets
+;;   :hook (org-mode . org-bullets-mode))
+
+;; Use utf-8 bullets for bullet lists -- this isn't great, but a bit nicer than nothing.
+;; Ideally should use monospace font for spaces before bullet item, and use different bullets by list level.
+(font-lock-add-keywords 'org-mode
+                        '(("^ *\\([-]\\) "
+                           (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+(font-lock-add-keywords 'org-mode
+                        '(("^ *\\([+]\\) "
+                           (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "◦"))))))
+
+(defface org-tilde-face
+  '((t :inherit default :height 0.7))
+  "Face for highlighting tildes in org-mode")
+(font-lock-add-keywords 'org-mode '(("~" . ''org-tilde-face)))
+#+end_src
+
+
+* Org-roam
+#+begin_src emacs-lisp
+(use-package org-roam
+  :ensure t
+  :init
+  (setq org-roam-v2-ack t)
+  :custom
+  (org-roam-directory "~/Documents/org-roam")
+  (org-roam-completion-everywhere t)
+  :bind (("C-c n l" . org-roam-buffer-toggle)
+         ("C-c n f" . org-roam-node-find)
+         ("C-c n i" . org-roam-node-insert)
+         :map org-mode-map
+         ("C-M-i" . completion-at-point)
+         :map org-roam-dailies-map
+         ("Y" . org-roam-dailies-capture-yesterday)
+         ("T" . org-roam-dailies-capture-tomorrow))
+  :bind-keymap
+  ("C-c n d" . org-roam-dailies-map)
+  :config
+  (require 'org-roam-dailies) ;; Ensure the keymap is available
+  (org-roam-db-autosync-mode))
 #+end_src
 
 * Version control and magit
@@ -1967,7 +1988,11 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 
 ;; unfill fills or unfills para, toggling each time you press M-q
 (use-package unfill
-  :bind ([remap fill-paragraph] . unfill-toggle))
+  :bind
+  (([remap fill-paragraph] . unfill-toggle)
+   :map org-mode-map
+   ("M-q" . unfill-toggle)
+  ))
 
   ;;; adaptive fill mode
 (use-package filladapt
@@ -2499,6 +2524,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
  '(indent-tabs-mode nil)
  '(inferior-octave-program "c:/Octave/3.2.4_gcc-4.4.0/bin/octave")
  '(jit-lock-defer-time 0.2)
+ '(jit-lock-chunk-size 3000)
  '(js-indent-level 2)
  '(js2-strict-missing-semi-warning nil)
  '(markdown-command "pandoc")
