@@ -370,12 +370,18 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 
 (pixel-scroll-precision-mode t)
 
-    (use-package mixed-pitch
-      :hook (org-mode . mixed-pitch-mode))
+(use-package mixed-pitch
+  :hook (org-mode . mixed-pitch-mode))
 
-  ;; Geneva works & looks good on Mac
-  ;; or try Lucida Grande
-  (set-face-attribute 'variable-pitch nil :font "Lucida Grande" :weight 'light :height 1.3)
+;; Geneva works & looks good on Mac
+;; or try Lucida Grande
+(cond ((find-font (font-spec :name "Lucida Grande"))
+       (set-face-attribute 'variable-pitch nil :font "Lucida Grande" :weight 'light :height 1.3))
+      ((find-font (font-spec :name "Verdana"))
+       (set-face-attribute 'variable-pitch nil :font "Verdana" :weight 'light :height 1.3))
+      ((find-font (font-spec :name "Times New Roman"))
+       (set-face-attribute 'variable-pitch nil :font "Times New Roman" :weight 'light :height 1.3))
+      )
 
 #+end_src
 
