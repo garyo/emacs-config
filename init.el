@@ -10,6 +10,8 @@
 
 ;;; Set up package system -- straight.el (better than built-in package.el)
 (defvar bootstrap-version)
+;; Don't check for modifications on every emacs startup -- takes too long
+(defvar straight-check-for-modifications '(find-when-checking) "When should straight.el check for modified packages")
 (or (boundp 'native-comp-deferred-compilation-deny-list)
     (setq native-comp-deferred-compilation-deny-list '()))
 

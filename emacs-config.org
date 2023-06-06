@@ -28,12 +28,14 @@ To write ~emacs-config.el~, use ~M-x org-babel-tangle~. To edit and eval source 
     (emacs-build-description)
     (buffer-string)))
 
-(message "*****************
+(defvar startup-verbose-p nil "More verbose messages during emacs startup")
+(when startup-verbose-p
+  (message "*****************
 %s
 config: %s
 ,************************"
-         (emacs-build-description-string)
-         system-configuration-features)
+           (emacs-build-description-string)
+           system-configuration-features))
 
 #+END_SRC
 
@@ -46,7 +48,7 @@ config: %s
     (let* ((now (float-time))
            (elapsed (- now gco-timer)))
       (setq gco-timer now)
-      (message "Elapsed time at %s: %s sec" loc elapsed)))
+      (message "%s: Elapsed time: %s sec" loc elapsed)))
 #+END_SRC
 
 * Package manager: use ~straight.el~
@@ -62,6 +64,13 @@ Set it up so ~use-package~ always uses ~straight.el~.
 (setq straight-check-for-modifications
       '(check-on-save find-when-checking))
 #+END_SRC
+
+Allow profiling emacs startup
+
+#+BEGIN_SRC emacs-lisp
+(use-package esup)
+#+END_SRC
+
 
 * Set personal information
 
@@ -116,6 +125,20 @@ Set up some low-level settings to prevent garbage collection as frequently, allo
 (setq read-process-output-max (* 1024 1024)) ; improve LSP performance
 ;; typescript language server, more RAM:
 (setenv "NODE_OPTIONS" "--max-old-space-size=8192")
+
+#+END_SRC
+
+* Set high-level preferences
+
+These vars control which packages are loaded and used below.
+
+#+BEGIN_SRC emacs-lisp
+(defvar use-flycheck-mode nil
+  "Which checker to use: t means use flycheck; nil means use flymake.")
+
+(defvar use-lsp-mode t
+  "Which LSP service to use: t means use lsp-mode; nil means use eglot.
+Always uses eglot if this Emacs doesn't have fast JSON.")
 
 #+END_SRC
 
@@ -764,6 +787,11 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
         (completion-category-overrides nil))
     (consult-line)))
 
+(defmacro consult-flycheck-or-flymake ()
+  `(if use-flycheck-mode
+      ,consult-flycheck
+    ,consult-flymake))
+
 (use-package consult
   :after projectile
   :defines consult-buffer-sources
@@ -786,7 +814,7 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
          ("<help> a" . consult-apropos) ;; orig. apropos-command
          ;; M-g bindings (goto-map)
          ("M-g e" . consult-compile-error)
-         ("M-g f" . consult-flycheck) ;; Alternative: consult-flymake
+         ("M-g f" . consult-flycheck-or-flymake)
          ("M-g g" . consult-goto-line) ;; orig. goto-line
          ("M-g M-g" . consult-goto-line) ;; orig. goto-line
          ("M-g o" . consult-outline) ;; Alternative: consult-org-heading
@@ -850,7 +878,8 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
          ("C-x C-j" . consult-dir-jump-file)))
 
 ;; flycheck integration - nice. ~M-g f~
-(use-package consult-flycheck)
+(if use-flycheck-mode
+    (use-package consult-flycheck))
 
 ;; Optionally use the `orderless' completion style. See
 ;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
@@ -946,6 +975,18 @@ Mostly programming-language related.
 ;;; M-x venv-workon (has completion), M-x venv-deactivate, M-x venv-*
 ;;; Looks in ~/.virtualenvs
 (use-package virtualenvwrapper
+  :commands venv-workon)
+
+(use-package conda
+  :commands conda-env-activate-for-buffer conda-env-autoactivate-mode
+  :config
+  ;; for interactive shell support
+  (conda-env-initialize-interactive-shells)
+  ;; auto-activation
+  (conda-env-autoactivate-mode t)
+  ;; automatically activate a conda environment on the opening of a file
+  :hook (find-file . (lambda () (when (bound-and-true-p conda-project-env-path)
+                                  (conda-env-activate-for-buffer))))
   )
 
 (use-package dumb-jump
@@ -1331,61 +1372,86 @@ move to the next field. Call `open-line' if nothing else applies."
 
 ;;; all the snippets -- this is big!
 (use-package yasnippet-snippets
-  :after yasnippet
-  :config (yasnippet-snippets-initialize))
+  :defer 5)
 
 #+end_src
 
-** Set up syntax checking with flycheck
+** Set up syntax checking with flycheck or flymake
 
 Syntax checker for many languages. Seems better than built-in flymake. Languages with LSP support override the flycheck checkers, but this can still be useful for other languages.
 
 Bindings begin with ~C-c !~ or use Consult ~M-g f~
 
+I may switch back to flymake; that seems to be the way the community
+is going since flymake got a rewrite some time ago. So this code allows using either one.
+
 #+BEGIN_SRC emacs-lisp
 
-(use-package flycheck
-  :config (global-flycheck-mode)
-)
+(defun setup-flycheck ()
+  "Set up flycheck as the checker"
+  (use-package flycheck
+    :config (global-flycheck-mode)
+    )
 
-;; show flycheck errors in popup, not in minibuffer. This is important
-;; because minibuffer may be showing documentation or something else,
-;; and without this flycheck errors/warnings overwrite that info.
-(use-package flycheck-posframe
-  :after flycheck
-  :config
-  (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode)
-  (flycheck-posframe-configure-pretty-defaults))
+  ;; show flycheck errors in popup, not in minibuffer. This is important
+  ;; because minibuffer may be showing documentation or something else,
+  ;; and without this flycheck errors/warnings overwrite that info.
+  (use-package flycheck-posframe
+    :after flycheck
+    :config
+    (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode)
+    (flycheck-posframe-configure-pretty-defaults))
 
 ;;; for Windows, especially for emacs-lisp checker which passes
 ;;; lots of cmd-line args to emacs
-(cond ((eq system-type 'windows-nt)
-       (setq flycheck-command-wrapper-function
-             (lambda (cmd)
-               (list "bash" "-c" (format "%s"
-                                         (mapconcat 'shell-quote-argument cmd " ")))))))
+  (cond ((eq system-type 'windows-nt)
+         (setq flycheck-command-wrapper-function
+               (lambda (cmd)
+                 (list "bash" "-c" (format "%s"
+                                           (mapconcat 'shell-quote-argument cmd " ")))))))
 
 ;;; On Windows, commands run by flycheck may have CRs (\r\n line endings).
 ;;; Strip them out before parsing.
-(defun flycheck-parse-output (output checker buffer)
-  "Parse OUTPUT from CHECKER in BUFFER.
+  (defun flycheck-parse-output (output checker buffer)
+    "Parse OUTPUT from CHECKER in BUFFER.
 
 OUTPUT is a string with the output from the checker symbol
 CHECKER.  BUFFER is the buffer which was checked.
 
 Return the errors parsed with the error patterns of CHECKER."
-  (let ((sanitized-output (replace-regexp-in-string "\r" "" output))
-        )
-    (funcall (flycheck-checker-get checker 'error-parser) sanitized-output checker buffer)))
+    (let ((sanitized-output (replace-regexp-in-string "\r" "" output))
+          )
+      (funcall (flycheck-checker-get checker 'error-parser) sanitized-output checker buffer)))
 
 ;;; Set flycheck list window to be small -- fit to content
-(add-to-list 'display-buffer-alist
-             `(,(regexp-quote "*Flycheck errors*")
-               (display-buffer-reuse-window
-                display-buffer-pop-up-window)
-               (window-height . fit-window-to-buffer)))
+  (add-to-list 'display-buffer-alist
+               `(,(regexp-quote "*Flycheck errors*")
+                 (display-buffer-reuse-window
+                  display-buffer-pop-up-window)
+                 (window-height . fit-window-to-buffer)))
+  )
 
+(defun setup-flymake ()
+  "Set up built-in flymake as the checker"
 
+  (use-package flymake)
+  (use-package flymake-posframe
+    ;; Note: this is a fork of the main flymake-posframe, with a fix for eglot
+    :straight (:host github
+                     :repo "articuluxe/flymake-posframe"
+                     :branch "feature/eglot")
+    :hook (flymake-mode . flymake-posframe-mode)
+    )
+  (add-to-list 'display-buffer-alist
+               `(,(regexp-quote "*eldoc*")
+                 (display-buffer-reuse-window
+                  display-buffer-pop-up-window)
+                 (window-height . fit-window-to-buffer)))
+  )
+
+(if use-flycheck-mode
+    (setup-flycheck)
+  (setup-flymake))
 #+END_SRC
 
 * Language Servers: lsp-mode (or eglot)
@@ -1397,10 +1463,6 @@ Return the errors parsed with the error patterns of CHECKER."
 ;;           unless this Emacs has the fast C json lib (libjansson).
 ;;           ... and even then it's super slow for me.
 ;; Aug 2020: lsp-mode is now faster and more reliable than eglot. Time to switch.
-(defvar use-lsp-mode t
-  "T means use lsp-mode; nil means use eglot.
-Always uses eglot if this Emacs doesn't have fast JSON.")
-
 (defvar lsp-mode-verbose nil
   "Set to t to turn on lots of logging in lsp-mode.")
 
@@ -1472,8 +1534,6 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
     (add-to-list 'eglot-server-programs
                  '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
-    (add-to-list 'eglot-server-programs
-                 '((js-mode typescript-mode) . ("~/.yarn/bin/typescript-language-server" "--stdio" "--tsserver-log-file" "/tmp/tsserver.log")))
 
     (cl-defmethod eglot-initialization-options ((server eglot-vls))
       "Passes through required vetur initialization options to VLS."
@@ -1589,35 +1649,36 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 ;;   (set-face-background 'eldoc-box-body "#ffb")
 ;;   )
 
-(with-eval-after-load 'hydra
-  (defhydra hydra-lsp (:exit t :hint nil)
-    "
+(when use-lsp-mode
+  (with-eval-after-load 'hydra
+    (defhydra hydra-lsp (:exit t :hint nil)
+      "
    Buffer^^               Server^^                   Symbol
   -------------------------------------------------------------------------------------
    [_f_] format           [_M-r_] restart            [_d_] definition   [_i_] implementation  [_o_] documentation
    [_m_] imenu            [_S_]   shutdown           [_D_] declaration  [_t_] type            [_r_] rename
    [_x_] execute action   [_M-s_] describe session   [_R_] references   [_s_] signature"
-    ("d" lsp-ui-peek-find-definitions)
-    ("D" lsp-find-declaration)
-    ("R" lsp-ui-peek-find-references)
-    ("i" lsp-ui-peek-find-implementation)
-    ("t" lsp-find-type-definition)
-    ("s" lsp-signature-help)
-    ("o" lsp-describe-thing-at-point)
-    ("r" lsp-rename)
+      ("d" lsp-ui-peek-find-definitions)
+      ("D" lsp-find-declaration)
+      ("R" lsp-ui-peek-find-references)
+      ("i" lsp-ui-peek-find-implementation)
+      ("t" lsp-find-type-definition)
+      ("s" lsp-signature-help)
+      ("o" lsp-describe-thing-at-point)
+      ("r" lsp-rename)
 
-    ("f" lsp-format-buffer)
-    ("m" lsp-ui-imenu)
-    ("x" lsp-execute-code-action)
+      ("f" lsp-format-buffer)
+      ("m" lsp-ui-imenu)
+      ("x" lsp-execute-code-action)
 
-    ("M-s" lsp-describe-session)
-    ("M-r" lsp-restart-workspace)
-    ("S" lsp-shutdown-workspace)))
-(global-set-key (kbd "C-c l") 'hydra-lsp/body)
+      ("M-s" lsp-describe-session)
+      ("M-r" lsp-restart-workspace)
+      ("S" lsp-shutdown-workspace)))
+  (global-set-key (kbd "C-c l") 'hydra-lsp/body)
 
-;; Volar is a good LSP client for Vue files
-(straight-use-package '(lsp-volar :type git :host github :repo "jadestrong/lsp-volar"))
-(use-package lsp-volar)
+  ;; Volar is a good LSP client for Vue files
+  (straight-use-package '(lsp-volar :type git :host github :repo "jadestrong/lsp-volar"))
+  (use-package lsp-volar))
 
 #+end_src
 
@@ -1651,6 +1712,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 ;; Live preview of HTML exports:
 ;; (Use org-preview-html-mode)
 (use-package org-preview-html
+  :commands org-preview-html-mode
   :config
   (setq org-preview-html-viewer 'xwidget))
 
@@ -2075,6 +2137,40 @@ TODO: is there any way to hide or de-emphasize the tildes org-mode uses for sour
 
 #+end_src
 
+** ~Recentf~ mode: remember recently visited files.
+
+I like to have it save the list periodically in case of crashes or when using emacs server.
+
+#+begin_src emacs-lisp
+
+;;; Make recentf save silently
+(defun recentf-save-silently-advice (original &rest args)
+  (let ((inhibit-message t)
+        (message-log-max nil))
+    (apply original args)))
+(advice-add 'recentf-save-list :around #'recentf-save-silently-advice)
+
+(recentf-mode t)
+(setq-default
+ recentf-exclude '("semantic.cache"
+                   "\\.completions"
+                   "\\.projects\\.ede"
+                   "\\.ido\\.last"
+                   "recentf"
+                   "ido\\.last"
+                   ".tmp.babel-"
+                   "/[a-z]+:.*:"       ;don't save tramp files
+                   )
+ recentf-max-menu-items 30
+ recentf-max-saved-items 50)
+;; emacs doesn't save recentf list until you "exit normally"
+;; which never really happens with emacs-server. So just save every 10
+;; min, and do it silently.
+(run-at-time nil 600 (lambda () (let ((save-silently t))
+                                  (recentf-save-list))))
+#+END_SRC
+
+
 * Misc stuff to organize
 
 #+begin_src emacs-lisp
@@ -2131,27 +2227,11 @@ TODO: is there any way to hide or de-emphasize the tildes org-mode uses for sour
 ;; Ensure that dead system processes don't own it.
 (advice-add #'desktop-owner :around #'garyo/desktop-owner-advice)
 
+#+END_SRC
 
-  ;;; Recentf mode: remember recently visited files
-(recentf-mode t)
-(setq-default
- recentf-exclude '("semantic.cache"
-                   "\\.completions"
-                   "\\.projects\\.ede"
-                   "\\.ido\\.last"
-                   "recentf"
-                   "ido\\.last"
-                   ".tmp.babel-"
-                   "/[a-z]+:.*:"       ;don't save tramp files
-                   )
- recentf-max-menu-items 30
- recentf-max-saved-items 50)
-;; emacs doesn't save recentf list until you "exit normally"
-;; which never really happens with emacs-server. So just save every 10
-;; min, and do it silently.
-(run-at-time nil 600 (lambda () (let ((save-silently t))
-                                  (recentf-save-list))))
+More misc stuff:
 
+#+begin_src emacs-lisp
 ;;; Turn off visual-line-mode
 (visual-line-mode nil) ; next-line go to real next line, see also line-move-visual
 (global-visual-line-mode 0)
@@ -2598,6 +2678,7 @@ TODO: is there any way to hide or de-emphasize the tildes org-mode uses for sour
 
 #+begin_src emacs-lisp
 (provide 'emacs)
+(print-elapsed-time "Init file loaded")
 #+end_src
 
 # @ Local variables:
