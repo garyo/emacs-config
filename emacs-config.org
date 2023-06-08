@@ -136,7 +136,7 @@ These vars control which packages are loaded and used below.
 (defvar use-flycheck-mode nil
   "Which checker to use: t means use flycheck; nil means use flymake.")
 
-(defvar use-lsp-mode t
+(defvar use-lsp-mode nil
   "Which LSP service to use: t means use lsp-mode; nil means use eglot.
 Always uses eglot if this Emacs doesn't have fast JSON.")
 
@@ -1454,25 +1454,29 @@ Return the errors parsed with the error patterns of CHECKER."
   (setup-flymake))
 #+END_SRC
 
-* Language Servers: lsp-mode (or eglot)
+* Language Servers: lsp-mode or eglot
 
-#+BEGIN_SRC emacs-lisp
+- May 2019: Eglot is more responsive and simpler
+- Oct 2019: lsp-mode has more features, but it's very slow unless this Emacs has the fast C json lib (libjansson). And even then it's super slow for me.
+- Aug 2020: lsp-mode is now faster and more reliable than eglot. Time to switch.
+- Jun 2023: maybe switch back to eglot since it's built in and has come a long way
 
-;; May 2019: Eglot is more responsive and simpler
-;; Oct 2019: lsp-mode has more features, but it's very slow
-;;           unless this Emacs has the fast C json lib (libjansson).
-;;           ... and even then it's super slow for me.
-;; Aug 2020: lsp-mode is now faster and more reliable than eglot. Time to switch.
-(defvar lsp-mode-verbose nil
-  "Set to t to turn on lots of logging in lsp-mode.")
+Note: use ~pylsp~ for Python, rather than ~pyright~. The latter is just a type checker; pylsp is a full configurable LSP server. Install like this: ~pip install python-lsp-server~.
+Also good to install ~pyflakes~ for linting, ~pylsp-mypy~ for type checking, ~pylsp-rope~ for refactoring, ~python-lsp-black~ for formatting.
 
-#+end_src
+For C++, use ~clangd~.
 
-** Eglot (not used)
+** Eglot Vue Language Server
+
+When using eglot, the Vue language server has to be specially configured (at least it did when I wrote this).
+We define some vars that will only be used when using eglot.
 
 #+begin_src emacs-lisp
 
-;; for eglot
+(defvar lsp-verbose nil
+  "Set to t to turn on lots of logging in lsp-mode or eglot.")
+
+;; for Vue VLS with eglot
 (defvar vls-vetur-configuration
   `(:useWorkspaceDependencies: t
                                :completion
@@ -1497,7 +1501,7 @@ Return the errors parsed with the error patterns of CHECKER."
                                          (:printWidth 100 :singleQuote :json-false :wrapAttributes :json-false :sortAttributes :json-false))
                                         :styleInitialIndent :json-false
                                         :scriptInitialIndent :json-false)
-                               ,@(if lsp-mode-verbose
+                               ,@(if lsp-verbose
                                      '(:trace
                                        (:server "verbose")))
                                :dev
@@ -1507,7 +1511,6 @@ Return the errors parsed with the error patterns of CHECKER."
                                :prettier :json-false
                                ))
 
-;; for eglot
 (defvar vls-workspace-configuration
   `((:vetur . ,vls-vetur-configuration)
     (:html . (:suggest ()))
@@ -1552,7 +1555,7 @@ Return the errors parsed with the error patterns of CHECKER."
 
 #+end_src
 
-** LSP
+** Set up LSP or Eglot
 
 Since fast json and native compilation, lsp-mode is plenty fast, and quite nice.
 I use it for Javascript/typescript, Vue, python, and maybe C++.
@@ -1583,8 +1586,8 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
          :init
          (setq lsp-keymap-prefix "C-c C-l") ; default is super-l
          :config
-         (setq lsp-log-io lsp-mode-verbose
-               lsp-clients-typescript-log-verbosity (if lsp-mode-verbose "verbose" "normal")
+         (setq lsp-log-io lsp-verbose
+               lsp-clients-typescript-log-verbosity (if lsp-verbose "verbose" "normal")
                lsp-print-performance t
                lsp-response-timeout 15
                lsp-headerline-breadcrumb-enable t
@@ -1626,8 +1629,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
                           :branch "master")
          :commands eglot-ensure
          :hook ((vue-mode . eglot-ensure)
-                (typescript-mode . eglot-ensure)
-                (javascript-mode . eglot-ensure))
+                (prog-mode . eglot-ensure)) ; all prog modes: C++, python, typescript etc.
          :config
          ;; note: company-mode must be loaded already
          ;; eglot wants to replace all company backends with 'company-capf
@@ -2134,6 +2136,15 @@ TODO: is there any way to hide or de-emphasize the tildes org-mode uses for sour
 ;;; Useful when switching git branches
 (use-package revert-buffer-all
   :commands (revert-buffer-all))
+
+;;; Show breadcrumbs in top line (uses imenu and/or project; useful with eglot since lsp-mode does this itself)
+(use-package breadcrumb
+         :straight (:host github
+                          :repo "joaotavora/breadcrumb"
+                          :branch "master")
+  :hook ((prog-mode . breadcrumb-mode)
+         (org-mode . breadcrumb-mode))
+  )
 
 #+end_src
 
