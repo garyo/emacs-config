@@ -2041,20 +2041,31 @@ TODO: is there any way to hide or de-emphasize the tildes org-mode uses for sour
   (savehist-mode)
   )
 
-(use-package smart-mode-line
-  :config
-  (setq sml/no-confirm-load-theme t)
-  (setq sml/name-width 40)
-  (setq sml/mode-width 'full)
-  (setq sml/shorten-directory t)
-  (setq sml/shorten-modes t)
-  ;; don't show these minor modes
-  (setq rm-blacklist '(" hl-p" " company" " ElDoc" " VHl" " Helm" " Fill"
-                       " Filladapt" " counsel" " ivy" " yas" " GitGutter"))
-  (add-to-list 'sml/replacer-regexp-list
-               '("c:/dss/Product/Horizon/WebProjects/horizon-project/horizon" ":HZN:"))
-  (sml/setup)
-  )
+(defvar modeline-package 'doom "Modeline package to use: sml or doom")
+(cond ((eq modeline-package 'sml)
+       (use-package smart-mode-line
+         :config
+         (setq sml/no-confirm-load-theme t)
+         (setq sml/name-width 40)
+         (setq sml/mode-width 'full)
+         (setq sml/extra-filler -4) ; Seem to need this with eglot to prevent truncation on the right
+         (setq sml/shorten-directory t)
+         (setq sml/shorten-modes t)
+         ;; don't show these minor modes
+         (setq rm-blacklist '(" hl-p" " company" " ElDoc" " VHl" " Helm" " Fill"
+                              " Filladapt" " counsel" " ivy" " yas" " GitGutter"))
+         (add-to-list 'sml/replacer-regexp-list
+                      '("c:/dss/Product/Horizon/WebProjects/horizon-project/horizon" ":HZN:"))
+         (sml/setup)
+         )
+       )
+      ((eq modeline-package 'doom)      ; Very pretty modeline -- nicer than sml.
+       ;; Note: this uses nerd-icons. You may need to do ~M-x nerd-icons-install-fonts~.
+       (use-package doom-modeline
+         :ensure t
+         :hook (after-init . doom-modeline-mode))
+       )
+      )
 
 ;; unfill fills or unfills para, toggling each time you press M-q
 (use-package unfill
