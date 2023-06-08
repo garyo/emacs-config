@@ -2687,7 +2687,9 @@ More misc stuff:
  '(org-level-1 ((t (:inherit default :weight bold :height 1.3))))
  '(org-level-2 ((t (:inherit outline-2 :weight bold :height 1.15))))
  '(org-level-3 ((t (:inherit outline-3 :slant italic :height 1.1))))
- '(web-mode-current-column-highlight-face ((t (:background "#f0f0f0")))))
+ '(web-mode-current-column-highlight-face ((t (:background "#f0f0f0"))))
+ '(header-line ((t (:height 1.1 :slant italic :color "grey75" :foreground "grey20" :background "grey90" :inherit (mode-line)))))
+ )
 
 (put 'set-goal-column 'disabled nil)
 (put 'eval-expression 'disabled nil)
