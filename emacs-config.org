@@ -365,6 +365,7 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
   "Set default font and frame attributes for FRAME."
   (when (display-graphic-p frame)
     (tool-bar-mode 0)
+    (tab-bar-mode 0)
     ;; (message "Setting up new graphic frame %s, current geom %s" frame (frame-geometry frame))
     (let ((font-info (cl-find-if (lambda (x) (font-exists-p (car x) frame))
                                  preferred-fonts)))
@@ -1937,6 +1938,116 @@ TODO: is there any way to hide or de-emphasize the tildes org-mode uses for sour
   (org-roam-db-autosync-mode))
 #+end_src
 
+* EKG: Emacs Knowledge Graph
+Experimental -- logseq-like note-taking app, backed by sql rather than note files. Might be great.
+#+BEGIN_SRC emacs-lisp
+(defun setup-ekg-transients () "Set up Transient menus for EKG"
+       (transient-define-prefix ekg-dispatch ()
+         "Top level Transient menu for EKG (Emacs Knowledge Graph)"
+         [["Show"
+           ("st" "Today" ekg-show-notes-for-today)
+           ("slc" "Latest Captured" ekg-show-notes-latest-captured)
+           ("slm" "Latest Mod" ekg-show-notes-latest-modified)
+           ("sx" "Trash" ekg-show-notes-in-trash)
+           ("sd" "Drafts" ekg-show-notes-in-drafts)
+           "Find Tags"
+           ("tt" "Tag" ekg-show-notes-with-tag)
+           ("taa" "All Tags" ekg-show-notes-with-all-tags)
+           ("ta?" "Any Tag" ekg-show-notes-with-any-tags)
+           ]
+          ["Capture"
+           ("cc" "New Note" ekg-capture)
+           ("cu" "...from URL" ekg-capture-url)
+           ("cb" "...from current buffer" ekg-capture-file)
+           ]
+          ["Query" :if (lambda () (or (featurep 'ekg-llm) (featurep 'ekg-embedding)))
+           ("qt" "for terms" ekg-embedding-search :if (lambda () (featurep 'ekg-embedding)))
+           ("qb" "similar to current buffer" ekg-embedding-show-similar-to-current-buffer :if (lambda () (featurep 'ekg-embedding)))
+           ("qR" "Regenerate embeddings" ekg-embedding-generate-all :if (lambda () (featurep 'ekg-embedding)))
+           "AI"
+           ("aq" "AI query, all notes" ekg-llm-query-with-notes :if (lambda () (featurep 'ekg-llm)))
+           ]
+          ["Misc"
+           ("gr" "Global rename tag" ekg-global-rename-tag)
+           ("e" "This note ..." ekg-notes-dispatch :if-mode ekg-notes-mode)
+           ("Q" "Quit this menu" transient-quit-one)
+           ]
+          ])
+
+       (global-set-key (kbd "<f6>") 'ekg-dispatch)
+       (global-set-key (kbd "C-c e") 'ekg-dispatch)
+
+       (transient-define-prefix ekg-notes-dispatch ()
+         "Notes buffer Transient menu for EKG (Emacs Knowledge Graph)"
+         [["Show Notes"
+           ("sa" "with any of this note's tags" ekg-notes-any-note-tags)
+           ("sA" "with any of these notes' tags" ekg-notes-any-tags)
+           ("st" "select tag" ekg-notes-tag)
+           ("ss" "search for similar" ekg-embedding-show-similar :if (lambda () (featurep 'ekg-embedding)))
+           ]
+          ["AI"
+           ("aa" "AI send & append" ekg-llm-send-and-append-note :if (lambda () (featurep 'ekg-llm)))
+           ("ar" "AI send & replace" ekg-llm-send-and-replace-note :if (lambda () (featurep 'ekg-llm)))
+           ]
+          ["Manage"
+           ("c" "create" ekg-notes-create)
+           ("d" "delete" ekg-notes-delete)
+           ("g" "refresh" ekg-notes-refresh)
+           ("k" "kill (hide) note" ekg-notes-kill)
+           ("o" "open/edit" ekg-notes-open)
+           ("m" "Change mode of current note" ekg-change-mode)
+           ]
+          ["Browse"
+           ("b" "browse resource" ekg-notes-browse)
+           ("u" "Browse to URL" ekg-browse-url)
+           ("B" "select & browse" ekg-notes-select-and-browse-url)
+           ]
+          ["Global"
+           ("g" "global ekg commands..." ekg-dispatch)
+           ("q" "quit this menu" transient-quit-one)
+           ("Q" "quit EKG" kill-buffer-and-window)
+           ]
+          ])
+       (define-key ekg-notes-mode-map (kbd "e") 'ekg-notes-dispatch)
+       (define-key ekg-notes-mode-map (kbd "?") 'ekg-notes-dispatch) ; help when I'm confused
+       (define-key ekg-notes-mode-map (kbd "q") 'kill-buffer-and-window) ; I prefer this
+       )
+
+(use-package auth-source) ; get secrets stored in ~/.authinfo
+(use-package ekg
+  :straight (ekg :type git :host github
+                 :repo "ahyatt/ekg"
+                 :fork (:host github
+                              :repo "garyo/emacs-ekg"
+                              :branch "garyo/updates")
+                 )
+  :config
+  (require 'ekg-logseq)
+  (require 'ekg-org-roam)
+  ;; for LLM (AI) search, ekg uses the llm module.
+  ;; To set that up, have to also require the llm module I'm using.
+  (require 'ekg-embedding)
+  (require 'ekg-llm)
+  (require 'llm-openai)              ; this comes with the ekg package
+  ;; Get my secret OpenAPI key from ~/.authinfo, store into LLM
+  ;; See auth-source and ekg docs
+  (if (featurep 'llm-openai)
+      (let* ((authval (auth-source-search :name "openai"
+                                          :require '(:secret)))
+             (rawkey (plist-get (car authval) :secret))
+             (key (if (functionp rawkey)
+                      (funcall rawkey)
+                    rawkey)))
+        (message "Got auth key %s" key)
+        (let ((my-provider (make-llm-openai :key key)))
+          (setq ekg-llm-provider my-provider
+                ekg-embedding-provider my-provider)))
+    )
+  (setup-ekg-transients) ; only run this once all ekg funcs are loaded
+  )
+
+#+END_SRC
+
 * Version control and magit
 
 #+begin_src emacs-lisp
@@ -2644,6 +2755,7 @@ More misc stuff:
  '(jit-lock-chunk-size 3000)
  '(js-indent-level 2)
  '(js2-strict-missing-semi-warning nil)
+ '(llm-warn-on-nonfree nil)
  '(markdown-command "pandoc")
  '(mhtml-tag-relative-indent nil)
  '(mouse-wheel-tilt-scroll t)
