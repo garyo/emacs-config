@@ -2244,6 +2244,14 @@ Experimental -- logseq-like note-taking app, backed by sql rather than note file
 
 (use-package ztree)                     ; file tree browser
 
+;; White space cleanup, without obtrusive white space removal.
+;; Whitespaces at EOL and EOF are trimmed upon file save, and only for lines modified by you.
+;; Much better than globally removing EOL whitespace on save, especially when
+;; editing collaboratively with others.
+(use-package ws-butler
+  :hook (prog-mode . ws-butler-mode)
+  )
+
 ;;; Looks cool but requires helm (?)
 ; (use-package filetree)
 (use-package treemacs)
@@ -2452,17 +2460,7 @@ More misc stuff:
 (add-hook 'sql-mode-hook
           (lambda () (sql-highlight-mysql-keywords)))
 
-  ;;; whitespace and blank lines:
-(defcustom delete-trailing-whitespace-on-save
-  t "Delete trailing whitespace when buffer is saved."
-  :type '(boolean)
-  :group 'GCO)
-(make-variable-buffer-local 'delete-trailing-whitespace-on-save)
-(defun maybe-delete-trailing-whitespace ()
-  "Delete trailing whitespace on save, if enabled by delete-trailing-whitespace-on-save."
-  (if delete-trailing-whitespace-on-save
-      (delete-trailing-whitespace)))
-(add-hook 'before-save-hook 'maybe-delete-trailing-whitespace)
+;;; blank lines:
 (setq-default indicate-empty-lines t)
 
 (require 'uniquify)
