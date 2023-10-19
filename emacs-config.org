@@ -1145,6 +1145,8 @@ Built-in treesit (as of Jan 2023) requires compiled grammars in lib path or ~~/.
 
 #+begin_src emacs-lisp
 
+(setq using-treesit nil)
+
 ;;; Enable built-in treesit support, or dynamically loaded tree-sitter
 ;;; Q: can these coexist? ts-fold wants to use tree-sitter, for instance.
 (when (and (functionp 'treesit-available-p) (treesit-available-p))
@@ -2870,6 +2872,7 @@ More misc stuff:
  '(web-mode-current-column-highlight-face ((t (:background "#f0f0f0"))))
  '(header-line ((t (:height 1.1 :slant italic :color "grey75" :foreground "grey20" :background "grey90" :inherit (mode-line)))))
  '(tab-bar ((t (:inherit variable-pitch :background "grey85" :foreground "black" :height 0.87))))
+ '(doom-modeline-buffer-modified ((t (:foreground "#aa5500" :weight bold)))) ; bold red looks better over gray modeline (light theme)
  )
 
 (put 'set-goal-column 'disabled nil)
