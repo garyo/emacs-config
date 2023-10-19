@@ -19,8 +19,8 @@ To write ~emacs-config.el~, use ~M-x org-babel-tangle~. To edit and eval source 
 * Init debugging
 
 #+BEGIN_SRC emacs-lisp
-(setq debug-on-error nil)
-(setq load-prefer-newer t)
+(setopt debug-on-error nil)
+(setopt load-prefer-newer t)
 
 (defun emacs-build-description-string ()
   "Run `emacs-build-description' in a temp buffer, return result as string."
@@ -78,8 +78,8 @@ Allow profiling emacs startup
 ;; Prefer .el file if newer than .elc
 ;(setq load-prefer-newer t)
 
-(setq user-full-name "Gary Oberbrunner"
-      user-mail-address "garyo@darkstarsystems.com")
+(setopt user-full-name "Gary Oberbrunner"
+        user-mail-address "garyo@darkstarsystems.com")
 
 #+END_SRC
 
@@ -116,11 +116,11 @@ Set up some low-level settings to prevent garbage collection as frequently, allo
 
 #+BEGIN_SRC emacs-lisp
 ;; don't GC after every 800k; only when idle.
-(setq gc-cons-threshold (eval-when-compile (* 1024 1024 1024)))
+(setopt gc-cons-threshold (eval-when-compile (* 1024 1024 1024)))
 (run-with-idle-timer 10 t (lambda () (garbage-collect)))
 ;; undo is pruned on GC; allow more undos (10x default)
-(set-variable 'undo-limit 1600000)
-(set-variable 'undo-strong-limit (* 10 undo-limit))
+(setopt undo-limit 1600000)
+(setopt undo-strong-limit (* 10 undo-limit))
 
 (setq read-process-output-max (* 1024 1024)) ; improve LSP performance
 ;; typescript language server, more RAM:
@@ -365,7 +365,6 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
   "Set default font and frame attributes for FRAME."
   (when (display-graphic-p frame)
     (tool-bar-mode 0)
-    (tab-bar-mode 0)
     ;; (message "Setting up new graphic frame %s, current geom %s" frame (frame-geometry frame))
     (let ((font-info (cl-find-if (lambda (x) (font-exists-p (car x) frame))
                                  preferred-fonts)))
@@ -2017,9 +2016,10 @@ Experimental -- logseq-like note-taking app, backed by sql rather than note file
 (use-package ekg
   :straight (ekg :type git :host github
                  :repo "ahyatt/ekg"
-                 :fork (:host github
-                              :repo "garyo/emacs-ekg"
-                              :branch "garyo/updates")
+                 ; :branch "inline-tags"
+                 ;; :fork (:host github
+                 ;;              :repo "garyo/emacs-ekg"
+                 ;;              :branch "garyo/updates")
                  )
   :config
   (require 'ekg-logseq)
@@ -2175,6 +2175,35 @@ Experimental -- logseq-like note-taking app, backed by sql rather than note file
 
 #+end_src
 
+* Tabs, Buffers and Window Management
+There's a good article at https://www.masteringemacs.org/article/demystifying-emacs-window-manager about using tab-bar mode and ~display-buffer-alist~ to manage windows and set up tabs.
+Tab-bar mode commands are on ~C-x t~.
+Here are some configs that help me:
+#+BEGIN_SRC emacs-lisp
+(setopt
+ switch-to-buffer-obey-display-actions t ; treat manual buffer switching same as programmatic
+ switch-to-buffer-in-dedicated-window 'pop ; pop up somewhere else if user switches buffer in dedicated window
+ tab-bar-show 1                         ; show tabs if more than 1
+ tab-bar-format '(tab-bar-format-history tab-bar-format-tabs-groups tab-bar-separator tab-bar-format-add-tab)
+ )
+(tab-bar-mode t)                        ; enable tab bar (won't show unless there's more than one tab)
+(add-to-list 'display-buffer-alist
+             '("\\*Calendar*"
+               (display-buffer-at-bottom)))
+(add-to-list 'display-buffer-alist
+             '("\\*shell:"
+               (display-buffer-below-selected)
+               (window-height . 12)))
+(add-to-list 'display-buffer-alist
+             '("\\magit:"
+               (display-buffer-same-window)))
+(add-to-list 'display-buffer-alist
+             '("\\*Man"
+               (display-buffer-same-window)))
+(add-to-list 'display-buffer-alist
+             '("\\*Help"
+               (display-buffer-same-window)))
+#+END_SRC
 * Misc packages
 
 #+begin_src emacs-lisp
