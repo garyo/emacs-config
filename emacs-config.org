@@ -417,38 +417,48 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 (use-package system-environment
   :straight (:host github
                    :repo "bwachter/system-environment"
-                   :branch "master")
+                   :branch "master"
+                   :fork (:repo "garyo/emacs-system-environment"))
   :config
   (defun gco-update-exec-path-from-PATH ()
     "Update emacs's exec-path from PATH env var. Tries to determine
     path separator by looking for Windows drive letter. Used as a hook for system-environment."
     (let* ((path (getenv "PATH"))
-           (pathsep (if (string-match-p "[cdCD]:[\\/]" path) ";" ":")))
+           (pathsep (if (string-match-p "\\b[cdCD]:[\\/]" path) ";" ":")))
       (setq exec-path (seq-uniq
                        (append (split-string (getenv "PATH") pathsep) exec-path)
                        'string=))))
   (add-hook 'system-environment-import-hook 'gco-update-exec-path-from-PATH)
   (add-hook 'system-environment-import-async-hook 'gco-update-exec-path-from-PATH)
-  ;; Try zsh, then bash, then powershell for Windows
-  (let ((verbose t)
-        (keep-buffer nil))
-    (cond ((executable-find "zsh")
-           (system-environment-import-from-async-command
-            "zsh -i -c env"
-            '("PATH" "SSH_AUTH_SOCK" "LANG" "LC_ALL")
-            nil keep-buffer verbose))
-          ((executable-find "bash")
-           (system-environment-import-from-async-command
-            "bash -i -c env"
-            '("PATH" "SSH_AUTH_SOCK" "LANG" "LC_ALL")
-            nil keep-buffer verbose))
-          ((executable-find "powershell")
-           (system-environment-import-from-async-command
-            "powershell -Command Get-ChildItem Env:|Foreach-Object {'{0}={1}' -f $_.Key,$_.Value }"
-            '("PATH" "SSH_AUTH_SOCK" "LANG" "LC_ALL")
-            nil keep-buffer verbose))
-          (t
-           (message "No shell found; not importing system environment"))))
+    (let ((verbose nil)
+          (keep-buffer nil))
+      ;; Try zsh, then bash. Windows is special.
+      (cond ((and (eq system-type 'windows-nt) (executable-find "zsh"))
+             (message "Updating emacs env vars from Windows zsh")
+             (system-environment-import-from-command
+              "zsh -i -c env"
+              '("SSH_AUTH_SOCK" "LANG" "LC_ALL")
+              nil keep-buffer verbose)
+             ;; Handle $PATH specially; translate from cygwin style to Windows style
+             (message "Updating emacs path from Windows zsh")
+             (system-environment-import-from-async-command
+              '("zsh" "-i" "-c" "echo PATH=$(cygpath -p -m $PATH)")
+              '("PATH")
+              nil keep-buffer verbose "*system-environment-2*"))
+            ((executable-find "zsh")
+             (message "Updating emacs path from zsh")
+             (system-environment-import-from-async-command
+              "zsh -i -c env"
+              '("PATH" "SSH_AUTH_SOCK" "LANG" "LC_ALL")
+              nil keep-buffer verbose))
+            ((executable-find "bash")
+             (message "Updating emacs path from bash")
+             (system-environment-import-from-async-command
+              "bash -i -c env"
+              '("PATH" "SSH_AUTH_SOCK" "LANG" "LC_ALL")
+              nil keep-buffer verbose))
+            (t
+             (message "No shell found; not importing system environment"))))
   )
 #+end_src
 
@@ -1890,26 +1900,27 @@ TODO: is there any way to hide or de-emphasize the tildes org-mode uses for sour
 
 * Org-roam
 #+begin_src emacs-lisp
-(use-package org-roam
-  :ensure t
-  :init
-  (setq org-roam-v2-ack t)
-  :custom
-  (org-roam-directory "~/Documents/org-roam")
-  (org-roam-completion-everywhere t)
-  :bind (("C-c n l" . org-roam-buffer-toggle)
-         ("C-c n f" . org-roam-node-find)
-         ("C-c n i" . org-roam-node-insert)
-         :map org-mode-map
-         ("C-M-i" . completion-at-point)
-         :map org-roam-dailies-map
-         ("Y" . org-roam-dailies-capture-yesterday)
-         ("T" . org-roam-dailies-capture-tomorrow))
-  :bind-keymap
-  ("C-c n d" . org-roam-dailies-map)
-  :config
-  (require 'org-roam-dailies) ;; Ensure the keymap is available
-  (org-roam-db-autosync-mode))
+(if (file-exists-p "~/Documents/org-roam")
+    (use-package org-roam
+      :ensure t
+      :init
+      (setq org-roam-v2-ack t)
+      :custom
+      (org-roam-directory "~/Documents/org-roam")
+      (org-roam-completion-everywhere t)
+      :bind (("C-c n l" . org-roam-buffer-toggle)
+             ("C-c n f" . org-roam-node-find)
+             ("C-c n i" . org-roam-node-insert)
+             :map org-mode-map
+             ("C-M-i" . completion-at-point)
+             :map org-roam-dailies-map
+             ("Y" . org-roam-dailies-capture-yesterday)
+             ("T" . org-roam-dailies-capture-tomorrow))
+      :bind-keymap
+      ("C-c n d" . org-roam-dailies-map)
+      :config
+      (require 'org-roam-dailies) ;; Ensure the keymap is available
+      (org-roam-db-autosync-mode)))
 #+end_src
 
 * EKG: Emacs Knowledge Graph
@@ -2165,6 +2176,10 @@ Here are some configs that help me:
 (add-to-list 'display-buffer-alist
              '("\\*Calendar*"
                (display-buffer-at-bottom)))
+(add-to-list 'display-buffer-alist
+             '("\\*Warnings*"
+               (display-buffer-at-bottom)
+               (window-height . 5)))
 (add-to-list 'display-buffer-alist
              '("\\*shell:"
                (display-buffer-below-selected)
