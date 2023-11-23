@@ -20,7 +20,6 @@ To write ~emacs-config.el~, use ~M-x org-babel-tangle~. To edit and eval source 
 
 #+BEGIN_SRC emacs-lisp
 (setopt debug-on-error nil)
-(setopt load-prefer-newer t)
 
 (defun emacs-build-description-string ()
   "Run `emacs-build-description' in a temp buffer, return result as string."
@@ -37,18 +36,6 @@ config: %s
            (emacs-build-description-string)
            system-configuration-features))
 
-#+END_SRC
-
-* Set up performance timing for loading init files
-#+BEGIN_SRC emacs-lisp
-
-(defvar gco-timer (float-time))
-(defun print-elapsed-time (loc)
-  "Show elapsed time since last call, at LOC (string)."
-    (let* ((now (float-time))
-           (elapsed (- now gco-timer)))
-      (setq gco-timer now)
-      (message "%s: Elapsed time: %s sec" loc elapsed)))
 #+END_SRC
 
 * Package manager: use ~straight.el~
@@ -116,7 +103,6 @@ Set up some low-level settings to prevent garbage collection as frequently, allo
 
 #+BEGIN_SRC emacs-lisp
 ;; don't GC after every 800k; only when idle.
-(setopt gc-cons-threshold (eval-when-compile (* 1024 1024 1024)))
 (run-with-idle-timer 10 t (lambda () (garbage-collect)))
 ;; undo is pruned on GC; allow more undos (10x default)
 (setopt undo-limit 1600000)
@@ -2857,8 +2843,8 @@ More misc stuff:
 * Finally!
 
 #+begin_src emacs-lisp
+(print-time-since-init "emacs-config.el/org")
 (provide 'emacs)
-(print-elapsed-time "Init file loaded")
 #+end_src
 
 # @ Local variables:
