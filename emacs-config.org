@@ -2225,7 +2225,11 @@ Here are some configs that help me:
        ;; Note: this uses nerd-icons. You may need to do ~M-x nerd-icons-install-fonts~.
        (use-package doom-modeline
          :ensure t
-         :hook (after-init . doom-modeline-mode))
+         :hook (after-init . doom-modeline-mode)
+         :config
+         (set-face-attribute 'mode-line-active nil :background "#0d5") ; bright green
+         (set-face-attribute 'mode-line-inactive nil :background "#ccc") ; dim gray
+         )
        )
       )
 
