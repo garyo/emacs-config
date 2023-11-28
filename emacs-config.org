@@ -2307,6 +2307,7 @@ Here are some configs that help me:
 
 ;;; Use M-x mc/<TAB> to see commands
 (use-package multiple-cursors
+  :bind (("C-S-<mouse-1>" . 'mc/add-cursor-on-click)) ; activate multiple cursors with Ctrl-shift-click
   )
 
 ;;; Useful when switching git branches
