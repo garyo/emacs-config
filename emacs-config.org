@@ -1128,19 +1128,12 @@ Built-in treesit (as of Jan 2023) requires compiled grammars in lib path or ~~/.
   ;; Use built-in treesit -- best as of Jan 2023
   (setq using-treesit t)
 
-  ;; remap modes to use *-ts-mode
-  (push '(css-mode . css-ts-mode) major-mode-remap-alist)
-  (push '(python-mode . python-ts-mode) major-mode-remap-alist)
-  (push '(javascript-mode . js-ts-mode) major-mode-remap-alist)
-  ; NOT READY (push '(js-json-mode . json-ts-mode) major-mode-remap-alist)
-  ; NOT READY (push '(json-mode . json-ts-mode) major-mode-remap-alist)
-  (push '(typescript-mode . typescript-ts-mode) major-mode-remap-alist)
-  ;; Not ready 2023-03-23
-  ;(push '(c-mode . c-ts-mode) major-mode-remap-alist)
-  ;(push '(c++-mode . c++-ts-mode) major-mode-remap-alist)
-  (push '(yaml-mode . yaml-ts-mode) major-mode-remap-alist)
-  (push '(cmake-mode . cmake-ts-mode) major-mode-remap-alist)
-  (push '(sh-mode . bash-ts-mode) major-mode-remap-alist)
+  (use-package treesit-auto
+    :custom
+    (treesit-auto-install 'prompt)
+    :config
+    (global-treesit-auto-mode))
+
   ; include a few more sexp types than the default
   (add-hook 'c++-mode (lambda ()
                        (setq-local treesit-sexp-type-regexp
