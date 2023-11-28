@@ -664,10 +664,12 @@ TODO: Each element in ~company-backends~ is tried, and the first that returns re
   :defines company-dabbrev-downcase company-dabbrev-ignore-case
   :config
   (global-company-mode)
-  ;; dabbrev mode seems closest to TMC completion
-  (setq company-backends '(company-capf company-dabbrev-code
-                                        company-dabbrev company-etags
-                                        company-keywords))
+  ;; dabbrev mode seems closest to TMC completion so make sure that's always in the list
+  (setq company-backends '((company-capf company-dabbrev :separate)
+                           company-dabbrev-code
+                           company-dabbrev
+                           company-etags
+                           company-keywords))
   (setq company-dabbrev-downcase nil	; make case-sensitive
 	company-dabbrev-ignore-case nil ; make case-sensitive
         company-dabbrev-char-regexp "\\(\\sw\\|\\s_\\)"
@@ -932,7 +934,11 @@ Mostly programming-language related.
   :mode (("README\\.md\\'" . gfm-mode)
          ("\\.md\\'" . markdown-mode)
          ("\\.markdown\\'" . markdown-mode))
-  :init (setq markdown-command "multimarkdown"))
+  :bind (:map markdown-mode-map
+         ("M-RET" . company-complete))
+  :init (setq markdown-command "multimarkdown"
+              company-dabbrev-downcase 'case-replace
+              company-dabbrev-ignore-case t))
 
 ;; instant live github markdown preview in markdown mode, C-c C-c g
 ;; Requires 'grip', a python package (pip install grip) installed in system python
@@ -1617,7 +1623,6 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
          ;; eglot doesn't have any completions (e.g. to use yasnippet or complete
          ;; in strings and comments)
          (add-to-list 'eglot-stay-out-of "company")
-         (add-to-list 'company-backends  'company-capf)
          (define-key eglot-mode-map (kbd "C-c h") 'eglot-help-at-point)
          (my-eglot-init)
          )
