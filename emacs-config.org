@@ -423,7 +423,7 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
              (message "Updating emacs env vars from Windows zsh")
              (system-environment-import-from-command
               "zsh -i -c env"
-              '("SSH_AUTH_SOCK" "LANG" "LC_ALL")
+              '("SSH_AUTH_SOCK" "LANG" "LC_ALL" "GIT_SSH_COMMAND")
               nil keep-buffer verbose)
              ;; Handle $PATH specially; translate from cygwin style to Windows style
              (message "Updating emacs path from Windows zsh")
@@ -936,9 +936,7 @@ Mostly programming-language related.
          ("\\.markdown\\'" . markdown-mode))
   :bind (:map markdown-mode-map
          ("M-RET" . company-complete))
-  :init (setq markdown-command "multimarkdown"
-              company-dabbrev-downcase 'case-replace
-              company-dabbrev-ignore-case t))
+  :init (setq markdown-command "multimarkdown"))
 
 ;; instant live github markdown preview in markdown mode, C-c C-c g
 ;; Requires 'grip', a python package (pip install grip) installed in system python
@@ -1128,28 +1126,28 @@ Built-in treesit (as of Jan 2023) requires compiled grammars in lib path or ~~/.
   ;; Use built-in treesit -- best as of Jan 2023
   (setq using-treesit t)
 
+  ; include a few more sexp types than the default
+  (add-hook 'c++-ts-mode-hook
+            (lambda ()
+              (setq-local treesit-sexp-type-regexp
+                          (regexp-opt '("preproc"
+                                        "declarator"
+                                        "qualifier"
+                                        "type"
+                                        "parameter"
+                                        "expression"
+                                        "literal"
+                                        "string"
+                                        "return" ; added by garyo
+                                        "init"   ; added by garyo
+                                        )))
+              ))
+
   (use-package treesit-auto
     :custom
     (treesit-auto-install 'prompt)
     :config
     (global-treesit-auto-mode))
-
-  ; include a few more sexp types than the default
-  (add-hook 'c++-mode (lambda ()
-                       (setq-local treesit-sexp-type-regexp
-                                   (regexp-opt '("preproc"
-                                                 "declarator"
-                                                 "qualifier"
-                                                 "type"
-                                                 "parameter"
-                                                 "expression"
-                                                 "literal"
-                                                 "string"
-                                                 "return"    ; added by garyo
-                                                 "init"      ; added by garyo
-                                                 )))
-                       )
-            )
   )
 ;; Also use tree-sitter minor mode (?)
 ;; Actually it doesn't play perfectly with treesit; ts-fold at least
@@ -1202,7 +1200,7 @@ Point^^                     Recursive^^             All^^
 
          :config (global-ts-fold-indicators-mode)
 
-         :bind (("C-c f" . hydra-ts-fold/body)
+         :bind (("C-c C-f" . hydra-ts-fold/body)
                 )
          )
        )
@@ -1212,7 +1210,7 @@ Point^^                     Recursive^^             All^^
          :straight (ts-fold :type git :host github :repo "emacs-tree-sitter/ts-fold")
          :config (global-ts-fold-indicators-mode)
 
-         :bind (("C-c f" . hydra-ts-fold/body)
+         :bind (("C-c C-f" . hydra-ts-fold/body)
                 )
          )
        ))
