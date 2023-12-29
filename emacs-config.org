@@ -417,13 +417,14 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
   (add-hook 'system-environment-import-hook 'gco-update-exec-path-from-PATH)
   (add-hook 'system-environment-import-async-hook 'gco-update-exec-path-from-PATH)
     (let ((verbose nil)
-          (keep-buffer nil))
+          (keep-buffer nil)
+          (env-vars '("SSH_AUTH_SOCK" "LANG" "LC_ALL" "CLANGD_FLAGS" "GIT_SSH_COMMAND")))
       ;; Try zsh, then bash. Windows is special.
       (cond ((and (eq system-type 'windows-nt) (executable-find "zsh"))
              (message "Updating emacs env vars from Windows zsh")
              (system-environment-import-from-command
               "zsh -i -c env"
-              '("SSH_AUTH_SOCK" "LANG" "LC_ALL" "GIT_SSH_COMMAND")
+              env-vars
               nil keep-buffer verbose)
              ;; Handle $PATH specially; translate from cygwin style to Windows style
              (message "Updating emacs path from Windows zsh")
@@ -435,13 +436,13 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
              (message "Updating emacs path from zsh")
              (system-environment-import-from-async-command
               "zsh -i -c env"
-              '("PATH" "SSH_AUTH_SOCK" "LANG" "LC_ALL")
+              (cons "PATH" env-vars)
               nil keep-buffer verbose))
             ((executable-find "bash")
              (message "Updating emacs path from bash")
              (system-environment-import-from-async-command
               "bash -i -c env"
-              '("PATH" "SSH_AUTH_SOCK" "LANG" "LC_ALL")
+              (cons "PATH" env-vars)
               nil keep-buffer verbose))
             (t
              (message "No shell found; not importing system environment"))))
@@ -758,11 +759,6 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
         (completion-category-overrides nil))
     (consult-line)))
 
-(defmacro consult-flycheck-or-flymake ()
-  `(if use-flycheck-mode
-      ,consult-flycheck
-    ,consult-flymake))
-
 (use-package consult
   :after projectile
   :defines consult-buffer-sources
@@ -782,10 +778,9 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
          ("C-M-#" . consult-register)
          ;; Other custom bindings
          ("M-y" . consult-yank-pop)                ;; orig. yank-pop
-         ("<help> a" . consult-apropos) ;; orig. apropos-command
          ;; M-g bindings (goto-map)
          ("M-g e" . consult-compile-error)
-         ("M-g f" . consult-flycheck-or-flymake)
+         ("M-g f" . consult-flymake)
          ("M-g g" . consult-goto-line) ;; orig. goto-line
          ("M-g M-g" . consult-goto-line) ;; orig. goto-line
          ("M-g o" . consult-outline) ;; Alternative: consult-org-heading
@@ -2220,6 +2215,37 @@ Here are some configs that help me:
          :config
          (set-face-attribute 'mode-line-active nil :background "#0d5") ; bright green
          (set-face-attribute 'mode-line-inactive nil :background "#ccc") ; dim gray
+         ;; My mod for the "workspace-name" segment: show a Tab icon
+         ;; (it's confusing if it's just sitting there)
+         (doom-modeline-def-segment workspace-name
+           "The current workspace name or number.
+            Requires `eyebrowse-mode' to be enabled or `tab-bar-mode' tabs to be created."
+           (when doom-modeline-workspace-name
+             (when-let
+                 ((name (cond
+                         ((and (bound-and-true-p eyebrowse-mode)
+                               (length> (eyebrowse--get 'window-configs) 1))
+                          (setq mode-line-misc-info
+                                (assq-delete-all 'eyebrowse-mode mode-line-misc-info))
+                          (when-let*
+                              ((num (eyebrowse--get 'current-slot))
+                               (tag (nth 2 (assoc num (eyebrowse--get 'window-configs)))))
+                            (if (length> tag 0) tag (int-to-string num))))
+                         ((and (fboundp 'tab-bar-mode)
+                               (length> (frame-parameter nil 'tabs) 1))
+                          (let* ((current-tab (tab-bar--current-tab))
+                                 (tab-index (tab-bar--current-tab-index))
+                                 (explicit-name (alist-get 'explicit-name current-tab))
+                                 (tab-name (alist-get 'name current-tab)))
+                            (if explicit-name tab-name (+ 1 tab-index)))))))
+               (concat
+                (propertize " "
+                            'face (doom-modeline-face 'doom-modeline-buffer-major-mode))
+                (propertize (doom-modeline-icon 'mdicon "nf-md-tab" "🖿" "TAB"))
+                (propertize (format ":%s " name)
+                            'face (doom-modeline-face 'doom-modeline-buffer-major-mode))
+                ))))
+
          )
        )
       )
@@ -2352,7 +2378,82 @@ I like to have it save the list periodically in case of crashes or when using em
 
 * Misc stuff to organize
 
-#+begin_src emacs-lisp
+A Transient menu, bound to <f2>, for isearch mode, to get easy access to all the less-used isearch commands:
+#+BEGIN_SRC emacs-lisp
+(require 'transient)
+
+(transient-define-prefix go/isearch-menu ()
+  "isearch Menu"
+  [["Edit Search String"
+    ("e"
+     "Edit the search string (recursive)"
+     isearch-edit-string
+     :transient nil)
+    ("w"
+     "Pull next word or character word from buffer"
+     isearch-yank-word-or-char
+     :transient nil)
+    ("s"
+     "Pull next symbol or character from buffer"
+     isearch-yank-symbol-or-char
+     :transient nil)
+    ("l"
+     "Pull rest of line from buffer"
+     isearch-yank-line
+     :transient nil)
+    ("y"
+     "Pull string from kill ring"
+     isearch-yank-kill
+     :transient nil)
+    ("t"
+     "Pull thing from buffer"
+     isearch-forward-thing-at-point
+     :transient nil)]
+
+   ["Replace"
+    ("q"
+     "Start ‘query-replace’"
+     isearch-query-replace
+     :if-nil buffer-read-only
+     :transient nil)
+    ("x"
+     "Start ‘query-replace-regexp’"
+     isearch-query-replace-regexp
+     :if-nil buffer-read-only     
+     :transient nil)]]
+
+  [["Toggle"
+    ("X"
+     "Toggle regexp searching"
+     isearch-toggle-regexp
+     :transient nil)
+    ("S"
+     "Toggle symbol searching"
+     isearch-toggle-symbol
+     :transient nil)
+    ("W"
+     "Toggle word searching"
+     isearch-toggle-word
+     :transient nil)
+    ("F"
+     "Toggle case fold"
+     isearch-toggle-case-fold
+     :transient nil)
+    ("L"
+     "Toggle lax whitespace"
+     isearch-toggle-lax-whitespace
+     :transient nil)]
+
+   ["Misc"
+    ("o"
+     "occur"
+     isearch-occur
+     :transient nil)]])
+
+(define-key isearch-mode-map (kbd "<f2>") 'go/isearch-menu)
+#+END_SRC
+
+,#+begin_src emacs-lisp
 
 (defun maybe-require (feature)
   "Try to require FEATURE (symbol); return feature or nil."
