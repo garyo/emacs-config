@@ -1405,9 +1405,14 @@ Return the errors parsed with the error patterns of CHECKER."
                      :branch "feature/eglot")
     :hook (flymake-mode . flymake-posframe-mode)
     )
+  ;; This is what eglot uses to show popup doc windows on hover
   (use-package eldoc-box
-    :custom-face (eldoc-box-body ((t (:inherit 'variable-pitch))))
+    ;; note: I've set 'variable-pitch to be quite large, too large for
+    ;; doc boxes, so best to explicitly set height here.
+    :custom-face (eldoc-box-body ((t (:inherit 'variable-pitch :height 100))))
     :hook (eglot-managed-mode . eldoc-box-hover-mode)
+    :config
+    (setq eldoc-box-max-pixel-width 500)
     )
 
   (add-to-list 'display-buffer-alist
@@ -1597,12 +1602,14 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
       (t
        (use-package jsonrpc)
        (use-package eglot
-         :straight (:host github
-                          :repo "joaotavora/eglot"
-                          :branch "master")
+         ;; Don't get from master repo -- eglot is part of emacs now, just use the normal version.
+         ;; :straight (:host github
+         ;;                  :repo "joaotavora/eglot"
+         ;;                  :branch "master")
          :commands eglot-ensure
          :hook ((vue-mode . eglot-ensure)
                 (c-mode-common . eglot-ensure)
+                (c-ts-base-mode . eglot-ensure)
                 (cmake-base-mode . eglot-ensure) ; cmake-language-server
                 (sh-base-mode . eglot-ensure) ; bash-language-server
                 (yaml-base-mode . eglot-ensure) ; yaml-language-server
@@ -1621,6 +1628,8 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
          (add-to-list 'eglot-stay-out-of "company")
          (define-key eglot-mode-map (kbd "C-c h") 'eglot-help-at-point)
          (my-eglot-init)
+         ;; note: eglot uses eldoc-box for popup doc
+         ;; and flymake for errors (I use flymake-posframe so errors show up as popups)
          )
        ))
 
