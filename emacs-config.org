@@ -1121,27 +1121,13 @@ Built-in treesit (as of Jan 2023) requires compiled grammars in lib path or ~~/.
   ;; Use built-in treesit -- best as of Jan 2023
   (setq using-treesit t)
 
-  ; include a few more sexp types than the default
-  (add-hook 'c++-ts-mode-hook
-            (lambda ()
-              (setq-local treesit-sexp-type-regexp
-                          (regexp-opt '("preproc"
-                                        "declarator"
-                                        "qualifier"
-                                        "type"
-                                        "parameter"
-                                        "expression"
-                                        "literal"
-                                        "string"
-                                        "return" ; added by garyo
-                                        "init"   ; added by garyo
-                                        )))
-              ))
-
   (use-package treesit-auto
     :custom
     (treesit-auto-install 'prompt)
     :config
+    ;; (setq treesit-auto-langs
+    ;;       (delete 'c
+    ;;               (delete 'cpp treesit-auto-langs)))
     (global-treesit-auto-mode))
   )
 ;; Also use tree-sitter minor mode (?)
