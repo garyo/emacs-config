@@ -2308,7 +2308,11 @@ Here are some configs that help me:
 ;;; Looks cool but requires helm (?)
 ; (use-package filetree)
 (use-package treemacs)
-(use-package treemacs-projectile)
+(if (featurep 'projectile)
+    (use-package treemacs-projectile
+      :after projectile
+      )
+  )
 
 ;;; Temporarily highlight undo, yank, find-tag and a few other things
 (use-package volatile-highlights
