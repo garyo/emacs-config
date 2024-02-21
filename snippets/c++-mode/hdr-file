@@ -1,0 +1,14 @@
+# -*- mode: snippet -*-
+# name: c++ header
+# key: hdr-file
+# --
+/*`(make-string 38 ?*)`*/
+/*`(make-string 38 ? )`*/
+/*  Copyright `(format-time-string "%Y")` `(format "%-21s" company-name)`*/
+/*  All Rights Reserved.`(make-string 16 ? )`*/
+/*`(make-string 38 ? )`*/
+/*`(make-string 38 ?*)`*/
+
+#pragma once
+
+$0

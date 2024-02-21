@@ -575,6 +575,7 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 Projectile has gotten good over the last few years. I mostly use it for finding files in the project and with ripgrep.
 
 #+begin_src emacs-lisp
+(use-package project) ; as of 2024-02-12 an emacs/straight bug requires this explicitly
 (use-package projectile
   :bind (("s-p" . projectile-command-map)
          ("C-c p" . projectile-command-map))
@@ -1322,6 +1323,11 @@ move to the next field. Call `open-line' if nothing else applies."
 ;;; all the snippets -- this is big!
 (use-package yasnippet-snippets
   :defer 5)
+
+;; I define some yasnippets using ~company-name~ which is intended to be
+;; set in a .dir-locals.el file, so mark it as safe for all string values
+(defvar company-name "Dark Star Systems, Inc." "Company name, for use in file snippets")
+(put 'company-name 'safe-local-variable #'stringp)
 
 #+end_src
 

@@ -1,0 +1,14 @@
+# -*- mode: snippet -*-
+# name: C++ file
+# key: cpp-file
+# --
+/*`(make-string 38 ?*)`*/
+/*`(make-string 38 ? )`*/
+/*  Copyright `(format-time-string "%Y")` `(format "%-21s" company-name)`*/
+/*  All Rights Reserved.`(make-string 16 ? )`*/
+/*`(make-string 38 ? )`*/
+/*`(make-string 38 ?*)`*/
+
+#include "`(file-name-nondirectory (file-name-sans-extension (buffer-file-name)))`.h"
+
+$0
