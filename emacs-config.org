@@ -2485,7 +2485,7 @@ A Transient menu, bound to <f2>, for isearch mode, to get easy access to all the
 (define-key isearch-mode-map (kbd "<f2>") 'go/isearch-menu)
 #+END_SRC
 
-,#+begin_src emacs-lisp
+#+BEGIN_SRC emacs-lisp
 
 (defun maybe-require (feature)
   "Try to require FEATURE (symbol); return feature or nil."
