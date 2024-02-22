@@ -4,7 +4,7 @@
 #+property: header-args :tangle emacs-config.el
 #+options: toc:2 num:nil
 
-This is my "literate" org-mode Emacs config file. Parts of it are from the 1980s but most of it is fairly up to date. I intend for it to work on any recent (>=27.x) Emacs, on Windows, Linux, and Mac.
+This is my "literate" org-mode Emacs config file. Parts of it are from the 1980s but most of it is fairly up to date. I intend for it to work on any recent Emacs, on Windows, Linux, and Mac.
 
 For my org-mode conversion, I used some ideas from [https://github.com/hrs/dotfiles/blob/main/emacs/.config/emacs/configuration.org][Harry R. Schwarz's config]
 and [https://github.com/mxco86/emacs-config][Matthew Ryall's config].
@@ -275,7 +275,7 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 
 * Font and frame setup
 
-#+begin_src emacs-lisp
+#+BEGIN_SRC emacs-lisp
 
 ;;;; FONTS ;;;;;;
 ;; Notes:
@@ -544,8 +544,6 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 (setq explicit-bash-args '("--login" "--noediting" "-i")
                                         ; explicit-zsh-args '("-i" "-o" "emacscygwinhack")
       explicit-zsh-args '("-i")
-                                        ; explicit-sh-args '("-login" "-i") (only needed for bash)
-                                        ; comint-scroll-show-maximum-output 'this
       comint-completion-addsuffix t
                                         ; comint-process-echoes nil ;; t for command.com, nil for bash
       comint-eol-on-send t
@@ -1037,6 +1035,10 @@ Mostly programming-language related.
 
 (defun my-c-mode-hook ()
   "C style for Gary Oberbrunner."
+  ;; Much of this is irrelevant in modern code (as of 2023 or so) because
+  ;; I use clang-format to format C/C++ buffers on save.
+  ;; But this keeps things close to the proper style as I'm editing.
+  ;; Also with the treesit modes, these are probably ignored.
   (setq-default c-basic-offset 2
                 c-hanging-comment-ender-p nil
                 c-hanging-comment-start-p nil)
@@ -1438,10 +1440,10 @@ For C++, use ~clangd~.
 
 ** Eglot Vue Language Server
 
-When using eglot, the Vue language server has to be specially configured (at least it did when I wrote this).
+When using eglot, the Vue language server has to be specially configured; at least it did when I wrote this.
 We define some vars that will only be used when using eglot.
 
-#+begin_src emacs-lisp
+#+BEGIN_SRC emacs-lisp
 
 (defvar lsp-verbose nil
   "Set to t to turn on lots of logging in lsp-mode or eglot.")
@@ -1496,6 +1498,8 @@ We define some vars that will only be used when using eglot.
   (defun my-eglot-init ()
     """Initialize eglot."""
 
+    ;;; Set up Vue Language Server
+
     (defclass eglot-vls (eglot-lsp-server) ()
       :documentation "Vue Language Server.")
 
@@ -1521,9 +1525,8 @@ We define some vars that will only be used when using eglot.
                 :stylusSupremacy nil
                 )))
     )
-  )
-
-#+end_src
+ )
+#+END_SRC
 
 ** Set up LSP or Eglot
 
@@ -1533,7 +1536,7 @@ I use it for Javascript/typescript, Vue, python, and maybe C++.
 *** My setup for LSP mode
 This is currently unused as of Dec 2023; eglot is built-in to emacs and works well.
 
-#+begin_src emacs-lisp
+#+BEGIN_SRC emacs-lisp
 
 ;; (defun lsp-ui-doc-font ()
 ;;   (face-remap-add-relative 'default :family "Bitstream Charter" :height 120))
@@ -1593,7 +1596,7 @@ This is currently unused as of Dec 2023; eglot is built-in to emacs and works we
   (if (not (featurep 'yasnippet))
       (warn "LSP: missing yasnippet, LSP won't work well"))
   )
-,#+END_SRC emacs-lisp
+#+END_SRC
 
 *** My setup for eglot mode
 
@@ -1602,7 +1605,7 @@ Tested & working with C++ (clangd), Python (pyright-langserver), and Typescript 
 
 #+BEGIN_SRC emacs-lisp
 (defun setup-eglot-mode ()
-  (use-package jsonrpc)
+  ;(use-package jsonrpc) NO -- leave this as built-in
   (use-package eglot
     ;; Don't get from master repo -- eglot is part of emacs now, just use the normal version.
     ;; :straight (:host github
@@ -1634,16 +1637,14 @@ Tested & working with C++ (clangd), Python (pyright-langserver), and Typescript 
     ;; and flymake for errors (I use flymake-posframe so errors show up as popups)
     )
   )
-#+END_SRC emacs-lisp
+#+END_SRC
 
 *** Set up LSP service (eglot or lsp)
 
 #+BEGIN_SRC emacs-lisp
-(cond ((and use-lsp-mode (has-fast-json))
-       (setup-lsp-mode)
-      (t
-       (setup-eglot-mode)
-       ))
+(if (and use-lsp-mode (has-fast-json))
+  (setup-lsp-mode)
+  (setup-eglot-mode))
 
 (when use-lsp-mode
   (with-eval-after-load 'hydra
@@ -1675,8 +1676,7 @@ Tested & working with C++ (clangd), Python (pyright-langserver), and Typescript 
   ;; Volar is a good LSP client for Vue files
   (straight-use-package '(lsp-volar :type git :host github :repo "jadestrong/lsp-volar"))
   (use-package lsp-volar))
-
-#+END_SRC emacs-lisp
+#+END_SRC
 
 * Org mode
 
