@@ -2708,6 +2708,13 @@ More misc stuff:
         ("^\"\\([^\"]*\", line [0-9]+:[ \t]*\\)\\(.*$\\)"
          2 font-lock-function-name-face)))
 
+;; clang compiler error messages are like "edg-1" but the line number has ,COL after it
+(let ((clang-err-elt
+       '(clang-1 "^\\([^ \n]+\\)(\\([0-9]+\\),\\([0-9]+\\)): \\(?:fatal\\|error\\|warnin\\(g\\)\\|remar\\(k\\)\\)"
+        1 2 3 (4 . 5))))
+  (add-to-list 'compilation-error-regexp-alist-alist clang-err-elt)
+  (add-to-list 'compilation-error-regexp-alist 'clang-1))
+
   ;;; For emacs23, long lines in buffers make emacs really slow.
   ;;; This seems to ameliorate it a little.
 (add-hook 'compilation-mode-hook (lambda () (line-number-mode nil)))
@@ -2817,7 +2824,7 @@ More misc stuff:
                                "Move up 10 lines"
                                (interactive)
                                (previous-line 10)))
-(global-set-key [f5] 'compile)
+(global-set-key [f5] 'projectile-compile-project)
 (global-set-key [remap count-words-region] #'count-words) ; better: uses region when active
 
 #+end_src
