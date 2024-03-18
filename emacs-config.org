@@ -1205,95 +1205,7 @@ Point^^                     Recursive^^             All^^
 
 ** File skeletons and snippets
 
-Skeletons set up initial content for files in various programming languages, and snippets dynamically expand text.
-
 #+begin_src emacs-lisp
-
-(defun copyright-for-skel (comment-start comment-end)
-  "Skeleton for corporate copyright in a comment, using COMMENT-START and COMMENT-END."
-  (s-format
-   (concat "${cs} ----------------------------------------------------------------------${ce}\n"
-           "${cs} (c) Copyright " (substring (current-time-string) -4) ", Dark Star Systems, Inc.  All rights reserved.    ${ce}\n"
-           "${cs} This file may contain proprietary and confidential information.	${ce}\n"
-           "${cs} DO NOT COPY or distribute in any form without prior written consent. ${ce}\n"
-           "${cs} ----------------------------------------------------------------------${ce}\n")
-   'aget `(("cs" . ,comment-start) ("ce" . ,comment-end)))
-  )
-
-(define-skeleton cxx-skeleton
-  "Default C/C++ file skeleton"
-  ""
-  (copyright-for-skel "/*" "*/")
-  "\n"
-  > _ \n
-  "\n"
-  "/* end of " (file-name-nondirectory (buffer-file-name)) " */" > \n)
-
-(define-skeleton h-skeleton
-  "Default C/C++ header file skeleton"
-  ""
-  '(setq h-guard-name
-         (replace-regexp-in-string "-" "_" (upcase (file-name-base (buffer-file-name)))))
-  (copyright-for-skel "/*" "*/")
-  "\n"
-  "#ifndef __" h-guard-name "_H__" \n
-  "#define __" h-guard-name "_H__" \n
-  "\n"
-  > _ \n
-  "\n"
-  "#endif /*__" h-guard-name "_H__ */" \n
-  "/* end of " (file-name-nondirectory (buffer-file-name)) " */" > \n)
-
-(define-skeleton sh-skeleton
-  "Default shell file skeleton"
-  ""
-  "#! /bin/bash" \n
-  "\n"
-  (copyright-for-skel "#" "")
-  "\n"
-  > _ \n
-  "\n"
-  "\n"
-  "# end of " (file-name-nondirectory (buffer-file-name)) \n
-  )
-
-(define-skeleton py-skeleton
-  "Default Python file skeleton"
-  ""
-  "#! /usr/bin/env python" \n
-  "\n"
-  (copyright-for-skel "#" "")
-  "\n"
-  > _ \n
-  "\n"
-  "\n"
-  "# end of " (file-name-nondirectory (buffer-file-name)) \n
-  )
-
-(define-skeleton js-skeleton
-  "Default Javascript file skeleton"
-  ""
-  (copyright-for-skel "//" "")
-  "\n"
-  > _ \n
-  "\n"
-  )
-
-(auto-insert-mode)
-(setq-default auto-insert-alist
-              '((("\\.\\(CC?\\|cc\\|c\\|cxx\\|cpp\\|c++\\)\\'" . "C/C++ skeleton")
-                 . cxx-skeleton)
-                (("\\.\\(HH?\\|hh\\|h\\|hxx\\|hpp\\|h++\\)\\'" . "C/C++ header skeleton")
-                 . h-skeleton)
-                (("\\.\\(sh\\)\\'" . "Shell script skeleton")
-                 . sh-skeleton)
-                (("\\.\\(py\\)\\'" . "Python script skeleton")
-                 . py-skeleton)
-                (("\\.\\(jsx?\\|vue\\|tsx?\\)\\'" . "Javascript skeleton")
-                 . js-skeleton)
-                )
-              )
-
 ;;; Yasnippet -- autocomplete various language snippets
 ;;; TAB expands snippet "keys" (abbrevs) and moves to next field
 (use-package yasnippet
@@ -2502,12 +2414,31 @@ A Transient menu, bound to <f2>, for isearch mode, to get easy access to all the
   "Try to require FEATURE (symbol); return feature or nil."
   (require feature nil t))
 
-;; edit server for Chrome (browser extension) (but only if installed):
-(when (maybe-require 'edit-server)
-  (defvar edit-server-new-frame)
-  (setq edit-server-new-frame nil)
-  (message "Starting edit server for Chrome...")
-  (edit-server-start))
+;; Edit server for Chrome (browser extension) (but only if installed):
+;; Install this Chrome extension: https://chromewebstore.google.com/detail/chrome-emacs/dabdpcafiblbndpoadckibiaojbdnpjg
+(use-package atomic-chrome
+  :demand t
+  :straight (atomic-chrome
+             :repo "KarimAziev/atomic-chrome"
+             :type git
+             :flavor nil
+             :host github)
+  :commands (atomic-chrome-start-server)
+  :defines atomic-chrome-create-file-strategy
+  :config
+  (atomic-chrome-start-server)
+  (setq-default atomic-chrome-extension-type-list '(atomic-chrome))
+  (setq-default atomic-chrome-buffer-open-style 'frame)
+  (setq-default atomic-chrome-auto-remove-file t)
+  (setq-default atomic-chrome-url-major-mode-alist
+                '(("github.com" . gfm-mode)
+                  ("gitlab.com" . gfm-mode)
+                  ("leetcode.com" . typescript-ts-mode)
+                  ("codesandbox.io" . js-ts-mode)
+                  ("typescriptlang.org" . typescript-ts-mode)
+                  ("jsfiddle.net" . js-ts-mode)
+                  ("w3schools.com" . js-ts-mode)))
+  )
 
 ;; In WSL2, browse to URLs using Windows cmd.exe which will open
 ;; default browser.

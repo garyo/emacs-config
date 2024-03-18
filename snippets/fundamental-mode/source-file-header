@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: source-file-header
+# key: source
+# --
+`comment-start``(make-string 38 ?*)``comment-end`
+`comment-start``(make-string 38 ? )``comment-end`
+`comment-start`  Copyright `(format-time-string "%Y")` `(format "%-21s" company-name)``comment-end`
+`comment-start`  All Rights Reserved.`(make-string 16 ? )``comment-end`
+`comment-start``(make-string 38 ? )``comment-end`
+`comment-start``(make-string 38 ?*)``comment-end`
