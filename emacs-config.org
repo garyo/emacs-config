@@ -166,6 +166,7 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 (if (eq system-type 'windows-nt)
     (push (msys-path "usr/bin") exec-path) ; for msys/linux "find", needed by straight.el
   )
+(defconst msys-p (not (equal msys-root "NO_MSYS")))
 
 (require 'rx)       ; not sure why this is needed but it is, for pcase
 ;;; detect whether running under WSL 1 or 2, using /proc/version
@@ -2572,6 +2573,28 @@ More misc stuff:
       (backward-char) (insert "\n"))
     (indent-region begin end))
   (message "Ah, much better!"))
+
+
+(defun open-with-system-browser (url &optional _new-window)
+  (interactive "sURL: ")
+  "Open the given file (may be a file, dir or URL) in the system's file explorer/finder/browser"
+  (let ((path (if (string-match "^file://" url)
+                  (substring url 7)     ; Remove the scheme
+                url)))
+    (cond (wsl-p
+           (browse-url-xdg-open url))
+          (msys-p
+           (shell-command (concat "cmd ///c start" (shell-quote-argument path))))
+          ((eq system-type 'windows-nt)
+           (shell-command (concat "cmd /c start" (shell-quote-argument path))))
+          ((eq system-type 'darwin)
+           (shell-command (concat "open " (shell-quote-argument path))))
+          (t
+           (browse-url-xdg-open url))
+          )))
+
+;; Make browse-url open files with system browser (explorer/Finder/etc.), not emacs
+(add-to-list 'browse-url-handlers '("^file:///" . open-with-system-browser))
 
 (defun open-folder-in-explorer ()
   "Call when editing a file in a buffer.
