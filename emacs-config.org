@@ -2296,6 +2296,12 @@ Here are some configs that help me:
          (org-mode . breadcrumb-mode))
   )
 
+;; Transient-based menu for calc mode on "C-o"
+(use-package casual
+  :config
+  (define-key calc-mode-map (kbd "C-o") 'casual-main-menu)
+  )
+
 #+end_src
 
 ** ~Recentf~ mode: remember recently visited files.
