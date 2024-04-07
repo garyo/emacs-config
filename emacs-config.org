@@ -1122,6 +1122,7 @@ Built-in treesit (as of Jan 2023) requires compiled grammars in lib path or ~~/.
     :diminish tree-sitter-mode
     :config
     (push '(c++-ts-mode . cpp) tree-sitter-major-mode-language-alist)
+    (push '(c++-ts-mode . cxx) tree-sitter-major-mode-language-alist)
     )
   (use-package tree-sitter-langs)
   (global-tree-sitter-mode)
