@@ -243,7 +243,7 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 
 ;; make PC keyboard's Windows key be Super or Hyper (Windows only)
 ;; (There are a few that aren't rebindable: Win-L, Win-G at least)
-;; This is nice because Super-p is the prefix for Projectile
+;; This is nice because e.g. Super-p is the prefix for Projectile
 (when-windows
  (setq w32-pass-lwindow-to-system nil)
  (setq w32-lwindow-modifier 'super)     ; Left Windows key
@@ -572,28 +572,11 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 * Project management
 
 Projectile has gotten good over the last few years. I mostly use it for finding files in the project and with ripgrep.
+However, as of 2024, built-in ~project.el~ has almost everything in projectile, so I'll try just using that.
+The bindings are similar, but start with ~C-x p~ instead of ~C-c p~.
 
 #+begin_src emacs-lisp
-(use-package project) ; as of 2024-02-12 an emacs/straight bug requires this explicitly
-(use-package projectile
-  :bind (("s-p" . projectile-command-map)
-         ("C-c p" . projectile-command-map))
-  :demand
-  :config
-  (projectile-mode +1)
-  (setq projectile-mode-line-prefix " Prj")
-  (setq projectile-mode-line-function 'projectile-mode-line)
-  (setq projectile-globally-ignored-directories
-        '(".idea" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout"
-          "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"))
-  (defun projectile-mode-line ()
-    "Report project name (only) in the modeline."
-    (let ((project-name (projectile-project-name)))
-      (format "%s[%s]"
-              projectile-mode-line-prefix
-              (or project-name "-")
-              )))
-  )
+(use-package project) ; as of 2024-02-12 an emacs/straight bug requires this explicitly, if using projectile
 #+end_src
 
 ** Searching
@@ -760,7 +743,6 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
     (consult-line)))
 
 (use-package consult
-  :after projectile
   :defines consult-buffer-sources
   :bind (;; C-c bindings (mode-specific-map)
          ("C-c h" . consult-history)
@@ -814,7 +796,6 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
         xref-show-definitions-function #'consult-xref)
 
   :config
-  (setq consult-project-root-function #'projectile-project-root)
   (setq consult-narrow-key "<") ; use this to show different types of things in C-x b
 
   (consult-customize
@@ -826,14 +807,13 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
    )
   ;; Use projects as a source for consult-buffer
   ;; Works, but hides "file" sources -- use "<" to select other sources
-  (projectile-load-known-projects)
-  (setq my-consult-source-projectile-projects
-        `(:name "Projectile projects"
+  (setq my-consult-source-projects
+        `(:name "Project.el projects"
                 :narrow   ?P
                 :category project
-                :action   ,#'projectile-switch-project-by-name
-                :items    ,projectile-known-projects))
-  (add-to-list 'consult-buffer-sources my-consult-source-projectile-projects 'append)
+                :action   ,#'project-switch-project
+                :items    ,(project-known-project-roots)))
+  (add-to-list 'consult-buffer-sources my-consult-source-projects 'append)
   )
 
 (use-package consult-dir
@@ -2238,11 +2218,6 @@ Here are some configs that help me:
 ;;; Looks cool but requires helm (?)
 ; (use-package filetree)
 (use-package treemacs)
-(if (featurep 'projectile)
-    (use-package treemacs-projectile
-      :after projectile
-      )
-  )
 
 ;;; Temporarily highlight undo, yank, find-tag and a few other things
 (use-package volatile-highlights
@@ -2784,7 +2759,7 @@ More misc stuff:
                                "Move up 10 lines"
                                (interactive)
                                (previous-line 10)))
-(global-set-key [f5] 'projectile-compile-project)
+(global-set-key [f5] 'project-compile)
 (global-set-key [remap count-words-region] #'count-words) ; better: uses region when active
 
 #+end_src
