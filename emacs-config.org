@@ -926,6 +926,7 @@ Mostly programming-language related.
   :commands venv-workon)
 
 (use-package conda
+  :after python
   :commands conda-env-activate-for-buffer conda-env-autoactivate-mode
   :config
   ;; for interactive shell support
@@ -970,6 +971,13 @@ Mostly programming-language related.
 (add-hook 'glsl-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 (add-hook 'c-ts-base-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 
+#+end_src
+*** Format Python buffers with ~black~
+#+begin_src emacs-lisp
+(use-package python-black
+  :demand t
+  :after python
+  :hook (python-mode . python-black-on-save-mode))
 #+end_src
 
 ** Language Settings
