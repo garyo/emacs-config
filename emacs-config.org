@@ -866,6 +866,10 @@ Mostly programming-language related.
   :mode ("\\.js$")
   )
 
+(use-package cuda-mode
+  :mode ("\\.cu$")
+  )
+
 ;;; Vue mode, based on mmm-mode -- set up for .vue files (html/css/script)
 ;; (use-package vue-mode
 ;;   :mode "\\.vue$"
@@ -966,8 +970,7 @@ Mostly programming-language related.
             t))
 
 ;; Run this for each mode you want to use the hook.
-(add-hook 'c-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
-(add-hook 'c++-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
+(add-hook 'c-mode-common-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 (add-hook 'glsl-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 (add-hook 'c-ts-base-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 
@@ -1986,10 +1989,20 @@ Experimental -- logseq-like note-taking app, backed by sql rather than note file
            ("C-x v b" . magit-blame)
   	 ("C-x v l" . magit-log-current))
     :config
-    ;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
-    (remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
-    (add-hook 'magit-status-mode-hook 'delete-other-windows)
+      (add-hook 'magit-status-mode-hook 'delete-other-windows)
     (add-hook 'after-save-hook 'magit-after-save-refresh-status)
+    ;; speed up on Windows
+    (when-windows
+     ;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
+     (remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
+     ;; try to speed up status on Windows
+     (remove-hook 'magit-status-sections-hook 'magit-insert-tags-header)
+     ;;(remove-hook 'magit-status-sections-hook 'magit-insert-status-headers)
+     (remove-hook 'magit-status-sections-hook 'magit-insert-unpushed-to-pushremote)
+     (remove-hook 'magit-status-sections-hook 'magit-insert-unpulled-from-pushremote)
+     (remove-hook 'magit-status-sections-hook 'magit-insert-unpulled-from-upstream)
+     (remove-hook 'magit-status-sections-hook 'magit-insert-unpushed-to-upstream-or-recent)
+     )
     :custom
     (magit-backup-mode nil)
     (magit-cygwin-mount-points '(("/c" . "c:")))
