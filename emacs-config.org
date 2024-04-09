@@ -27,7 +27,7 @@ To write ~emacs-config.el~, use ~M-x org-babel-tangle~. To edit and eval source 
     (emacs-build-description)
     (buffer-string)))
 
-(defvar startup-verbose-p nil "More verbose messages during emacs startup")
+(defvar startup-verbose-p t "More verbose messages during emacs startup")
 (when startup-verbose-p
   (message "*****************
 %s
@@ -84,12 +84,12 @@ which is a lot faster."
    (equal (json-serialize (json-parse-string "[123]")) "[123]")))
 
 (unless (has-fast-json)
-  (warn "This emacs is using older elisp json functions; maybe rebuild with libjansson?"))
+  (warn "❗This emacs is using older elisp json functions; maybe rebuild with libjansson?"))
 
 (if (and (fboundp 'native-comp-available-p)
          (native-comp-available-p))
-    (message "Native compilation is available!")
-  (message "Native compilation is *not* available"))
+    (message "★Native compilation is available!")
+  (message "❗Native compilation is *not* available"))
 
 ;; Bug workaround, 2023-02-26:
 (if (not (boundp 'comp-enable-subr-trampolines))
@@ -111,6 +111,12 @@ Set up some low-level settings to prevent garbage collection as frequently, allo
 (setq read-process-output-max (* 1024 1024)) ; improve LSP performance
 ;; typescript language server, more RAM:
 (setenv "NODE_OPTIONS" "--max-old-space-size=8192")
+
+;; Save ~M-x customize~ results into a separate file. I do this
+;; because I prefer to do my customizations explicitly in this file,
+;; but sometimes it's convenient to use ~M-x customize~ temporarily,
+;; and I don't want that to affect my actual init file.
+(setq custom-file (concat user-emacs-directory` "custom-settings.el"))
 
 #+END_SRC
 
@@ -625,94 +631,32 @@ I use ~ripgrep~: fast recursive grep, wgrep-capable.
 
 * Completion
 
-Company is an in-buffer completion framework, used for e.g. identifier completion in programming languages. It supports many backends, which are sources of completion candidates. It can use ~vertico~ as a UI, but its own UI is fine. The default backend is ~company-capf~ which in turn redirects to the completion-at-point-functions (which defaults to ~tags-completion-at-point-functions~ I think, but gets rebound by various modes).
+Emacs has two types of completion: minibuffer with ~completing-read~, and in-buffer with ~completion-at-point~.
+~completing-read~ is what's used in ~M-x find-file~ and anything that prompts in the minibuffer. ~completion-at-point~ (which I bind to ~M-RET~ for historical reasons) is more complex and interesting, with lots of options springing up in the last few years. But as of 2024, Corfu is built in to emacs 29, and it's quite lightweight compared to company, so it makes sense to switch to that.
 
-I grew up using Jim Salem's TMC completion so M-RET is in my fingers. :-). In most modes I'd like to emulate that completion type, which remembered what you type and recorded contents of visited bufers, and used that cache to propose completions (based on initial substring match).
+Until 2024 I used ~Company~ for my in-buffer completion framework, used for e.g. identifier completion in programming languages. It supports many backends, which are sources of completion candidates. It can use ~vertico~ as a UI, but its own UI is fine. The default backend is ~company-capf~ which in turn redirects to the completion-at-point-functions (which defaults to ~tags-completion-at-point-functions~ I think, but gets rebound by various modes).
+
+I grew up using Jim Salem's TMC completion so M-RET is in my fingers. :-). In most modes I'd like to emulate that completion type, which remembered what you type and recorded contents of visited buffers, and used that cache to propose completions (based on initial substring match). ~dabbrev~ is the closest modern version of that, so I use it as a capf.
 
 Note that org-mode redefines ~M-RET~ as something else -- we rebind it in that mode so it works there too.
 
-You can invoke company backends interactively to test how they work, and use ~company-diag~ to debug.
-
-~company-statistics~ keeps stats on disk to rank completions based on the ones previously chosen.
-
-TODO: Each element in ~company-backends~ is tried, and the first that returns results is used. An element of that list can be a list itself, in which case the results of both backends are merged -- perhaps I should use that.
-
-#+BEGIN_SRC emacs-lisp
-;; Completion system
-(use-package company
-  :bind (("M-RET" . company-complete)
-         :map org-mode-map
-         ("M-RET" . company-complete) ; also bind in org-mode
-         )
-  :demand                             ; load it now (better for eglot)
-  :defines company-dabbrev-downcase company-dabbrev-ignore-case
-  :config
-  (global-company-mode)
-  ;; dabbrev mode seems closest to TMC completion so make sure that's always in the list
-  (setq company-backends '((company-capf company-dabbrev :separate)
-                           company-dabbrev-code
-                           company-dabbrev
-                           company-etags
-                           company-keywords))
-  (setq company-dabbrev-downcase nil	; make case-sensitive
-	company-dabbrev-ignore-case nil ; make case-sensitive
-        company-dabbrev-char-regexp "\\(\\sw\\|\\s_\\)"
-        company-minimum-prefix-length 3
-        company-idle-delay 1
-        )
-  )
-
-(use-package company-statistics
-  :after company
-  :hook (after-init . company-statistics-mode)
-  )
-
-#+end_src
-
-** Completion actions: Embark
-
-~embark~ is bound to ~C-.~ and allows actions on the current thing at point, or the current completion candidate in the minibuffer. This is nice because you can use ~C-x C-f~ (find-file) but then decide to do something besides open it in a buffer using ~C-.~
-
-~C-.~ pops up a nice window of commands you can do on the current thing, so there's no learning curve.
-
-#+begin_src emacs-lisp
-(use-package embark
-  :bind
-  (("C-." . embark-act)
-   ("C-;" . embark-dwim)
-   ("C-h B" . embark-bindings)
-   )
-  :init
-  (setq prefix-help-command #'embark-prefix-help-command)
-  ;; Hide the mode line of the Embark live/completions buffers
-  (add-to-list 'display-buffer-alist
-               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
-                 nil
-                 (window-parameters (mode-line-format . none)))))
-
-;; Consult users will also want the embark-consult package.
-(use-package embark-consult
-  :ensure t
-  :after (embark consult)
-  :demand t ; only necessary if you have the hook below
-  ;; if you want to have consult previews as you move around an
-  ;; auto-updating embark collect buffer
-  :hook
-  (embark-collect-mode . consult-preview-at-point-mode)
-  )
-#+end_src
-
-** Completion UI
+** Minibuffer Completion UI: vertico, consult, and friends
 
 Pick completion UI package: ivy or vertico. I like vertico, as of 2021.
 - Ivy means Ivy + Counsel + Swiper
 - With vertico, I set up vertico + consult + marginalia + orderless.
 
-Vertico is just a simple "vertical" completion UI -- no new commands. Consult adds completing versions of various commands, and those get presented by vertico.
+Vertico is just a simple "vertical" completion UI for minibuffer completion (~completing-read~) -- no new commands. Consult adds completing versions of various commands, and those get presented by vertico. Try ~M-x~ or ~C-x C-f~ to see what this does.
 
 Why not ~selectrum~? Selectrum was the predecessor of Vertico, so Vertico seems to do what selectrum does but better in most cases.
 
 There's some good samples of customizations at https://kristofferbalintona.me/posts/202202211546/#extensions
+
+*** Vertico
+
+This also adds:
+- Orderless: space-separated orderless completion matching, very nice
+- Marginalia: show useful metadata on right side of matches
 
 #+begin_src emacs-lisp
 (use-package vertico
@@ -734,6 +678,39 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy) ; Correct file path when changed
   )
 
+;;  "orderless"" completion style. See
+;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
+;; dispatcher. Additionally enable `partial-completion' for file path
+;; expansion. `partial-completion' is important for wildcard support.
+;; Multiple files can be opened at once with `find-file' if you enter a
+;; wildcard. You may also give the `initials' completion style a try.
+(use-package orderless
+  :init
+  ;; Configure a custom style dispatcher (see the Consult wiki)
+  ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
+  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+  :custom
+  (completion-styles '(orderless))
+  (completion-category-defaults nil)
+  (completion-category-overrides '((file (styles partial-completion))))
+  )
+
+;; show file metadata in buffer completion list (C-x b) etc.
+(use-package marginalia
+  :init
+  (marginalia-mode))
+#+end_src
+
+*** Consult
+
+Lots of additional completion sources for various commands.
+I don't use most of these consult bindings, so they could use a good pruning. But things like ~consult-buffer~ are vital to my workflow. Probably would be better to use ~[remap ...]~ more, to replace standard bindings. 
+
+#+begin_src emacs-lisp
+;;;;;;;;;;;;;;
+;;; Consult
+;;;;;;;;;;;;;;
+
 ;; Use the ~substring~ completion style so calling this from isearch works properly
 (defun consult-line-literal ()
   (interactive)
@@ -746,7 +723,6 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
   :defines consult-buffer-sources
   :bind (;; C-c bindings (mode-specific-map)
          ("C-c h" . consult-history)
-         ("C-c m" . consult-mode-command)
          ("C-c b" . consult-bookmark)
          ("C-c k" . consult-kmacro)
          ;; C-x bindings (ctl-x-map)
@@ -823,33 +799,95 @@ There's some good samples of customizations at https://kristofferbalintona.me/po
          ("C-x C-d" . consult-dir)
          ("C-x C-j" . consult-dir-jump-file)))
 
-;; flycheck integration - nice. ~M-g f~
+;; flycheck integration - nice if using flycheck. ~M-g f~
 (if use-flycheck-mode
     (use-package consult-flycheck))
 
-;; Optionally use the `orderless' completion style. See
-;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
-;; dispatcher. Additionally enable `partial-completion' for file path
-;; expansion. `partial-completion' is important for wildcard support.
-;; Multiple files can be opened at once with `find-file' if you enter a
-;; wildcard. You may also give the `initials' completion style a try.
-(use-package orderless
-  :init
-  ;; Configure a custom style dispatcher (see the Consult wiki)
-  ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
-  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+#+END_SRC
+
+** In-buffer completion (capf): Corfu (or company)
+
+See https://github.com/minad/corfu for details.
+
+Note that I also use orderless for corfu (see below) but it's hard to invoke for me (I don't remember to use ~M-SPC~).
+
+#+BEGIN_SRC emacs-lisp
+(use-package corfu
   :custom
-  (completion-styles '(orderless))
-  (completion-category-defaults nil)
-  (completion-category-overrides '((file (styles partial-completion))))
+  (corfu-auto t)
+  (corfu-auto-delay 0.5)
+  (corfu-quit-no-match t) ; quit when the popup appears and I type anything else
+  ;; Might want to customize corfu-sort-function
+  :bind
+  (("M-RET" . corfu-complete)
+   )
+  :config
+  (global-corfu-mode)
+  (corfu-history-mode 1)
+  (savehist-mode 1)
+  (add-to-list 'savehist-additional-variables 'corfu-history)
   )
 
-;; show file metadata in buffer completion list (C-x b) etc.
-(use-package marginalia
-  :init
-  (marginalia-mode))
+(use-package corfu-terminal
+  ;; TODO set this up, for use in non-GUI emacs
+  )
 
-#+END_SRC
+;; Additional capf completion sources
+(use-package cape
+  :init
+  ;; Note: order matters here. First one returning a result wins.
+  ;; Have to set the default (global) value since capf is automatically buffer-local
+  ;; when set.
+  ;; The buffer-local value, which takes precedence over these, calls these as long
+  ;; as it ends with ~t~.
+  (let ((capf-sources '(cape-history cape-file cape-keyword cape-dabbrev)))
+    (setq-default completion-at-point-functions
+                  (append capf-sources
+                          (default-value 'completion-at-point-functions))))
+  )
+
+;; Nice icons for corfu popups
+(use-package kind-icon
+  :ensure t
+  :after corfu
+  :config
+  (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+
+#+end_src
+
+** Completion actions: Embark
+
+~embark~ is bound to ~C-.~ and allows actions on the current thing at point, or the current completion candidate in the minibuffer. This is nice because you can use ~C-x C-f~ (find-file) but then decide to do something besides open it in a buffer using ~C-.~
+
+~C-.~ pops up a nice window of commands you can do on the current thing, so there's no learning curve.
+
+#+begin_src emacs-lisp
+(use-package embark
+  :bind
+  (("C-." . embark-act)
+   ("C-;" . embark-dwim)
+   ("C-h B" . embark-bindings)
+   )
+  :init
+  (setq prefix-help-command #'embark-prefix-help-command)
+  ;; Hide the mode line of the Embark live/completions buffers
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none)))))
+
+;; Consult users will also want the embark-consult package.
+(use-package embark-consult
+  :ensure t
+  :after (embark consult)
+  :demand t ; only necessary if you have the hook below
+  ;; if you want to have consult previews as you move around an
+  ;; auto-updating embark collect buffer
+  :hook
+  (embark-collect-mode . consult-preview-at-point-mode)
+  )
+#+end_src
+
 
 * Languages
 
@@ -914,7 +952,7 @@ Mostly programming-language related.
          ("\\.md\\'" . markdown-mode)
          ("\\.markdown\\'" . markdown-mode))
   :bind (:map markdown-mode-map
-         ("M-RET" . company-complete))
+         ("M-RET" . corfu-complete))
   :init (setq markdown-command "multimarkdown"))
 
 ;; instant live github markdown preview in markdown mode, C-c C-c g
@@ -1115,6 +1153,7 @@ Built-in treesit (as of Jan 2023) requires compiled grammars in lib path or ~~/.
 (when (and (functionp 'treesit-available-p) (treesit-available-p))
   ;; Use built-in treesit -- best as of Jan 2023
   (setq using-treesit t)
+  (message "★Built-in treesit is available!")
 
   (use-package treesit-auto
     :custom
@@ -1584,6 +1623,22 @@ Tested & working with C++ (clangd), Python (pyright-langserver), and Typescript 
 #+END_SRC
 
 * Org mode
+
+#+begin_src emacs-lisp
+;;; Basic org-mode config
+(use-package org
+  :hook
+  (org-mode . (lambda ()
+                ;; I don't use ispell, no need for this
+                (setq completion-at-point-functions
+                      (delete #'ispell-completion-at-point completion-at-point-functions))
+                ))
+  :bind
+  (:map org-mode-map
+        ("M-RET" . completion-at-point)
+   )
+)
+#+end_src
 
 #+begin_src emacs-lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2294,10 +2349,10 @@ Here are some configs that help me:
   )
 
 ;; Transient-based menu for calc mode on "C-o"
-(use-package casual
-  :config
-  (define-key calc-mode-map (kbd "C-o") 'casual-main-menu)
-  )
+;(use-package casual
+;  :config
+;  (define-key calc-mode-map (kbd "C-o") 'casual-main-menu)
+;  )
 
 #+end_src
 
@@ -2581,15 +2636,15 @@ More misc stuff:
 (defun open-with-system-browser (url &optional _new-window)
   (interactive "sURL: ")
   "Open the given file (may be a file, dir or URL) in the system's file explorer/finder/browser"
-  (let ((path (if (string-match "^file://" url)
-                  (substring url 7)     ; Remove the scheme
-                url)))
+  (let ((path (cond ((string-match "^file:///[a-z]:/" url)
+                     (substring url 8)) ; remove scheme, expose drive (Win32)
+                    ((string-match "^file://" url)
+                     (substring url 7)) ; remove scheme
+                    (t url))))
     (cond (wsl-p
            (browse-url-xdg-open url))
-          (msys-p
-           (shell-command (concat "cmd ///c start" (shell-quote-argument path))))
           ((eq system-type 'windows-nt)
-           (shell-command (concat "cmd /c start" (shell-quote-argument path))))
+           (start-process "system-start" nil "cmd" "/c" "start" path))
           ((eq system-type 'darwin)
            (shell-command (concat "open " (shell-quote-argument path))))
           (t
