@@ -2165,11 +2165,15 @@ Here are some configs that help me:
 (add-to-list 'display-buffer-alist
              '("\\*Warnings*"
                (display-buffer-at-bottom)
-               (window-height . 5)))
+               (window-height . 8)))
 (add-to-list 'display-buffer-alist
              '("\\*shell:"
                (display-buffer-below-selected)
                (window-height . 12)))
+(add-to-list 'display-buffer-alist
+             '("\\*shell\\*"
+               (display-buffer-at-bottom)
+               (window-height . 30)))
 (add-to-list 'display-buffer-alist
              '("\\magit:"
                (display-buffer-same-window)))
