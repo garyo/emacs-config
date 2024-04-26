@@ -133,7 +133,9 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 ** Diminish: hide minor modes in modeline
 #+begin_src emacs-lisp
 ;; To use: see ":diminish" in use-package specs
-(use-package diminish)
+(use-package diminish
+  :config
+  (diminish 'eldoc-mode))
 #+end_src
 
 * System config
@@ -373,7 +375,9 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 (pixel-scroll-precision-mode t)
 
 (use-package mixed-pitch
-  :hook (org-mode . mixed-pitch-mode))
+  :hook (org-mode . mixed-pitch-mode)
+  :diminish mixed-pitch-mode
+  )
 
 ;; Geneva works & looks good on Mac
 ;; or try Lucida Grande
@@ -1321,6 +1325,7 @@ Return the errors parsed with the error patterns of CHECKER."
     :hook (eglot-managed-mode . eldoc-box-hover-mode)
     :config
     (setq eldoc-box-max-pixel-width 500)
+    :diminish eldoc-box-hover-mode
     )
 
   (add-to-list 'display-buffer-alist
@@ -2067,6 +2072,7 @@ Experimental -- logseq-like note-taking app, backed by sql rather than note file
     (global-git-gutter-mode +1)
     (require 'tramp)                    ; for tramp-tramp-file-p
     (add-hook 'find-file-hook 'my-disable-git-gutter-in-tramp-buffers)
+    :diminish git-gutter-mode
     )
 
   ;; Like vc-git-grep from Emacs 25, but without the semi-useless "files" arg.
@@ -2248,6 +2254,7 @@ Here are some configs that help me:
 (use-package filladapt
   ;; to enable only in certain modes:
   ;; :hook (('text-mode-hook . 'filladapt-mode))
+  :diminish filladapt-mode
   :config
   (setq-default filladapt-mode t))      ; turn on by default everywhere
 
@@ -2281,6 +2288,7 @@ Here are some configs that help me:
 (use-package volatile-highlights
   :config
   (volatile-highlights-mode t)
+  :diminish volatile-highlights-mode
   )
 
 (use-package all-the-icons)
