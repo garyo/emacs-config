@@ -38,21 +38,7 @@ config: %s
 
 #+END_SRC
 
-* Package manager: use ~straight.el~
-
-Set it up so ~use-package~ always uses ~straight.el~.
-
-#+BEGIN_SRC emacs-lisp
-;;; Meta-package system: use-package. Auto-installs and configures packages.
-(straight-use-package 'use-package)
-(defvar straight-use-package-by-default)
-(setq straight-use-package-by-default t) ; make use-package use straight
-(defvar straight-check-for-modifications)
-(setq straight-check-for-modifications
-      '(check-on-save find-when-checking))
-#+END_SRC
-
-Allow profiling emacs startup
+* Allow profiling emacs startup
 
 #+BEGIN_SRC emacs-lisp
 (use-package esup)
@@ -408,10 +394,10 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
 ;;; imports those into emacs's environment.
 
 (use-package system-environment
-  :straight (:host github
-                   :repo "bwachter/system-environment"
-                   :branch "master"
-                   :fork (:repo "garyo/emacs-system-environment"))
+  :ensure (:host github
+                 :repo "bwachter/system-environment"
+                 :branch "master"
+                 :fork (:repo "garyo/emacs-system-environment"))
   :config
   (defun gco-update-exec-path-from-PATH ()
     "Update emacs's exec-path from PATH env var. Tries to determine
@@ -423,36 +409,36 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
                        'string=))))
   (add-hook 'system-environment-import-hook 'gco-update-exec-path-from-PATH)
   (add-hook 'system-environment-import-async-hook 'gco-update-exec-path-from-PATH)
-    (let ((verbose nil)
-          (keep-buffer nil)
-          (env-vars '("SSH_AUTH_SOCK" "LANG" "LC_ALL" "CLANGD_FLAGS" "GIT_SSH_COMMAND")))
-      ;; Try zsh, then bash. Windows is special.
-      (cond ((and (eq system-type 'windows-nt) (executable-find "zsh"))
-             (message "Updating emacs env vars from Windows zsh")
-             (system-environment-import-from-command
-              "zsh -i -c env"
-              env-vars
-              nil keep-buffer verbose)
-             ;; Handle $PATH specially; translate from cygwin style to Windows style
-             (message "Updating emacs path from Windows zsh")
-             (system-environment-import-from-async-command
-              '("zsh" "-i" "-c" "echo PATH=$(cygpath -p -m $PATH)")
-              '("PATH")
-              nil keep-buffer verbose "*system-environment-2*"))
-            ((executable-find "zsh")
-             (message "Updating emacs path from zsh")
-             (system-environment-import-from-async-command
-              "zsh -i -c env"
-              (cons "PATH" env-vars)
-              nil keep-buffer verbose))
-            ((executable-find "bash")
-             (message "Updating emacs path from bash")
-             (system-environment-import-from-async-command
-              "bash -i -c env"
-              (cons "PATH" env-vars)
-              nil keep-buffer verbose))
-            (t
-             (message "No shell found; not importing system environment"))))
+  (let ((verbose nil)
+        (keep-buffer nil)
+        (env-vars '("SSH_AUTH_SOCK" "LANG" "LC_ALL" "CLANGD_FLAGS" "GIT_SSH_COMMAND")))
+    ;; Try zsh, then bash. Windows is special.
+    (cond ((and (eq system-type 'windows-nt) (executable-find "zsh"))
+           (message "Updating emacs env vars from Windows zsh")
+           (system-environment-import-from-command
+            "zsh -i -c env"
+            env-vars
+            nil keep-buffer verbose)
+           ;; Handle $PATH specially; translate from cygwin style to Windows style
+           (message "Updating emacs path from Windows zsh")
+           (system-environment-import-from-async-command
+            '("zsh" "-i" "-c" "echo PATH=$(cygpath -p -m $PATH)")
+            '("PATH")
+            nil keep-buffer verbose "*system-environment-2*"))
+          ((executable-find "zsh")
+           (message "Updating emacs path from zsh")
+           (system-environment-import-from-async-command
+            "zsh -i -c env"
+            (cons "PATH" env-vars)
+            nil keep-buffer verbose))
+          ((executable-find "bash")
+           (message "Updating emacs path from bash")
+           (system-environment-import-from-async-command
+            "bash -i -c env"
+            (cons "PATH" env-vars)
+            nil keep-buffer verbose))
+          (t
+           (message "No shell found; not importing system environment"))))
   )
 #+end_src
 
@@ -660,19 +646,7 @@ This also adds:
 
 #+begin_src emacs-lisp
 (use-package vertico
-  :straight (vertico :files (:defaults "extensions/*")
-                     :includes (vertico-indexed
-                                vertico-flat
-                                vertico-grid
-                                vertico-mouse
-                                vertico-quick
-                                vertico-buffer
-                                vertico-repeat
-                                vertico-reverse
-                                vertico-directory
-                                vertico-multiform
-                                vertico-unobtrusive
-                                ))
+  :ensure (:files (:defaults "extensions/*"))
   :init
   (vertico-mode)
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy) ; Correct file path when changed
@@ -685,12 +659,11 @@ This also adds:
 ;; Multiple files can be opened at once with `find-file' if you enter a
 ;; wildcard. You may also give the `initials' completion style a try.
 (use-package orderless
-  :init
   ;; Configure a custom style dispatcher (see the Consult wiki)
   ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
   ;;       orderless-component-separator #'orderless-escapable-split-on-space)
   :custom
-  (completion-styles '(orderless))
+  (completion-styles '(orderless basic))
   (completion-category-defaults nil)
   (completion-category-overrides '((file (styles partial-completion))))
   )
@@ -793,7 +766,6 @@ I don't use most of these consult bindings, so they could use a good pruning. Bu
   )
 
 (use-package consult-dir
-  :ensure t
   :bind (("C-x C-d" . consult-dir)
          :map minibuffer-local-completion-map
          ("C-x C-d" . consult-dir)
@@ -848,7 +820,6 @@ Note that I also use orderless for corfu (see below) but it's hard to invoke for
 
 ;; Nice icons for corfu popups
 (use-package kind-icon
-  :ensure t
   :after corfu
   :config
   (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
@@ -878,7 +849,6 @@ Note that I also use orderless for corfu (see below) but it's hard to invoke for
 
 ;; Consult users will also want the embark-consult package.
 (use-package embark-consult
-  :ensure t
   :after (embark consult)
   :demand t ; only necessary if you have the hook below
   ;; if you want to have consult previews as you move around an
@@ -1027,9 +997,9 @@ Mostly programming-language related.
 
 #+begin_src emacs-lisp
 (use-package metal-mode
-  :straight (:host github
-                   :repo "masfj/metal-mode"
-                   :branch "master")
+  :ensure (:host github
+           :repo "masfj/metal-mode"
+           :branch "master")
   )
 #+end_src
 
@@ -1206,7 +1176,7 @@ Point^^                     Recursive^^             All^^
 (cond (using-treesit
        (message "Using native treesit for ts-fold")
        (use-package ts-fold
-         :straight (ts-fold :type git :host github
+         :ensure (ts-fold :type git :host github
                             :repo "AndrewSwerlick/ts-fold"
                             :branch "andrew-sw/treesit-el-support"
                             :fork (:host github
@@ -1223,7 +1193,7 @@ Point^^                     Recursive^^             All^^
       (t
        (message "Using tree-sitter version of ts-fold")
        (use-package ts-fold
-         :straight (ts-fold :type git :host github :repo "emacs-tree-sitter/ts-fold")
+         :ensure (ts-fold :type git :host github :repo "emacs-tree-sitter/ts-fold")
          :config (global-ts-fold-indicators-mode)
 
          :bind (("C-c C-f" . hydra-ts-fold/body)
@@ -1338,9 +1308,9 @@ Return the errors parsed with the error patterns of CHECKER."
   (use-package flymake)
   (use-package flymake-posframe
     ;; Note: this is a fork of the main flymake-posframe, with a fix for eglot
-    :straight (:host github
-                     :repo "articuluxe/flymake-posframe"
-                     :branch "feature/eglot")
+    :ensure (:host github
+             :repo "articuluxe/flymake-posframe"
+             :branch "feature/eglot")
     :hook (flymake-mode . flymake-posframe-mode)
     )
   ;; This is what eglot uses to show popup doc windows on hover
@@ -1531,8 +1501,7 @@ This is currently unused as of Dec 2023; eglot is built-in to emacs and works we
           lsp-modeline-code-actions-mode nil
           )
     )
-  (use-package lsp-pyright ; python type-checker, better than pylsp (Dec 2021)
-    :ensure t)
+  (use-package lsp-pyright) ; python type-checker, better than pylsp (Dec 2021)
   (use-package lsp-treemacs)
   ;; doesn't work
   ;; (add-hook 'lsp-ui-doc-mode-hook #'lsp-ui-doc-font)
@@ -1552,7 +1521,7 @@ Tested & working with C++ (clangd), Python (pyright-langserver), and Typescript 
   ;(use-package jsonrpc) NO -- leave this as built-in
   (use-package eglot
     ;; Don't get from master repo -- eglot is part of emacs now, just use the normal version.
-    ;; :straight (:host github
+    ;; :ensure (:host github
     ;;                  :repo "joaotavora/eglot"
     ;;                  :branch "master")
     :commands eglot-ensure
@@ -1618,7 +1587,9 @@ Tested & working with C++ (clangd), Python (pyright-langserver), and Typescript 
   (global-set-key (kbd "C-c l") 'hydra-lsp/body)
 
   ;; Volar is a good LSP client for Vue files
-  (straight-use-package '(lsp-volar :type git :host github :repo "jadestrong/lsp-volar"))
+  (use-package volar
+    :ensure (:host github
+                   :repo "jadestrong/lsp-volar"))
   (use-package lsp-volar))
 #+END_SRC
 
@@ -1627,6 +1598,7 @@ Tested & working with C++ (clangd), Python (pyright-langserver), and Typescript 
 #+begin_src emacs-lisp
 ;;; Basic org-mode config
 (use-package org
+  :ensure nil                           ; already installed in init.el
   :hook
   (org-mode . (lambda ()
                 ;; I don't use ispell, no need for this
@@ -1862,7 +1834,6 @@ TODO: is there any way to hide or de-emphasize the tildes org-mode uses for sour
 #+begin_src emacs-lisp
 (if (file-exists-p "~/Documents/org-roam")
     (use-package org-roam
-      :ensure t
       :init
       (setq org-roam-v2-ack t)
       :custom
@@ -1958,13 +1929,15 @@ Experimental -- logseq-like note-taking app, backed by sql rather than note file
        (define-key ekg-notes-mode-map (kbd "q") 'kill-buffer-and-window) ; I prefer this
        )
 
-(use-package auth-source) ; get secrets stored in ~/.authinfo
+;;; get secrets stored in ~/.authinfo
+(use-package auth-source
+  :ensure nil)
 
 ;;; One machine (WSL2 Ubuntu) can't find the 'llm package, which causes this to fail.
 ;;; So suppress errors here.
 (condition-case nil
     (use-package ekg
-      :straight (ekg :type git :host github
+      :ensure (ekg :type git :host github
                      :repo "ahyatt/ekg"
 					; :branch "inline-tags"
                      ;; :fork (:host github
@@ -2198,6 +2171,7 @@ Here are some configs that help me:
 
   ;;; Save minibuffer histories -- important w/ vertico, useful always
 (use-package savehist
+  :ensure nil
   :init
   (savehist-mode)
   )
@@ -2223,7 +2197,6 @@ Here are some configs that help me:
       ((eq modeline-package 'doom)      ; Very pretty modeline -- nicer than sml.
        ;; Note: this uses nerd-icons. You may need to do ~M-x nerd-icons-install-fonts~.
        (use-package doom-modeline
-         :ensure t
          :hook (after-init . doom-modeline-mode)
          :config
          (set-face-attribute 'mode-line-active nil :background "#0d5") ; bright green
@@ -2281,6 +2254,7 @@ Here are some configs that help me:
   ;;; Ediff: split horizontally (A|B, like C-x 3) and
   ;;; don't use the little floating control frame.
 (use-package ediff
+  :ensure nil
   :config
   (setq ediff-split-window-function 'split-window-horizontally)
   (setq ediff-window-setup-function 'ediff-setup-windows-plain)
@@ -2293,6 +2267,9 @@ Here are some configs that help me:
 ;; Much better than globally removing EOL whitespace on save, especially when
 ;; editing collaboratively with others.
 (use-package ws-butler
+  :ensure (:host github
+           :repo "lewang/ws-butler"
+           :branch "master")
   :hook (prog-mode . ws-butler-mode)
   )
 
@@ -2345,7 +2322,7 @@ Here are some configs that help me:
 
 ;;; Show breadcrumbs in top line (uses imenu and/or project; useful with eglot since lsp-mode does this itself)
 (use-package breadcrumb
-         :straight (:host github
+         :ensure (:host github
                           :repo "joaotavora/breadcrumb"
                           :branch "master")
   :hook ((prog-mode . breadcrumb-mode)
@@ -2357,6 +2334,12 @@ Here are some configs that help me:
 ;  :config
 ;  (define-key calc-mode-map (kbd "C-o") 'casual-main-menu)
 ;  )
+
+;; Nice little package to make a QR Code from the region or URL under point.
+;; Could be useful to send small stuff to phone.
+(use-package qrencode
+  )
+
 
 #+end_src
 
@@ -2392,7 +2375,12 @@ I like to have it save the list periodically in case of crashes or when using em
 (run-at-time nil 600 (lambda () (let ((save-silently t))
                                   (recentf-save-list))))
 #+END_SRC
+** Time Zone Converter
 
+Functions are like `tzc-convert-*` and `tzc-world-clock`
+#+begin_src emacs-lisp
+(use-package tzc)
+#+end_src
 
 * Misc stuff to organize
 
@@ -2481,7 +2469,7 @@ A Transient menu, bound to <f2>, for isearch mode, to get easy access to all the
 ;; Install this Chrome extension: https://chromewebstore.google.com/detail/chrome-emacs/dabdpcafiblbndpoadckibiaojbdnpjg
 (use-package atomic-chrome
   :demand t
-  :straight (atomic-chrome
+  :ensure (atomic-chrome
              :repo "KarimAziev/atomic-chrome"
              :type git
              :flavor nil
@@ -2549,277 +2537,280 @@ A Transient menu, bound to <f2>, for isearch mode, to get easy access to all the
 More misc stuff:
 
 #+begin_src emacs-lisp
-;;; Turn off visual-line-mode
-(visual-line-mode nil) ; next-line go to real next line, see also line-move-visual
-(global-visual-line-mode 0)
-(setq line-move-visual nil)			; C-n go to next real line
+  ;;; Turn off visual-line-mode
+  (visual-line-mode nil) ; next-line go to real next line, see also line-move-visual
+  (global-visual-line-mode 0)
+  (setq line-move-visual nil)			; C-n go to next real line
 
 
-  ;;; Use python-shell-interpreter to set python to run from emacs, not python-command
-  ;;; NO:(setq-default python-command (or (executable-find "python") "c:/Python27/python"))
+    ;;; Use python-shell-interpreter to set python to run from emacs, not python-command
+    ;;; NO:(setq-default python-command (or (executable-find "python") "c:/Python27/python"))
 
-(setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
+  (setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
 
-(autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
+  (autoload 'taskjuggler-mode "taskjuggler-mode" "TaskJuggler mode." t)
 
-;; always enable electric-pair-mode to insert matching parens & braces
-(electric-pair-mode t)
-(defun gco-inhibit-electric-pair-predicate (c)
-  (or
-   ;; if within a string started by the same char, inhibit pair insertion
-   (save-excursion
-     (let ((s (syntax-ppss (- (point) 1))))
-       (eq (nth 3 s) c)))
-   ;; inhibit when it helps balance
-   (save-excursion
-     (electric-pair-inhibit-if-helps-balance c))
-   ;; inhibit when same char is next, or 2nd "" or ((, or next to a word
-   (save-excursion
-     (electric-pair-conservative-inhibit c))
-   ))
+  ;; always enable electric-pair-mode to insert matching parens & braces
+  (electric-pair-mode t)
+  (defun gco-inhibit-electric-pair-predicate (c)
+    (or
+     ;; if within a string started by the same char, inhibit pair insertion
+     (save-excursion
+       (let ((s (syntax-ppss (- (point) 1))))
+         (eq (nth 3 s) c)))
+     ;; inhibit when it helps balance
+     (save-excursion
+       (electric-pair-inhibit-if-helps-balance c))
+     ;; inhibit when same char is next, or 2nd "" or ((, or next to a word
+     (save-excursion
+       (electric-pair-conservative-inhibit c))
+     ))
 
-(setq electric-pair-inhibit-predicate 'gco-inhibit-electric-pair-predicate)
-
-
-(blink-cursor-mode -1)	;this is annoying
-;;(mouse-avoidance-mode 'animate)
-(global-font-lock-mode 1)
-
-(add-hook 'sql-mode-hook
-          (lambda () (sql-highlight-mysql-keywords)))
-
-;;; blank lines:
-(setq-default indicate-empty-lines t)
-
-(require 'uniquify)
-(setq uniquify-buffer-name-style 'post-forward-angle-brackets)
-
-  ;;; Automatically revert files that change on disk
-  ;;; (but only when the buffer is unmodified, so it's safe)
-(global-auto-revert-mode t)
-
-  ;;; Save all backup(~) files and auto-save files in /tmp
-  ;;; This keeps clutter down.
-(defconst emacs-tmp-dir (expand-file-name (format "emacs%d" (user-uid)) temporary-file-directory))
-(setq backup-directory-alist
-      `((".*" . ,emacs-tmp-dir)))
-(setq auto-save-file-name-transforms
-      `((".*" ,emacs-tmp-dir t)))
-(set-variable 'create-lockfiles nil)     ; dangerous but useful for file-watching recompiles
-
-;; Printing via GhostScript/GhostView
-(require 'ps-print)
-(setq ps-lpr-command "c:\\Program Files\\Ghostgum\\gsview\\gsprint.exe")
-;; -query causes ghostscript to query which printer to use.
-;; other options: -twoup, -landscape, ... (see c:/Ghostgum/gsview/csprint.htm)
-(setq ps-lpr-switches '("-query"))
-(setq ps-print-color-p t)		; or t or 'black-white
-(setq ps-printer-name t)
-(setq ps-left-margin 30)
-(setq ps-right-margin 10)
-(setq ps-header-lines 1)
-(setq ps-print-header-frame nil)
-(setq ps-font-size '(7 . 9))
-
-(defun bf-pretty-print-xml-region (begin end)
-  "Pretty format XML markup in region. You need to have nxml-mode
-  http://www.emacswiki.org/cgi-bin/wiki/NxmlMode installed to do
-  this.  The function inserts linebreaks to separate tags that have
-  nothing but whitespace between them.  It then indents the markup
-  by using nxml's indentation rules."
-  (interactive "r")
-  (save-excursion
-    (nxml-mode)
-    (goto-char begin)
-    (while (search-forward-regexp "\>[ \\t]*\<" nil t)
-      (backward-char) (insert "\n"))
-    (indent-region begin end))
-  (message "Ah, much better!"))
+  (setq electric-pair-inhibit-predicate 'gco-inhibit-electric-pair-predicate)
 
 
-(defun open-with-system-browser (url &optional _new-window)
-  (interactive "sURL: ")
-  "Open the given file (may be a file, dir or URL) in the system's file explorer/finder/browser"
-  (let ((path (cond ((string-match "^file:///[a-z]:/" url)
-                     (substring url 8)) ; remove scheme, expose drive (Win32)
-                    ((string-match "^file://" url)
-                     (substring url 7)) ; remove scheme
-                    (t url))))
-    (cond (wsl-p
-           (browse-url-xdg-open url))
-          ((eq system-type 'windows-nt)
-           (start-process "system-start" nil "cmd" "/c" "start" path))
-          ((eq system-type 'darwin)
-           (shell-command (concat "open " (shell-quote-argument path))))
-          (t
-           (browse-url-xdg-open url))
-          )))
+  (blink-cursor-mode -1)	;this is annoying
+  ;;(mouse-avoidance-mode 'animate)
+  (global-font-lock-mode 1)
 
-;; Make browse-url open files with system browser (explorer/Finder/etc.), not emacs
-(add-to-list 'browse-url-handlers '("^file:///" . open-with-system-browser))
+  (add-hook 'sql-mode-hook
+            (lambda () (sql-highlight-mysql-keywords)))
 
-(defun open-folder-in-explorer ()
-  "Call when editing a file in a buffer.
+  ;;; blank lines:
+  (setq-default indicate-empty-lines t)
 
-    Open windows explorer in the current directory and select the current file"
-  (interactive)
-  (if default-directory
-      (browse-url-of-file (expand-file-name default-directory))
-    (error "No `default-directory' to open")))
-(global-set-key [f12] 'open-folder-in-explorer)
+  (require 'uniquify)
+  (setq uniquify-buffer-name-style 'post-forward-angle-brackets)
 
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;;; Automatically revert files that change on disk
+    ;;; (but only when the buffer is unmodified, so it's safe)
+  (global-auto-revert-mode t)
 
-(defun process-error-filename (filename &optional spec-directory)
-  "Process compile errors from FILENAME, looking for sources in SPEC-DIRECTORY.
+    ;;; Save all backup(~) files and auto-save files in /tmp
+    ;;; This keeps clutter down.
+  (defconst emacs-tmp-dir (expand-file-name (format "emacs%d" (user-uid)) temporary-file-directory))
+  (setq backup-directory-alist
+        `((".*" . ,emacs-tmp-dir)))
+  (setq auto-save-file-name-transforms
+        `((".*" ,emacs-tmp-dir t)))
+  (set-variable 'create-lockfiles nil)     ; dangerous but useful for file-watching recompiles
 
-    SCons (with -D) starts builds from the top of the source tree,
-    and it builds into an 'SBuild' subdir. But we want to find the
-    original errors in the regular source dir, regardless of the
-    current directory when we run \\[compile]. Note
-    \"default-directory\" may not be what you expect here, and the
-    filenames are absolute, so need to remove surgically."
+  ;; Printing via GhostScript/GhostView
+  (require 'ps-print)
+  (setq ps-lpr-command "c:\\Program Files\\Ghostgum\\gsview\\gsprint.exe")
+  ;; -query causes ghostscript to query which printer to use.
+  ;; other options: -twoup, -landscape, ... (see c:/Ghostgum/gsview/csprint.htm)
+  (setq ps-lpr-switches '("-query"))
+  (setq ps-print-color-p t)		; or t or 'black-white
+  (setq ps-printer-name t)
+  (setq ps-left-margin 30)
+  (setq ps-right-margin 10)
+  (setq ps-header-lines 1)
+  (setq ps-print-header-frame nil)
+  (setq ps-font-size '(7 . 9))
 
-  (let ((case-fold-search t)
-        (topdir (car (project-roots (project-current))))
-        )
-    ;; prepend dir
-    (if (and spec-directory
-             (not (file-name-absolute-p filename)))
-        (setq filename (concat spec-directory "/" filename)))
-
-    (let ((candidates (get_src_from_build_path (fix-win-path filename)))
-          (result nil))
-      ;; (message (format "In process-error-filename: %s in %s: candidates = %s" filename spec-directory candidates))
-      (dolist (f candidates)
-        (cond ((file-exists-p f)
-               (setq result f))
-              ((file-exists-p (concat topdir f))
-               (setq result (concat topdir f)))))
-      (if result result filename))))
-
-(defun fix-win-path (p)
-  "Convert backslashes to forward slashes in P so path-handling functions don't get confused."
-  (cond (p (replace-regexp-in-string "\\\\" "/" p)))
-  )
-
-(defun get_src_from_build_path (p)
-  "Strip Sbuild dirs from a pathname P."
-  (list
-   (replace-regexp-in-string
-    "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/" "" p)
-   (replace-regexp-in-string
-    "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/" "src/" p)
-   )
-  )
-
-  ;;; For emacs 21.1, this requires a patch to compile.el, which is in
-  ;;; Gary's email in the emacs folder (date around 10/25/2001).  Later
-  ;;; versions should already have it.
-(setq compilation-parse-errors-filename-function 'process-error-filename)
-
-(setq compilation-mode-font-lock-keywords
-      '(("^\"\\([^\"]*\", line [0-9]+:[ \t]*warning:[ \t]*\\)\\(.*$\\)"
-         2 font-lock-keyword-face)
-        ("^\"\\([^\"]*\", line [0-9]+:[ \t]*\\)\\(.*$\\)"
-         2 font-lock-function-name-face)))
-
-;; clang compiler error messages are like "edg-1" but the line number has ,COL after it
-(let ((clang-err-elt
-       '(clang-1 "^\\([^ \n]+\\)(\\([0-9]+\\),\\([0-9]+\\)): \\(?:fatal\\|error\\|warnin\\(g\\)\\|remar\\(k\\)\\)"
-        1 2 3 (4 . 5))))
-  (add-to-list 'compilation-error-regexp-alist-alist clang-err-elt)
-  (add-to-list 'compilation-error-regexp-alist 'clang-1))
-
-  ;;; For emacs23, long lines in buffers make emacs really slow.
-  ;;; This seems to ameliorate it a little.
-(add-hook 'compilation-mode-hook (lambda () (line-number-mode nil)))
-
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-  ;;; Dired-x (extra functions for dired mode)
-(add-hook 'dired-load-hook
-          (lambda ()
-            (load "dired-x")
-            ;; Set dired-x global variables here.  For example:
-            ;; (setq dired-guess-shell-gnutar "gtar")
-            ;; (setq dired-x-hands-off-my-keys nil)
-            (setq dired-omit-localp nil) ; match full pathname (slower)
-            (setq dired-omit-files "/\\.svn/\\|\\.svn-base$\\|/SBuild/\\|/\\.?#\\|/\\.$\\|/\\.\\.$")
-            ))
-
-(setq ibuffer-formats '((mark modified read-only " " (name 16 16) " "
-                              (size 6 -1 :right) " " (mode 16 16 :center)
-                              " " (process 8 -1) " " filename)
-                        (mark " " (name 16 -1) " " filename))
-      ibuffer-elide-long-columns t
-      ibuffer-eliding-string "&")
-(require 'ibuffer)
-
-  ;;; Interactive buffer switching using minibuffer substring completion
-;;(setq ido-enable-tramp-completion nil)	    ; workaround tramp bug in emacs 23.1
-;;(ido-mode)
-
-(require 'misc)
-;; Trying this out; not sure if I'll ever use it.
-(global-set-key (kbd "M-<right>") 'forward-to-word)
-
-(defun end-of-buffer-right-way ()
-  "Put point at the end of the buffer and also at the bottom of the window."
-  (interactive nil)
-  (push-mark)
-  (goto-char (point-max))
-  (recenter -2))
-
-(defun copy-line (arg)
-  "Copy lines (as many as prefix ARG) into the kill ring.
-
-        Ease of use features:
-        - Move to start of next line.
-        - Appends the copy on sequential calls.
-        - Use newline as last char even on the last line of the buffer.
-        - If region is active, copy its lines."
-  (interactive "p")
-  (let ((beg (line-beginning-position))
-        (end (line-end-position arg)))
-    (when mark-active
-      (if (> (point) (mark))
-          (setq beg (save-excursion (goto-char (mark)) (line-beginning-position)))
-        (setq end (save-excursion (goto-char (mark)) (line-end-position)))))
-    (if (eq last-command 'copy-line)
-        (kill-append (buffer-substring beg end) (< end beg))
-      (kill-ring-save beg end)))
-  (kill-append "\n" nil)
-  (beginning-of-line (or (and arg (1+ arg)) 2))
-  (if (and arg (not (= 1 arg))) (message "%d lines copied" arg)))
-
-  ;;; We use .cp for C source files, but emacs ignores them by default.
-(setq completion-ignored-extensions
-      (remove nil
-              (remove ".log"
-                      (remove ".cp" completion-ignored-extensions))))
-
-;; This fixes the slow startup of query-replace when using Droid Sans Mono Dotted font
-;; The default value of this isn't in that font I guess? (In fact, even pasting it
-;; in here makes redisplay slow down!)
-(setq-default query-replace-from-to-separator " -> ")
+  (defun bf-pretty-print-xml-region (begin end)
+    "Pretty format XML markup in region. You need to have nxml-mode
+    http://www.emacswiki.org/cgi-bin/wiki/NxmlMode installed to do
+    this.  The function inserts linebreaks to separate tags that have
+    nothing but whitespace between them.  It then indents the markup
+    by using nxml's indentation rules."
+    (interactive "r")
+    (save-excursion
+      (nxml-mode)
+      (goto-char begin)
+      (while (search-forward-regexp "\>[ \\t]*\<" nil t)
+        (backward-char) (insert "\n"))
+      (indent-region begin end))
+    (message "Ah, much better!"))
 
 
-  ;;; This is very important to speed up display of long lines.
-  ;;; It's not perfect but it should help.
-(setq-default bidi-display-reordering nil)
+  (defun open-with-system-browser (url &optional _new-window)
+    (interactive "sURL: ")
+    "Open the given file (may be a file, dir or URL) in the system's file explorer/finder/browser"
+    (let ((path (cond ((string-match "^file:///[a-z]:/" url)
+                       (substring url 8)) ; remove scheme, expose drive (Win32)
+                      ((string-match "^file://" url)
+                       (substring url 7)) ; remove scheme
+                      (t url))))
+      (cond (wsl-p
+             (browse-url-xdg-open url))
+            ((eq system-type 'windows-nt)
+             (start-process "system-start" nil "cmd" "/c" "start" path))
+            ((eq system-type 'darwin)
+             (shell-command (concat "open " (shell-quote-argument path))))
+            (t
+             (browse-url-xdg-open url))
+            )))
 
-  ;;; Always use '(foo) rather than (quote (foo)) in customize
-  ;;; (custom-set-variables below)
-(advice-add 'custom-save-all :around
-            (lambda (orig)
-              (let ((print-quoted t))
-                (funcall orig))))
+  ;; Make browse-url open files with system browser (explorer/Finder/etc.), not emacs
+  (with-eval-after-load 'browse-url
+    (add-to-list 'browse-url-handlers '("^file:///" . open-with-system-browser))
+    )
 
-  ;;; Start emacs server
-(require 'server)
-(unless (server-running-p)
-  (server-start))
+  (defun open-folder-in-explorer ()
+    "Call when editing a file in a buffer.
+
+      Open windows explorer in the current directory and select the current file"
+    (interactive)
+    (if default-directory
+        (browse-url-of-file (expand-file-name default-directory))
+      (error "No `default-directory' to open")))
+  (global-set-key [f12] 'open-folder-in-explorer)
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  (defun process-error-filename (filename &optional spec-directory)
+    "Process compile errors from FILENAME, looking for sources in SPEC-DIRECTORY.
+
+      SCons (with -D) starts builds from the top of the source tree,
+      and it builds into an 'SBuild' subdir. But we want to find the
+      original errors in the regular source dir, regardless of the
+      current directory when we run \\[compile]. Note
+      \"default-directory\" may not be what you expect here, and the
+      filenames are absolute, so need to remove surgically."
+
+    (let ((case-fold-search t)
+          (topdir (car (project-roots (project-current))))
+          )
+      ;; prepend dir
+      (if (and spec-directory
+               (not (file-name-absolute-p filename)))
+          (setq filename (concat spec-directory "/" filename)))
+
+      (let ((candidates (get_src_from_build_path (fix-win-path filename)))
+            (result nil))
+        ;; (message (format "In process-error-filename: %s in %s: candidates = %s" filename spec-directory candidates))
+        (dolist (f candidates)
+          (cond ((file-exists-p f)
+                 (setq result f))
+                ((file-exists-p (concat topdir f))
+                 (setq result (concat topdir f)))))
+        (if result result filename))))
+
+  (defun fix-win-path (p)
+    "Convert backslashes to forward slashes in P so path-handling functions don't get confused."
+    (cond (p (replace-regexp-in-string "\\\\" "/" p)))
+    )
+
+  (defun get_src_from_build_path (p)
+    "Strip Sbuild dirs from a pathname P."
+    (list
+     (replace-regexp-in-string
+      "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/" "" p)
+     (replace-regexp-in-string
+      "[Ss]?[Bb]uild/.*\\(final\\|release\\|dbg\\|debug\\)[^/]*/" "src/" p)
+     )
+    )
+
+    ;;; For emacs 21.1, this requires a patch to compile.el, which is in
+    ;;; Gary's email in the emacs folder (date around 10/25/2001).  Later
+    ;;; versions should already have it.
+  (setq compilation-parse-errors-filename-function 'process-error-filename)
+
+  (setq compilation-mode-font-lock-keywords
+        '(("^\"\\([^\"]*\", line [0-9]+:[ \t]*warning:[ \t]*\\)\\(.*$\\)"
+           2 font-lock-keyword-face)
+          ("^\"\\([^\"]*\", line [0-9]+:[ \t]*\\)\\(.*$\\)"
+           2 font-lock-function-name-face)))
+
+  ;; clang compiler error messages are like "edg-1" but the line number has ,COL after it
+  (with-eval-after-load 'compile
+    (let ((clang-err-elt
+           '(clang-1 "^\\([^ \n]+\\)(\\([0-9]+\\),\\([0-9]+\\)): \\(?:fatal\\|error\\|warnin\\(g\\)\\|remar\\(k\\)\\)"
+                     1 2 3 (4 . 5))))
+      (add-to-list 'compilation-error-regexp-alist-alist clang-err-elt)
+      (add-to-list 'compilation-error-regexp-alist 'clang-1)))
+
+    ;;; For emacs23, long lines in buffers make emacs really slow.
+    ;;; This seems to ameliorate it a little.
+  (add-hook 'compilation-mode-hook (lambda () (line-number-mode nil)))
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+    ;;; Dired-x (extra functions for dired mode)
+  (add-hook 'dired-load-hook
+            (lambda ()
+              (load "dired-x")
+              ;; Set dired-x global variables here.  For example:
+              ;; (setq dired-guess-shell-gnutar "gtar")
+              ;; (setq dired-x-hands-off-my-keys nil)
+              (setq dired-omit-localp nil) ; match full pathname (slower)
+              (setq dired-omit-files "/\\.svn/\\|\\.svn-base$\\|/SBuild/\\|/\\.?#\\|/\\.$\\|/\\.\\.$")
+              ))
+
+  (setq ibuffer-formats '((mark modified read-only " " (name 16 16) " "
+                                (size 6 -1 :right) " " (mode 16 16 :center)
+                                " " (process 8 -1) " " filename)
+                          (mark " " (name 16 -1) " " filename))
+        ibuffer-elide-long-columns t
+        ibuffer-eliding-string "&")
+  (require 'ibuffer)
+
+    ;;; Interactive buffer switching using minibuffer substring completion
+  ;;(setq ido-enable-tramp-completion nil)	    ; workaround tramp bug in emacs 23.1
+  ;;(ido-mode)
+
+  (require 'misc)
+  ;; Trying this out; not sure if I'll ever use it.
+  (global-set-key (kbd "M-<right>") 'forward-to-word)
+
+  (defun end-of-buffer-right-way ()
+    "Put point at the end of the buffer and also at the bottom of the window."
+    (interactive nil)
+    (push-mark)
+    (goto-char (point-max))
+    (recenter -2))
+
+  (defun copy-line (arg)
+    "Copy lines (as many as prefix ARG) into the kill ring.
+
+          Ease of use features:
+          - Move to start of next line.
+          - Appends the copy on sequential calls.
+          - Use newline as last char even on the last line of the buffer.
+          - If region is active, copy its lines."
+    (interactive "p")
+    (let ((beg (line-beginning-position))
+          (end (line-end-position arg)))
+      (when mark-active
+        (if (> (point) (mark))
+            (setq beg (save-excursion (goto-char (mark)) (line-beginning-position)))
+          (setq end (save-excursion (goto-char (mark)) (line-end-position)))))
+      (if (eq last-command 'copy-line)
+          (kill-append (buffer-substring beg end) (< end beg))
+        (kill-ring-save beg end)))
+    (kill-append "\n" nil)
+    (beginning-of-line (or (and arg (1+ arg)) 2))
+    (if (and arg (not (= 1 arg))) (message "%d lines copied" arg)))
+
+    ;;; We use .cp for C source files, but emacs ignores them by default.
+  (setq completion-ignored-extensions
+        (remove nil
+                (remove ".log"
+                        (remove ".cp" completion-ignored-extensions))))
+
+  ;; This fixes the slow startup of query-replace when using Droid Sans Mono Dotted font
+  ;; The default value of this isn't in that font I guess? (In fact, even pasting it
+  ;; in here makes redisplay slow down!)
+  (setq-default query-replace-from-to-separator " -> ")
+
+
+    ;;; This is very important to speed up display of long lines.
+    ;;; It's not perfect but it should help.
+  (setq-default bidi-display-reordering nil)
+
+    ;;; Always use '(foo) rather than (quote (foo)) in customize
+    ;;; (custom-set-variables below)
+  (advice-add 'custom-save-all :around
+              (lambda (orig)
+                (let ((print-quoted t))
+                  (funcall orig))))
+
+    ;;; Start emacs server
+  (require 'server)
+  (unless (server-running-p)
+    (server-start))
 
 #+END_SRC
 
