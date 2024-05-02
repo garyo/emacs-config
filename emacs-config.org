@@ -645,42 +645,6 @@ Why not ~selectrum~? Selectrum was the predecessor of Vertico, so Vertico seems 
 
 There's some good samples of customizations at https://kristofferbalintona.me/posts/202202211546/#extensions
 
-*** Vertico
-
-This also adds:
-- Orderless: space-separated orderless completion matching, very nice
-- Marginalia: show useful metadata on right side of matches
-
-#+begin_src emacs-lisp
-(use-package vertico
-  :ensure (:files (:defaults "extensions/*"))
-  :config
-  (vertico-mode)
-  :hook (rfn-eshadow-update-overlay . vertico-directory-tidy) ; Correct file path when changed
-  )
-
-;;  "orderless"" completion style. See
-;; `+orderless-dispatch' in the Consult wiki for an advanced Orderless style
-;; dispatcher. Additionally enable `partial-completion' for file path
-;; expansion. `partial-completion' is important for wildcard support.
-;; Multiple files can be opened at once with `find-file' if you enter a
-;; wildcard. You may also give the `initials' completion style a try.
-(use-package orderless
-  ;; Configure a custom style dispatcher (see the Consult wiki)
-  ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
-  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
-  :custom
-  (completion-styles '(orderless basic))
-  (completion-category-defaults nil)
-  (completion-category-overrides '((file (styles partial-completion))))
-  )
-
-;; show file metadata in buffer completion list (C-x b) etc.
-(use-package marginalia
-  :config
-  (marginalia-mode))
-#+end_src
-
 *** Consult
 
 Lots of additional completion sources for various commands.
@@ -746,12 +710,10 @@ I don't use most of these consult bindings, so they could use a good pruning. Bu
          ("M-s l" . consult-line-literal) ;; needed by consult-line to detect isearch
          ("M-s L" . consult-line-multi) ;; needed by consult-line to detect isearch
          )
-  :init
+  :config
   ;; Use Consult to select xref locations with preview
   (setq xref-show-xrefs-function #'consult-xref
         xref-show-definitions-function #'consult-xref)
-
-  :config
   (setq consult-narrow-key "<") ; use this to show different types of things in C-x b
 
   (consult-customize
