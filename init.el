@@ -47,6 +47,9 @@
 (add-hook 'after-init-hook #'elpaca-process-queues)
 (elpaca `(,@elpaca-order))
 
+(if (eq system-type 'windows-nt)
+    (setq elpaca-queue-limit 3))            ; on Windows, prevent too many open files
+
 (elpaca elpaca-use-package
   ;; Enable use-package :ensure support for Elpaca.
   (elpaca-use-package-mode))

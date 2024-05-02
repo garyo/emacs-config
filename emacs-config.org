@@ -654,7 +654,7 @@ This also adds:
 #+begin_src emacs-lisp
 (use-package vertico
   :ensure (:files (:defaults "extensions/*"))
-  :init
+  :config
   (vertico-mode)
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy) ; Correct file path when changed
   )
@@ -677,7 +677,7 @@ This also adds:
 
 ;; show file metadata in buffer completion list (C-x b) etc.
 (use-package marginalia
-  :init
+  :config
   (marginalia-mode))
 #+end_src
 
@@ -792,6 +792,7 @@ Note that I also use orderless for corfu (see below) but it's hard to invoke for
 
 #+BEGIN_SRC emacs-lisp
 (use-package corfu
+  :ensure (:files (:defaults "extensions/*"))
   :custom
   (corfu-auto t)
   (corfu-auto-delay 0.5)
@@ -802,18 +803,28 @@ Note that I also use orderless for corfu (see below) but it's hard to invoke for
    )
   :config
   (global-corfu-mode)
-  (corfu-history-mode 1)
-  (savehist-mode 1)
-  (add-to-list 'savehist-additional-variables 'corfu-history)
   )
 
+;; corfu extension (in corfu/extensions/corfu-history.el); load after corfu
+(use-package corfu-history
+  :ensure nil
+  :after corfu
+  :config
+  (corfu-history-mode)
+  (savehist-mode 1)
+  (add-to-list 'savehist-additional-variables 'corfu-history)
+)
+
 (use-package corfu-terminal
+  :after corfu
+  :init
+  (defvar corfu-terminal-mode)
   ;; TODO set this up, for use in non-GUI emacs
   )
 
 ;; Additional capf completion sources
 (use-package cape
-  :init
+  :config
   ;; Note: order matters here. First one returning a result wins.
   ;; Have to set the default (global) value since capf is automatically buffer-local
   ;; when set.
@@ -846,7 +857,7 @@ Note that I also use orderless for corfu (see below) but it's hard to invoke for
    ("C-;" . embark-dwim)
    ("C-h B" . embark-bindings)
    )
-  :init
+  :config
   (setq prefix-help-command #'embark-prefix-help-command)
   ;; Hide the mode line of the Embark live/completions buffers
   (add-to-list 'display-buffer-alist
@@ -958,7 +969,7 @@ Mostly programming-language related.
   )
 
 (use-package dumb-jump
-  :init (add-hook 'xref-backend-functions #'dumb-jump-xref-activate)
+  :config (add-hook 'xref-backend-functions #'dumb-jump-xref-activate)
   )
 
 ;;; clojure: for logseq config (.edn files)
@@ -1162,51 +1173,51 @@ Built-in treesit (as of Jan 2023) requires compiled grammars in lib path or ~~/.
 Very nice language-aware code folding with sidebar markers. This depends on ~tree-sitter-mode~.
 
 #+begin_src emacs-lisp
-(use-package hydra)
+  ;; (use-package hydra)
 
-(with-eval-after-load 'hydra
-  (defhydra hydra-ts-fold (:exit t :hint nil)
-    "
-Tree-sitter code folding
-Point^^                     Recursive^^             All^^
-^^^^^^---------------------------------------------------------------
-[_f_] toggle fold at point
-[_o_] open at point         [_O_] open recursively  [_M-o_] open all
-[_c_] close at point         ^ ^                    [_M-c_] close all"
-    ("f" ts-fold-toggle)
-    ("o" ts-fold-open)
-    ("c" ts-fold-close)
-    ("O" ts-fold-open-recursively)
-    ("M-o" ts-fold-open-all)
-    ("M-c" ts-fold-close-all)))
+  ;; (with-eval-after-load 'hydra
+  ;;   (defhydra hydra-ts-fold (:exit t :hint nil)
+  ;;     "
+  ;; Tree-sitter code folding
+  ;; Point^^                     Recursive^^             All^^
+  ;; ^^^^^^---------------------------------------------------------------
+  ;; [_f_] toggle fold at point
+  ;; [_o_] open at point         [_O_] open recursively  [_M-o_] open all
+  ;; [_c_] close at point         ^ ^                    [_M-c_] close all"
+  ;;     ("f" ts-fold-toggle)
+  ;;     ("o" ts-fold-open)
+  ;;     ("c" ts-fold-close)
+  ;;     ("O" ts-fold-open-recursively)
+  ;;     ("M-o" ts-fold-open-all)
+  ;;     ("M-c" ts-fold-close-all)))
 
-(cond (using-treesit
-       (message "Using native treesit for ts-fold")
-       (use-package ts-fold
-         :ensure (:host github
-                  :repo "AndrewSwerlick/ts-fold"
-                  :branch "andrew-sw/treesit-el-support"
-                  :fork (:host github
-                         :repo "garyo/ts-fold"
-                         :branch "garyo/treesit-el-patches")
-                  )
+  ;; (cond (using-treesit
+  ;;        (message "Using native treesit for ts-fold")
+  ;;        (use-package ts-fold
+  ;;          :ensure (:host github
+  ;;                   :repo "AndrewSwerlick/ts-fold"
+  ;;                   :branch "andrew-sw/treesit-el-support"
+  ;;                   :fork (:host github
+  ;;                          :repo "garyo/ts-fold"
+  ;;                          :branch "garyo/treesit-el-patches")
+  ;;                   )
 
-         :config (global-ts-fold-indicators-mode)
+  ;;          :config (global-ts-fold-indicators-mode)
 
-         :bind (("C-c C-f" . hydra-ts-fold/body)
-                )
-         )
-       )
-      (t
-       (message "Using tree-sitter version of ts-fold")
-       (use-package ts-fold
-         :ensure (:host github :repo "emacs-tree-sitter/ts-fold")
-         :config (global-ts-fold-indicators-mode)
+  ;;          :bind (("C-c C-f" . hydra-ts-fold/body)
+  ;;                 )
+  ;;          )
+  ;;        )
+  ;;       (t
+  ;;        (message "Using tree-sitter version of ts-fold")
+  ;;        (use-package ts-fold
+  ;;          :ensure (:host github :repo "emacs-tree-sitter/ts-fold")
+  ;;          :config (global-ts-fold-indicators-mode)
 
-         :bind (("C-c C-f" . hydra-ts-fold/body)
-                )
-         )
-       ))
+  ;;          :bind (("C-c C-f" . hydra-ts-fold/body)
+  ;;                 )
+  ;;          )
+  ;;        ))
 #+end_src
 
 #+RESULTS:
@@ -2184,7 +2195,7 @@ Here are some configs that help me:
   ;;; Save minibuffer histories -- important w/ vertico, useful always
 (use-package savehist
   :ensure nil
-  :init
+  :config
   (savehist-mode)
   )
 
