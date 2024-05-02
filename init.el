@@ -60,8 +60,7 @@
   :commands (org-mode org-babel-load-file)
   :config
   (require 'org-mouse)
- :ensure t)
-(elpaca-wait)
+ :ensure (:wait t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Load main emacs-config.org

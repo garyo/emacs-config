@@ -572,7 +572,10 @@ However, as of 2024, built-in ~project.el~ has almost everything in projectile, 
 The bindings are similar, but start with ~C-x p~ instead of ~C-c p~.
 
 #+begin_src emacs-lisp
-(use-package project) ; as of 2024-02-12 an emacs/straight bug requires this explicitly, if using projectile
+; as of 2024-02-12 an emacs/straight bug requires this explicitly, if using projectile
+(use-package project
+  :ensure nil                           ; built-in
+  ) 
 #+end_src
 
 ** Searching
@@ -1180,13 +1183,13 @@ Point^^                     Recursive^^             All^^
 (cond (using-treesit
        (message "Using native treesit for ts-fold")
        (use-package ts-fold
-         :ensure (ts-fold :type git :host github
-                            :repo "AndrewSwerlick/ts-fold"
-                            :branch "andrew-sw/treesit-el-support"
-                            :fork (:host github
-                                         :repo "garyo/ts-fold"
-                                         :branch "garyo/treesit-el-patches")
-                            )
+         :ensure (:host github
+                  :repo "AndrewSwerlick/ts-fold"
+                  :branch "andrew-sw/treesit-el-support"
+                  :fork (:host github
+                         :repo "garyo/ts-fold"
+                         :branch "garyo/treesit-el-patches")
+                  )
 
          :config (global-ts-fold-indicators-mode)
 
@@ -1197,7 +1200,7 @@ Point^^                     Recursive^^             All^^
       (t
        (message "Using tree-sitter version of ts-fold")
        (use-package ts-fold
-         :ensure (ts-fold :type git :host github :repo "emacs-tree-sitter/ts-fold")
+         :ensure (:host github :repo "emacs-tree-sitter/ts-fold")
          :config (global-ts-fold-indicators-mode)
 
          :bind (("C-c C-f" . hydra-ts-fold/body)
@@ -1309,7 +1312,9 @@ Return the errors parsed with the error patterns of CHECKER."
 (defun setup-flymake ()
   "Set up built-in flymake as the checker"
 
-  (use-package flymake)
+  (use-package flymake
+    :ensure nil                         ; use emacs built-in version
+    )
   (use-package flymake-posframe
     ;; Note: this is a fork of the main flymake-posframe, with a fix for eglot
     :ensure (:host github
@@ -1529,6 +1534,7 @@ Tested & working with C++ (clangd), Python (pyright-langserver), and Typescript 
     ;; :ensure (:host github
     ;;                  :repo "joaotavora/eglot"
     ;;                  :branch "master")
+    :ensure nil
     :commands eglot-ensure
     :hook ((vue-mode . eglot-ensure)
            (c-mode-common . eglot-ensure)
@@ -1594,7 +1600,7 @@ Tested & working with C++ (clangd), Python (pyright-langserver), and Typescript 
   ;; Volar is a good LSP client for Vue files
   (use-package volar
     :ensure (:host github
-                   :repo "jadestrong/lsp-volar"))
+             :repo "jadestrong/lsp-volar"))
   (use-package lsp-volar))
 #+END_SRC
 
@@ -1942,13 +1948,13 @@ Experimental -- logseq-like note-taking app, backed by sql rather than note file
 ;;; So suppress errors here.
 (condition-case nil
     (use-package ekg
-      :ensure (ekg :type git :host github
-                     :repo "ahyatt/ekg"
-					; :branch "inline-tags"
-                     ;; :fork (:host github
-                     ;;              :repo "garyo/emacs-ekg"
-                     ;;              :branch "garyo/updates")
-                     )
+      :ensure (:host github
+               :repo "ahyatt/ekg"
+               ;; :branch "inline-tags"
+               ;; :fork (:host github
+               ;;              :repo "garyo/emacs-ekg"
+               ;;              :branch "garyo/updates")
+               )
       :config
       (require 'ekg-logseq)
       (require 'ekg-org-roam)
@@ -2477,11 +2483,9 @@ A Transient menu, bound to <f2>, for isearch mode, to get easy access to all the
 ;; Install this Chrome extension: https://chromewebstore.google.com/detail/chrome-emacs/dabdpcafiblbndpoadckibiaojbdnpjg
 (use-package atomic-chrome
   :demand t
-  :ensure (atomic-chrome
-             :repo "KarimAziev/atomic-chrome"
-             :type git
-             :flavor nil
-             :host github)
+  :ensure (:host github
+           :repo "KarimAziev/atomic-chrome"
+           :flavor nil)
   :commands (atomic-chrome-start-server)
   :defines atomic-chrome-create-file-strategy
   :config
