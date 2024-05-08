@@ -23,3 +23,5 @@ workgroups
 emacs-config.el
 emacs-config.html
 org-persist
+elpaca
+tree-sitter

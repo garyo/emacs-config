@@ -18,7 +18,7 @@
 ;; Defer garbage collection further back in the startup process
 (setq gc-cons-threshold most-positive-fixnum)
 
-;; Disable `package' in favor of `straight'.
+;; Disable `package' in favor of `straight' or `elpaca'.
 (setq package-enable-at-startup nil)
 
 
@@ -38,15 +38,6 @@
 
 ;; These are good notes on optimizing startup performance:
 ;; https://github.com/hlissner/doom-emacs/wiki/FAQ#how-is-dooms-startup-so-fast
-
-;; Unset `file-name-handler-alist' too (temporarily). Every file opened and
-;; loaded by Emacs will run through this list to check for a proper handler for
-;; the file, but during startup, it won’t need any of them.
-(defvar file-name-handler-alist-old file-name-handler-alist)
-(setq file-name-handler-alist nil)
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (setq file-name-handler-alist file-name-handler-alist-old)))
 
 (print-time-since-init "early-init.el")
 (provide 'early-init)
