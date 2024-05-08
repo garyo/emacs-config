@@ -56,7 +56,7 @@
 (elpaca `(,@elpaca-order))
 
 (if (eq system-type 'windows-nt)
-    (setq elpaca-queue-limit 10))            ; on Windows, prevent too many open files
+    (setq elpaca-queue-limit 12))            ; on Windows, prevent too many open files
 
 (elpaca elpaca-use-package
   ;; Enable use-package :ensure support for Elpaca.

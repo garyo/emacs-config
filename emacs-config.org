@@ -1958,6 +1958,7 @@ Experimental -- logseq-like note-taking app, backed by sql rather than note file
 ;;; So suppress errors here.
 (condition-case nil
     (use-package ekg
+      :after transient                  ; so setup-ekg-transients will work
       :ensure (:host github
                :repo "ahyatt/ekg"
                ;; :branch "inline-tags"
@@ -2411,77 +2412,78 @@ Functions are like `tzc-convert-*` and `tzc-world-clock`
 
 A Transient menu, bound to <f2>, for isearch mode, to get easy access to all the less-used isearch commands:
 #+BEGIN_SRC emacs-lisp
-(require 'transient)
+(add-hook 'elpaca-after-init-hook
+          (lambda () 
+            (transient-define-prefix go/isearch-menu ()
+              "isearch Menu"
+              [["Edit Search String"
+                ("e"
+                 "Edit the search string (recursive)"
+                 isearch-edit-string
+                 :transient nil)
+                ("w"
+                 "Pull next word or character word from buffer"
+                 isearch-yank-word-or-char
+                 :transient nil)
+                ("s"
+                 "Pull next symbol or character from buffer"
+                 isearch-yank-symbol-or-char
+                 :transient nil)
+                ("l"
+                 "Pull rest of line from buffer"
+                 isearch-yank-line
+                 :transient nil)
+                ("y"
+                 "Pull string from kill ring"
+                 isearch-yank-kill
+                 :transient nil)
+                ("t"
+                 "Pull thing from buffer"
+                 isearch-forward-thing-at-point
+                 :transient nil)]
 
-(transient-define-prefix go/isearch-menu ()
-  "isearch Menu"
-  [["Edit Search String"
-    ("e"
-     "Edit the search string (recursive)"
-     isearch-edit-string
-     :transient nil)
-    ("w"
-     "Pull next word or character word from buffer"
-     isearch-yank-word-or-char
-     :transient nil)
-    ("s"
-     "Pull next symbol or character from buffer"
-     isearch-yank-symbol-or-char
-     :transient nil)
-    ("l"
-     "Pull rest of line from buffer"
-     isearch-yank-line
-     :transient nil)
-    ("y"
-     "Pull string from kill ring"
-     isearch-yank-kill
-     :transient nil)
-    ("t"
-     "Pull thing from buffer"
-     isearch-forward-thing-at-point
-     :transient nil)]
+               ["Replace"
+                ("q"
+                 "Start ‘query-replace’"
+                 isearch-query-replace
+                 :if-nil buffer-read-only
+                 :transient nil)
+                ("x"
+                 "Start ‘query-replace-regexp’"
+                 isearch-query-replace-regexp
+                 :if-nil buffer-read-only     
+                 :transient nil)]]
 
-   ["Replace"
-    ("q"
-     "Start ‘query-replace’"
-     isearch-query-replace
-     :if-nil buffer-read-only
-     :transient nil)
-    ("x"
-     "Start ‘query-replace-regexp’"
-     isearch-query-replace-regexp
-     :if-nil buffer-read-only     
-     :transient nil)]]
+              [["Toggle"
+                ("X"
+                 "Toggle regexp searching"
+                 isearch-toggle-regexp
+                 :transient nil)
+                ("S"
+                 "Toggle symbol searching"
+                 isearch-toggle-symbol
+                 :transient nil)
+                ("W"
+                 "Toggle word searching"
+                 isearch-toggle-word
+                 :transient nil)
+                ("F"
+                 "Toggle case fold"
+                 isearch-toggle-case-fold
+                 :transient nil)
+                ("L"
+                 "Toggle lax whitespace"
+                 isearch-toggle-lax-whitespace
+                 :transient nil)]
 
-  [["Toggle"
-    ("X"
-     "Toggle regexp searching"
-     isearch-toggle-regexp
-     :transient nil)
-    ("S"
-     "Toggle symbol searching"
-     isearch-toggle-symbol
-     :transient nil)
-    ("W"
-     "Toggle word searching"
-     isearch-toggle-word
-     :transient nil)
-    ("F"
-     "Toggle case fold"
-     isearch-toggle-case-fold
-     :transient nil)
-    ("L"
-     "Toggle lax whitespace"
-     isearch-toggle-lax-whitespace
-     :transient nil)]
+               ["Misc"
+                ("o"
+                 "occur"
+                 isearch-occur
+                 :transient nil)]])
 
-   ["Misc"
-    ("o"
-     "occur"
-     isearch-occur
-     :transient nil)]])
-
-(define-key isearch-mode-map (kbd "<f2>") 'go/isearch-menu)
+            (define-key isearch-mode-map (kbd "<f2>") 'go/isearch-menu)
+            ))
 #+END_SRC
 
 #+BEGIN_SRC emacs-lisp
