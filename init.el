@@ -4,6 +4,14 @@
 (message "User-emacs-directory is %S" user-emacs-directory)
 (message "Loading init.el, ~ is %S" (expand-file-name "~"))
 
+;;; Don't use msys64 gpg -- prefer official install.
+;; Msys64 version has problems setting ~--homedir~ arg with drive letter.
+(if (file-directory-p "C:/Program Files (x86)/GnuPG")
+    (setq
+     epg-gpg-home-directory "C:/Program Files (x86)/GnuPG"
+     epg-gpg-program (concat epg-gpg-home-directory "/bin/gpg.exe")
+     epg-gpgconf-program  (concat epg-gpg-home-directory "/bin/gpgconf.exe")))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Bootstrap: load elpaca.el
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -48,7 +56,7 @@
 (elpaca `(,@elpaca-order))
 
 (if (eq system-type 'windows-nt)
-    (setq elpaca-queue-limit 3))            ; on Windows, prevent too many open files
+    (setq elpaca-queue-limit 10))            ; on Windows, prevent too many open files
 
 (elpaca elpaca-use-package
   ;; Enable use-package :ensure support for Elpaca.
