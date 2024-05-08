@@ -547,8 +547,6 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
       comint-input-ignoredups t
       comint-input-ring-size 256
       )
-(when-windows
- (setq w32-quote-process-args ?\"))
 
 (make-variable-buffer-local 'comint-completion-addsuffix)
 
@@ -2035,6 +2033,7 @@ Experimental -- logseq-like note-taking app, backed by sql rather than note file
 
   (use-package git-modes)
 
+  (use-package transient)
   (use-package magit
     :bind (("C-x v =" . magit-status)
            ("C-x v b" . magit-blame)
