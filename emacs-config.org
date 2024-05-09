@@ -2205,6 +2205,51 @@ Here are some configs that help me:
              '("\\*Help"
                (display-buffer-same-window)))
 #+END_SRC
+
+* Logseq
+
+Logseq PKM system keeps its files as Markdown, so they can be edited by Emacs as well.
+Here's a simple integration: a transient menu for going to today's journal entry.
+
+#+BEGIN_SRC emacs-lisp
+(defvar logseq-root
+  (cond ((eq system-type 'windows-nt)
+         (expand-file-name "~/Documents/Logseq Notes"))
+        ((eq system-type 'darwin)
+         (expand-file-name "~/Logseq Notes"))
+        ))
+(defvar logseq-personal (concat logseq-root "/Personal"))
+(defvar logseq-work (concat logseq-root "/DSS"))
+
+(defun logseq-goto-today-personal ()
+  "Go to today's Logseq personal journal"
+    (interactive)
+    (let
+        ((today (format-time-string "%Y_%m_%d")))
+      (find-file (concat logseq-personal "/journals/" today ".md"))
+      ))
+(defun logseq-goto-today-work ()
+    (interactive)
+    (let
+        ((today (format-time-string "%Y_%m_%d")))
+      (find-file (concat logseq-work "/journals/" today ".md"))
+      ))
+
+;; F9: open Logseq note
+(with-eval-after-load 'transient
+    (transient-define-prefix logseq-menu ()
+    "Logseq Menu"
+    [["Capture"
+      ("tp"
+       "Today (personal)"
+       logseq-goto-today-personal)
+      ("tw"
+       "Today (work)"
+       logseq-goto-today-work)]
+     ])
+  (define-key global-map (kbd "<f9>") 'logseq-menu)
+)
+#+END_SRC
 * Misc packages
 
 #+begin_src emacs-lisp
@@ -2513,40 +2558,6 @@ A Transient menu, bound to <f2>, for isearch mode, to get easy access to all the
 
   (define-key isearch-mode-map (kbd "<f2>") 'go/isearch-menu)
   )
-
-(defvar logseq-root
-  (expand-file-name "~/Documents/Logseq Notes"))
-(defvar logseq-personal (concat logseq-root "/Personal"))
-(defvar logseq-work (concat logseq-root "/DSS"))
-
-(defun logseq-goto-today-personal ()
-  "Go to today's Logseq personal journal"
-    (interactive)
-    (let
-        ((today (format-time-string "%Y_%m_%d")))
-      (find-file (concat logseq-personal "/journals/" today ".md"))
-      ))
-(defun logseq-goto-today-work ()
-    (interactive)
-    (let
-        ((today (format-time-string "%Y_%m_%d")))
-      (find-file (concat logseq-work "/journals/" today ".md"))
-      ))
-
-;; F9: open Logseq note
-(with-eval-after-load 'transient
-    (transient-define-prefix logseq-menu ()
-    "Logseq Menu"
-    [["Capture"
-      ("tp"
-       "Today (personal)"
-       logseq-goto-today-personal)
-      ("tw"
-       "Today (work)"
-       logseq-goto-today-work)]
-     ])
-  (define-key global-map (kbd "<f9>") 'logseq-menu)
-)
 
 #+END_SRC
 
