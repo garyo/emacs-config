@@ -2234,10 +2234,13 @@ Here's a simple integration: a transient menu for going to today's journal entry
       ((today (format-time-string "%Y_%m_%d")))
     (find-file (concat logseq-work "/journals/" today ".md"))
     ))
+
 (defun logseq-search (query &optional root)
   "Search all of Logseq Notes with ripgrep"
   (interactive "sQuery: ")
-  (rg query "*.md" (or root logseq-root)))
+  (let ((rg-command-line-flags '("--glob=!version-files/" "--glob=!bak/")))
+    (rg query "*.md" (or root logseq-root))))
+
 (defun logseq-search-personal (query)
   "Search personal Logseq Notes with ripgrep"
   (interactive "sQuery: ")
