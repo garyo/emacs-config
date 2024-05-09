@@ -389,6 +389,20 @@ Settings to determine system type, including WSL 1 and 2 on Windows.
        (set-face-attribute 'variable-pitch nil :font "Times New Roman" :weight 'light :height 1.3))
       )
 
+;;; to display Unicode math chars, like math A to z (𝐴 .. 𝑧, #x1D434 .. #x1D467)
+;;; and pi: #1D70B = 𝜋
+;;; Cambria and Segoe UI Symbol should both work on Windows, but Emacs
+;;; may pick up some other inappropriate font.
+(when-windows 
+ (set-fontset-font t 'mathematical "Segoe UI Symbol"))
+
+;;; Useful things for chars, fonts and fontsets:
+;;;  M-x describe-fontset
+;;;  C-u C-x = ; char details at point
+;;;  C-x 8 RET ; insert char by name or unicode (hex)
+;;;  var script-representative-chars: list of all (most?) Unicode script ranges with "representative" chars
+;;;  See https://lists.gnu.org/archive/html/help-gnu-emacs/2021-09/txtRLYx8BDBtJ.txt for useful math fontset test code
+;;;  As of 2024, Emacs 30 on Windows does not support color emojis, just black & white.
 #+end_src
 
 * Paths
