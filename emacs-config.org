@@ -11,10 +11,11 @@ and [https://github.com/mxco86/emacs-config][Matthew Ryall's config].
 
 To write ~emacs-config.el~, use ~M-x org-babel-tangle~. To edit and eval source blocks in this file, use ~C-c '~ (~org-edit-special~) to open them in a temp emacs-lisp buffer. Exit that mode with ~C-c '~ again. Or just ~C-c C-c~ to eval the block.
 
+To create a source block (matched pair), use ~C-c C-,~.
+
 #+begin_src emacs-lisp
 ;; -*- lexical-binding: t; -*-
 #+end_src
-
 
 * Init debugging
 
@@ -2205,6 +2206,32 @@ Here are some configs that help me:
              '("\\*Help"
                (display-buffer-same-window)))
 #+END_SRC
+
+** Window management
+I have a hard time training myself to use anything more modern than ~C-x o~ (other-window) which I've used for decades. I have repeat-mode turned on, so I can do ~C-x o o o ...~ to keep going, but I rarely do it.
+Recently I've been using ~windmove~ with ~shift-↑~ etc. for more visual movement, trying to get that into my fingers.
+But I recently ran across ~winum~ which puts a window number in the modeline, and lets you switch directly to any window -- O(1).
+Note: the place I got this recommended adding ~:suppress 'nodigits~ to the keymap, but that suppresses self-insert for everything
+which makes emacs unusable. This version seems OK though.
+#+begin_src emacs-lisp
+(use-package winum
+  :init
+  (defvar-keymap winum-keymap
+    :doc "Keymap for winum-mode actions."
+    "M-0" 'winum-select-window-0-or-10
+    "M-1" 'winum-select-window-1
+    "M-2" 'winum-select-window-2
+    "M-3" 'winum-select-window-3
+    "M-4" 'winum-select-window-4
+    "M-5" 'winum-select-window-5
+    "M-6" 'winum-select-window-6
+    "M-7" 'winum-select-window-7
+    "M-8" 'winum-select-window-8
+    "M-9" 'winum-select-window-9)
+  :config
+  (winum-mode)
+  )
+#+end_src
 
 * Logseq
 
