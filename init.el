@@ -1,86 +1,93 @@
 ;; -*- lexical-binding: t; -*-
 ;;; Gary Oberbrunner's Emacs init file
+;; garyo@oberbrunner.com
 
-(message "User-emacs-directory is %S" user-emacs-directory)
-(message "Loading init.el, ~ is %S" (expand-file-name "~"))
+;; This is my Emacs config file. Parts of it are from the 1980s but
+;; most of it is fairly up to date. I intend for it to work on any
+;; recent Emacs, on Windows, Linux, and Mac. These days, I usually
+;; use a bleeding-edge Emacs so I haven't kept it back-compatible.
 
-;;; Don't use msys64 gpg -- prefer official install.
-;; Msys64 version has problems setting ~--homedir~ arg with drive letter.
-(if (file-directory-p "C:/Program Files (x86)/GnuPG")
-    (setq
-     epg-gpg-home-directory "C:/Program Files (x86)/GnuPG"
-     epg-gpg-program (concat epg-gpg-home-directory "/bin/gpg.exe")
-     epg-gpgconf-program  (concat epg-gpg-home-directory "/bin/gpgconf.exe")))
+;;; Startup debugging:
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Bootstrap: load elpaca.el
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; (setopt debug-on-error nil)
+;; Prefer .el file if newer than .elc
+;(setq load-prefer-newer t)
 
-(defvar elpaca-installer-version 0.7)
-(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-(defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
-(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-                              :ref nil :depth 1
-                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-                              :build (:not elpaca--activate-package)))
-(let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
-       (build (expand-file-name "elpaca/" elpaca-builds-directory))
-       (order (cdr elpaca-order))
-       (default-directory repo))
-  (add-to-list 'load-path (if (file-exists-p build) build repo))
-  (unless (file-exists-p repo)
-    (make-directory repo t)
-    (when (< emacs-major-version 28) (require 'subr-x))
-    (condition-case-unless-debug err
-        (if-let ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-                 ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-                                                 ,@(when-let ((depth (plist-get order :depth)))
-                                                     (list (format "--depth=%d" depth) "--no-single-branch"))
-                                                 ,(plist-get order :repo) ,repo))))
-                 ((zerop (call-process "git" nil buffer t "checkout"
-                                       (or (plist-get order :ref) "--"))))
-                 (emacs (concat invocation-directory invocation-name))
-                 ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-                                       "--eval" "(byte-recompile-directory \".\" 0 'force)")))
-                 ((require 'elpaca))
-                 ((elpaca-generate-autoloads "elpaca" repo)))
-            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-          (error "%s" (with-current-buffer buffer (buffer-string))))
-      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
-  (unless (require 'elpaca-autoloads nil t)
-    (require 'elpaca)
-    (elpaca-generate-autoloads "elpaca" repo)
-    (load "./elpaca-autoloads")))
-(add-hook 'after-init-hook #'elpaca-process-queues)
-(elpaca `(,@elpaca-order))
+(message "Loading init.el: ~ is %S, user-emacs-directory is %S"
+         (expand-file-name "~") user-emacs-directory)
 
-(if (eq system-type 'windows-nt)
-    (setq elpaca-queue-limit 12))            ; on Windows, prevent too many open files
+;; Most of the actual config is in sections in "lisp/"
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
-(elpaca elpaca-use-package
-  ;; Enable use-package :ensure support for Elpaca.
-  (elpaca-use-package-mode))
-;; Without this, have to add ":ensure t" to most recipes to get them to install,
-;; otherwise elpaca just tries to load it.
-(setq use-package-always-ensure t)
+;;; Custom settings:
+;; Save ~M-x customize~ results into a separate file. I do this
+;; because I prefer to do my customizations explicitly in this file,
+;; but sometimes it's convenient to use ~M-x customize~ temporarily,
+;; and I don't want that to affect my actual init file.
+(setq custom-file (locate-user-emacs-file "custom-settings.el"))
+(add-hook 'elpaca-after-init-hook (lambda () (load custom-file 'noerror)))
 
-;;; Use latest org-mode. Do this early, to use when loading config
-(use-package org
-  :mode (("\\.org$" . org-mode))
-  :commands (org-mode org-babel-load-file)
-  :config
-  (require 'org-mouse)
- :ensure (:wait t))
+;;; Select high-level emacs packages:
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Load main emacs-config.org
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defconst use-flycheck-mode nil
+  "Which checker to use: t means use flycheck; nil means use flymake.")
 
-;; I use this file-local var in emacs-config.org, so allow it without prompting
-(setq safe-local-variable-values
-   '((org-src-preserve-indentation . t))
-)
-(org-babel-load-file (concat user-emacs-directory "emacs-config.org"))
+(defconst use-lsp-mode nil
+  "Which LSP service to use: t means use lsp-mode; nil means use eglot.
+Always uses eglot if this Emacs doesn't have fast JSON.")
+
+(defconst modeline-package 'doom
+  "Modeline package to use: sml or doom")
+
+;; The rest of the config is broken into individual files for specific
+;; packages, features, and concepts.
+
+(require 'initial-utils)
+(require 'initial-setup)
+(require 'elpaca-bootstrap)
+
+;;; Profile emacs init
+; (use-package esup)
+
+(require 'init-options)
+
+(require 'init-diminish)
+(require 'init-windows)                 ; Win32/WSL setup
+(require 'init-mac)
+
+(require 'init-fonts-and-frames)
+(require 'init-system-env)
+(require 'init-shell)
+(require 'init-grep)
+(require 'init-completion)
+(require 'init-languages)
+(require 'init-snippets)
+(require 'init-error-checker)
+(require 'init-language-server)
+(require 'init-org)
+(require 'init-ekg)                     ; emacs knowledge graph
+(require 'init-version-control)
+(require 'init-window-management)
+(require 'init-logseq)
+(require 'init-modeline)
+(require 'init-fill)
+(require 'init-system-open)
+(require 'init-avy)
+(require 'init-misc-packages)
+(require 'init-transient)
+(require 'init-misc)                    ; uncategorized stuff
+(require 'init-keybindings)
+(require 'init-settings)
+
+;;; Enable a few global commands
+(put 'set-goal-column 'disabled nil)
+(put 'eval-expression 'disabled nil)
+(put 'narrow-to-region 'disabled nil)
+(put 'narrow-to-page 'disabled nil)
+
+(print-time-since-init "init.el")
+(add-hook 'elpaca-after-init-hook (lambda () (print-time-since-init "init.el, after all init complete")))
+
+(provide 'emacs)
 
 ;;; init.el ends here
