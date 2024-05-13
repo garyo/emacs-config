@@ -1,5 +1,8 @@
 ;;; init-fonts-and-frames.el ---  -*- lexical-binding: t -*-
 ;;; Commentary:
+
+;; Fonts, faces, text scaling, and frame setup
+
 ;;; Code:
 
 
@@ -109,17 +112,22 @@
 
 (pixel-scroll-precision-mode t)
 
-;;; Variable/Mixed Pitch fonts:
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Variable/Mixed Pitch fonts
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (use-package mixed-pitch
-  :hook (org-mode . mixed-pitch-mode)
   :diminish mixed-pitch-mode
+  :config
+  (setq-default mixed-pitch-set-height t)
   )
 
 ;; Geneva works & looks good on Mac
 ;; or try Lucida Grande
-(cond ((find-font (font-spec :name "Lucida Grande"))
-       (set-face-attribute 'variable-pitch nil :font "Lucida Grande" :weight 'light :height 1.3))
+(cond ((find-font (font-spec :name "Geneva"))
+       (set-face-attribute 'variable-pitch nil :font "Geneva" :weight 'light :height 1.25))
+      ((find-font (font-spec :name "Lucida Grande"))
+       (set-face-attribute 'variable-pitch nil :font "Lucida Grande" :weight 'light :height 1.25))
       ((find-font (font-spec :name "Verdana"))
        (set-face-attribute 'variable-pitch nil :font "Verdana" :weight 'light :height 1.3))
       ((find-font (font-spec :name "Times New Roman"))
@@ -141,5 +149,7 @@
 ;;  var script-representative-chars: list of all (most?) Unicode script ranges with "representative" chars
 ;;  See https://lists.gnu.org/archive/html/help-gnu-emacs/2021-09/txtRLYx8BDBtJ.txt for useful math fontset test code
 ;;  As of 2024, Emacs 30 on Windows does not support color emojis, just black & white.
+;;  To set or adjust text scale: C-x C-= to enlarge, C-x C-- to shrink, C-x C-0 to reset.
+;;    To modify interactively, S-0 followed by +, -, 0, etc.
 
 (provide 'init-fonts-and-frames)

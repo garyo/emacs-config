@@ -9,6 +9,8 @@
   :ensure nil                           ; already installed in init.el
   :hook
   (org-mode . (lambda ()
+                (mixed-pitch-mode 1)
+                (visual-line-mode 1)
                 ;; I don't use ispell, no need for this
                 (setq completion-at-point-functions
                       (delete #'ispell-completion-at-point completion-at-point-functions))
@@ -18,6 +20,7 @@
         ("M-RET" . completion-at-point)
    )
 )
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Org agenda setup:
@@ -209,14 +212,6 @@
 ;; Use variable-pitch mode and use bullet symbols for bullet lists
 ;; with ~+~ and ~-~.
 
-;; TODO: is there any way to hide or de-emphasize the tildes org-mode
-;; uses for source snippets?
-
-(add-hook 'org-mode-hook
-          (lambda ()
-            (mixed-pitch-mode 1)
-            (visual-line-mode 1)))
-
 ;; Tried this but it de-indents content when using indent mode
 ;; (use-package org-bullets
 ;;   :hook (org-mode . org-bullets-mode))
@@ -230,6 +225,7 @@
                         '(("^ *\\([+]\\) "
                            (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "◦"))))))
 
+;; De-emphasize the tildes org-mode uses for source snippets by making them small
 (defface org-tilde-face
   '((t :inherit default :height 0.7))
   "Face for highlighting tildes in org-mode")

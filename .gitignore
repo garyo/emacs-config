@@ -1,3 +1,5 @@
+#*
+*~
 auto-save-list/
 bookmarks
 company-statistics-cache.el
@@ -24,4 +26,10 @@ emacs-config.el
 emacs-config.html
 org-persist
 elpaca
+elpa
 tree-sitter
+eln-cache
+ielm-history*
+*.log
+triples.db
+request/
