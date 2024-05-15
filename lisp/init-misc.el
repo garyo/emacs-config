@@ -83,7 +83,7 @@
 (add-hook 'sql-mode-hook
           (lambda () (sql-highlight-mysql-keywords)))
 
-;;; blank lines:
+;; Show blank lines
 (setq-default indicate-empty-lines t)
 
 (require 'uniquify)

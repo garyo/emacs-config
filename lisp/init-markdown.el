@@ -11,7 +11,7 @@
          ("\\.md\\'" . markdown-mode)
          ("\\.markdown\\'" . markdown-mode))
   :bind (:map markdown-mode-map
-              ("M-RET" . corfu-complete))
+              ("M-RET" . completion-at-point))
   :init (setq markdown-command "multimarkdown")
   :hook (markdown-mode . (lambda ()
                            (mixed-pitch-mode 1)
@@ -19,6 +19,5 @@
                            (setq line-spacing 3)
                            (adaptive-wrap-prefix-mode 1)))
   )
-
 
 (provide 'init-markdown)

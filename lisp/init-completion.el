@@ -192,16 +192,17 @@
 
 (use-package corfu
   :ensure (:files (:defaults "extensions/*"))
+  :demand t                      ; need this when using :bind or :hook
+  :config
+  (global-corfu-mode 1)
   :custom
   (corfu-auto t)
   (corfu-auto-delay 0.5)
   (corfu-quit-no-match t) ; quit when the popup appears and I type anything else
   ;; Might want to customize corfu-sort-function
   :bind
-  (("M-RET" . corfu-complete)
+  (("M-RET" . completion-at-point)
    )
-  :config
-  (global-corfu-mode)
   )
 
 ;; corfu extension (in corfu/extensions/corfu-history.el); load after corfu
@@ -274,6 +275,5 @@
   :hook
   (embark-collect-mode . consult-preview-at-point-mode)
   )
-
 
 (provide 'init-completion)
