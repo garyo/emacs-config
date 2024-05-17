@@ -226,15 +226,18 @@
 ;; Additional capf completion sources
 (use-package cape
   :config
-  ;; Note: order matters here. First one returning a result wins.
-  ;; Have to set the default (global) value since capf is automatically buffer-local
-  ;; when set.
+  ;; Note: order matters here. First one returning a result wins. Use
+  ;; ~add-hook~ to add these, since it sets the global (default) value
+  ;; of capf, instead of ~setq~ which would make it buffer-local
+  ;; (which would be bad): capf is automatically buffer-local when
+  ;; set.
   ;; The buffer-local value, which takes precedence over these, calls these as long
   ;; as it ends with ~t~.
-  (let ((capf-sources '(cape-history cape-file cape-keyword cape-dabbrev)))
-    (setq-default completion-at-point-functions
-                  (append capf-sources
-                          (default-value 'completion-at-point-functions))))
+  (add-hook 'completion-at-point-functions #'cape-history)
+  (add-hook 'completion-at-point-functions #'cape-file)
+  (add-hook 'completion-at-point-functions #'cape-keyword)
+  (add-hook 'completion-at-point-functions #'cape-dabbrev)
+  (message (format "Loading my capf extensions: %s" completion-at-point-functions))
   )
 
 ;; Nice icons for corfu popups
