@@ -21,10 +21,9 @@
        )
       ((eq modeline-package 'doom) ; Very pretty modeline -- nicer than sml.
        ;; Note: this uses nerd-icons. You may need to do ~M-x nerd-icons-install-fonts~.
+       ;; Note: theme will override various colors here. Customize there rather than here.
        (use-package doom-modeline
          :config
-         (set-face-attribute 'mode-line-active nil :background "#0d5") ; bright green
-         (set-face-attribute 'mode-line-inactive nil :background "#ccc") ; dim gray
          (doom-modeline-mode)
          ;; My mod for the "workspace-name" segment: show a Tab icon
          ;; (it's confusing if it's just sitting there)

@@ -24,8 +24,11 @@
 ;; because I prefer to do my customizations explicitly in this file,
 ;; but sometimes it's convenient to use ~M-x customize~ temporarily,
 ;; and I don't want that to affect my actual init file.
+;; Note that I explicitly DO NOT load the custom file (commented out here)!
+;; Anything changed in there by customize should be copied into
+;; init-settings or placed with its package.
 (setq custom-file (locate-user-emacs-file "custom-settings.el"))
-(add-hook 'elpaca-after-init-hook (lambda () (load custom-file 'noerror)))
+;(add-hook 'elpaca-after-init-hook (lambda () (load custom-file 'noerror)))
 
 ;;; Select high-level emacs packages:
 

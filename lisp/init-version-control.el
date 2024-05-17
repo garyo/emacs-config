@@ -40,9 +40,6 @@
   (magit-log-format-unicode-graph-alist '((47 . 9585) (92 . 9586) (42 . 9642)))
   (magit-pull-arguments '("--rebase"))
   (magit-refresh-status-buffer nil)
-  :custom-face
-  (magit-item-highlight ((t (:background "floral white"))))
-  (magit-section-highlight ((t (:background "floral white"))))
   )
 
 ;; (use-package diff-hl

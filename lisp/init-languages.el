@@ -36,10 +36,6 @@
         web-mode-script-padding 0       ; start script in col 0
         web-mode-enable-current-column-highlight t
         )
-  :custom-face
-  ;; light color for highlighting the current HTML element's column
-  (web-mode-current-column-highlight-face
-                      ((t (:background "#f0f0f0"))))
   )
 
 (use-package php-mode
