@@ -80,6 +80,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (require 'init-misc)                    ; uncategorized stuff
 (require 'init-keybindings)
 (require 'init-settings)
+(require 'init-themes)
 
 ;;; Enable a few global commands
 (put 'set-goal-column 'disabled nil)
