@@ -40,15 +40,27 @@
 (add-to-list 'display-buffer-alist
              '("\\*Help"
                (display-buffer-same-window)))
+(add-to-list 'display-buffer-alist
+               '("\\*rg\\*"
+                 (display-buffer-same-window) ; try this; see how I like it
+                 ))
 
 
 ;;; Window management
 
-;; I have a hard time training myself to use anything more modern than ~C-x o~ (other-window) which I've used for decades. I have repeat-mode turned on, so I can do ~C-x o o o ...~ to keep going, but I rarely do it.
-;; Recently I've been using ~windmove~ with ~shift-↑~ etc. for more visual movement, trying to get that into my fingers.
-;; But I recently ran across ~winum~ which puts a window number in the modeline, and lets you switch directly to any window -- O(1).
-;; Note: the place I got this recommended adding ~:suppress 'nodigits~ to the keymap, but that suppresses self-insert for everything
-;; which makes emacs unusable. This version seems OK though.
+;; I have a hard time training myself to use anything more modern than
+;; ~C-x o~ (other-window) which I've used for decades. I have
+;; repeat-mode turned on, so I can do ~C-x o o o ...~ to keep going,
+;; but I rarely do it.
+
+;; Recently I've been using ~windmove~ with ~shift-↑~ etc. for more
+;; visual movement, trying to get that into my fingers. But I recently
+;; ran across ~winum~ which puts a window number in the modeline, and
+;; lets you switch directly to any window -- O(1). That really works for me!
+
+;; Note: the place I got this recommended adding ~:suppress 'nodigits~
+;; to the keymap, but that suppresses self-insert for everything which
+;; makes emacs unusable. This version seems OK though.
 
 (use-package winum
   :init

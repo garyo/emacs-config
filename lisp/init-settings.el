@@ -9,7 +9,6 @@
 (setq
  backup-by-copying-when-linked t
  font-lock-maximum-decoration t
- compilation-window-height 15
  compilation-scroll-output 'first-error
  compile-command "scons -D -j8 v=debug"
  delete-old-versions t
