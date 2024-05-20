@@ -46,8 +46,6 @@
  '(ag-reuse-buffers t)
  '(ag-reuse-window t)
  '(align-to-tab-stop nil)
- '(company-dabbrev-code-modes
-   '(prog-mode batch-file-mode csharp-mode css-mode erlang-mode haskell-mode jde-mode lua-mode python-mode def-effects-mode))
  '(custom-safe-themes
    '("0f76f9e0af168197f4798aba5c5ef18e07c926f4e7676b95f2a13771355ce850"
      "c74e83f8aa4c78a121b52146eadb792c9facc5b1f02c917e3dbb454fca931223"

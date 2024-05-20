@@ -204,13 +204,7 @@
                                         ; (prog-mode . eglot-ensure) ; all prog modes: C++, python, typescript etc.
            )
     :config
-    ;; note: company-mode must be loaded already
-    ;; eglot wants to replace all company backends with 'company-capf
-    ;; so I make sure that's first, but keep my other backends in case
-    ;; eglot doesn't have any completions (e.g. to use yasnippet or complete
-    ;; in strings and comments)
-    (add-to-list 'eglot-stay-out-of "company")
-    (define-key eglot-mode-map (kbd "C-c h") 'eglot-help-at-point)
+    (define-key eglot-mode-map (kbd "C-c h") 'display-local-help)
     (my-eglot-init)
     ;; note: eglot uses eldoc-box for popup doc
     ;; and flymake for errors (I use flymake-posframe so errors show up as popups)
