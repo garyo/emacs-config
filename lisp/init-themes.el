@@ -13,7 +13,18 @@
         modus-themes-italic-constructs t ; italic comments, doc strings
         )
   :config
-  (load-theme 'modus-vivendi)           ; dark theme
+  ;; Customizations to override theme defaults
+  ;; Do this in `enable-theme-functions` hook to ensure the customizations
+  ;; are re-applied when switching themes.
+  (defun customize-theme-faces (&rest _)
+    (modus-themes-with-colors
+      ;; Customize header line format
+      (set-face-attribute 'header-line nil
+                          :height 1.15 :underline t :background bg-active))
+    )
+  (add-hook 'enable-theme-functions #'customize-theme-faces)
+
+  (load-theme 'modus-vivendi)           ; load dark theme
   )
 
 (provide 'init-themes)
