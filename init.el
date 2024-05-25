@@ -80,6 +80,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (require 'init-avy)
 (require 'init-misc-packages)
 (require 'init-transient)
+(require 'init-helpful)
 (require 'init-misc)                    ; uncategorized stuff
 (require 'init-keybindings)
 (require 'init-settings)
