@@ -32,6 +32,7 @@
  search-highlight t
  split-height-threshold (/ (frame-height) 2)
  tags-revert-without-query t
+ text-scale-mode-step 1.07
  truncate-partial-width-windows nil	; ECB needs this to avoid
                                         ; truncating source window
                                         ; since it's partial width.
