@@ -12,6 +12,12 @@
           )
         modus-themes-italic-constructs t ; italic comments, doc strings
         )
+  (setq modus-themes-headings
+        '((1 . (rainbow overline background 1.4))
+          (2 . (rainbow background 1.3))
+          (3 . (rainbow bold 1.2))
+          (t . (semilight 1.1)))
+        )
   :config
   ;; Customizations to override theme defaults
   ;; Do this in `enable-theme-functions` hook to ensure the customizations

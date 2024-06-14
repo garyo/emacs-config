@@ -91,6 +91,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (put 'eval-expression 'disabled nil)
 (put 'narrow-to-region 'disabled nil)
 (put 'narrow-to-page 'disabled nil)
+(put 'dired-find-alternate-file 'disabled nil)
 
 (print-time-since-init "init.el")
 (add-hook 'elpaca-after-init-hook (lambda () (print-time-since-init "init.el, after all init complete")))
