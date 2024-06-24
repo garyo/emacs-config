@@ -70,7 +70,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (require 'init-error-checker)
 (require 'init-language-server)
 (require 'init-org)
-(require 'init-ekg)                     ; emacs knowledge graph
+;(require 'init-ekg)                     ; emacs knowledge graph (not working 2024-06-23)
 (require 'init-version-control)
 (require 'init-window-management)
 (require 'init-logseq)

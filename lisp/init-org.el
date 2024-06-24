@@ -6,7 +6,7 @@
 
 ;; Basic org-mode config
 (use-package org
-  :ensure nil                           ; already installed in init.el
+  :ensure t          ; use latest even though org is included in emacs
   :hook
   (org-mode . (lambda ()
                 (mixed-pitch-mode 1)
@@ -19,6 +19,8 @@
   (:map org-mode-map
         ("M-RET" . completion-at-point)
    )
+  :config
+  (require 'org-tempo)
 )
 
 
@@ -169,8 +171,6 @@
       (dolist (file org-agenda-files)
         (file-notify-add-watch file '(change) #'gco-org-agenda-file-notify))
       ))
-
-(require 'org-tempo)
 
 (setq
  org-babel-load-languages
