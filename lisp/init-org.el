@@ -255,5 +255,15 @@
       (require 'org-roam-dailies) ;; Ensure the keymap is available
       (org-roam-db-autosync-mode)))
 
+;;; Org remote images
+
+(use-package org-remoteimg
+  :ensure (:host github :repo "gaoDean/org-remoteimg")
+  :after org
+  :config
+  (setq org-display-remote-inline-images 'cache)
+  )
+
+
 
 (provide 'init-org)
