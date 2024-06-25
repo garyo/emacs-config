@@ -10,16 +10,13 @@
  backup-by-copying-when-linked t
  font-lock-maximum-decoration t
  compilation-scroll-output 'first-error
- compile-command "scons -D -j8 v=debug"
  delete-old-versions t
  diff-switches "-up"
- egg-switch-to-buffer t
  enable-recursive-minibuffers t
  fill-column 78
  find-file-existing-other-name t
  inhibit-startup-message t
  initial-scratch-message ""   ; prevent the useless cruft in *scratch*
- Info-enable-edit t
  ;; isearch-allow-scroll nil  ; t means allow scroll, but prevent scrolling if would go off screen
  kept-old-versions 1
  line-number-mode t			; XXX: disable in compilation-mode buffers
@@ -30,7 +27,7 @@
  scroll-step 2
  scroll-conservatively 10
  search-highlight t
- split-height-threshold (/ (frame-height) 2)
+ split-height-threshold 30
  tags-revert-without-query t
  text-scale-mode-step 1.07
  truncate-partial-width-windows nil	; ECB needs this to avoid
@@ -48,7 +45,8 @@
  '(ag-reuse-window t)
  '(align-to-tab-stop nil)
  '(custom-safe-themes
-   '("36b57dcbe8262c52d3123ed30fa34e5ef6b355881674142162a8ca8e26124da9"
+   '("e5e253a4d31d709f1b7147fe6bb237ed2b9353685eea9a9e18652ac917f48823"
+     "36b57dcbe8262c52d3123ed30fa34e5ef6b355881674142162a8ca8e26124da9"
      "0f76f9e0af168197f4798aba5c5ef18e07c926f4e7676b95f2a13771355ce850"
      "c74e83f8aa4c78a121b52146eadb792c9facc5b1f02c917e3dbb454fca931223"
      "3c83b3676d796422704082049fc38b6966bcad960f896669dfc21a7a37a748fa"
@@ -78,12 +76,6 @@
  '(egg-quit-window-actions '((egg-status-buffer-mode kill restore-windows)))
  '(eldoc-echo-area-use-multiline-p t)
  '(extended-command-suggest-shorter nil)
- '(flycheck-c/c++-cppcheck-executable "c:/Program Files/Cppcheck/cppcheck.exe")
- '(flycheck-clang-args '("--std=c++17"))
- '(flycheck-disabled-checkers '(typescript-tslint emacs-lisp-checkdoc))
- '(flycheck-python-flake8-executable "python3")
- '(flycheck-python-pycompile-executable "python3")
- '(flycheck-python-pylint-executable "python3")
  '(ggtags-enable-navigation-keys nil)
  '(git-commit-summary-max-length 64)
  '(helm-autoresize-mode t)
