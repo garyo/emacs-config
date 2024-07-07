@@ -113,4 +113,18 @@
              (setq cursor-type '(bar . 10))
              )))
 
+;;; EAT: Emulate A Terminal. Nice new (2024) terminal emulator.
+;; See my bug report: https://codeberg.org/akib/emacs-eat/issues/167#issuecomment-2078670
+(use-package eat
+  :ensure (:host codeberg
+                 :repo "akib/emacs-eat"
+                 :files ("*.el" ("term" "term/*.el") "*.texi"
+                         "*.ti" ("terminfo/e" "terminfo/e/*")
+                         ("terminfo/65" "terminfo/65/*")
+                         ("integration" "integration/*")
+                         (:exclude ".dir-locals.el" "*-tests.el")))
+  :config
+  (setq eat-tic-path "/usr/bin/tic") ; Needed on MacOS with homebrew, to use system terminfo compiler
+  )
+
 (provide 'init-shell)
