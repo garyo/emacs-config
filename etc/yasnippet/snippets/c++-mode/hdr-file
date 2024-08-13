@@ -2,12 +2,12 @@
 # name: c++ header
 # key: hdr-file
 # --
-/*`(make-string 38 ?*)`*/
-/*`(make-string 38 ? )`*/
-/*  Copyright `(format-time-string "%Y")` `(format "%-21s" company-name)`*/
-/*  All Rights Reserved.`(make-string 16 ? )`*/
-/*`(make-string 38 ? )`*/
-/*`(make-string 38 ?*)`*/
+/*`(make-string 60 ?*)`*/
+/*`(make-string 60 ? )`*/
+/*  Copyright `(format-time-string "%Y")` `(format "%-43s" company-name)`*/
+/*  All Rights Reserved.`(make-string 38 ? )`*/
+/*`(make-string 60 ? )`*/
+/*`(make-string 60 ?*)`*/
 
 #pragma once
 
