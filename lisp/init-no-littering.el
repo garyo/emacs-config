@@ -2,7 +2,6 @@
 ;;; Commentary:
 ;;; Code:
 
-(use-package no-littering)
-(elpaca-process-queues)                 ; have to load this immediately
+(use-package no-littering :ensure (:wait t))
 
 (provide 'init-no-littering)
