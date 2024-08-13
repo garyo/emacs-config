@@ -49,6 +49,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (require 'initial-setup)
 (require 'elpaca-bootstrap)
 
+(require 'init-no-littering)            ; should be early
+
 ;;; Profile emacs init
 ; (use-package esup)
 
@@ -59,9 +61,11 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (require 'init-mac)
 
 (require 'init-fonts-and-frames)
+(require 'init-desktop)
 (require 'init-system-env)
 (require 'init-shell)
 (require 'init-grep)
+(require 'init-dired)
 (require 'init-completion)
 (require 'init-languages)
 (require 'init-elisp-mode)
@@ -91,7 +95,6 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (put 'eval-expression 'disabled nil)
 (put 'narrow-to-region 'disabled nil)
 (put 'narrow-to-page 'disabled nil)
-(put 'dired-find-alternate-file 'disabled nil)
 
 (print-time-since-init "init.el")
 (add-hook 'elpaca-after-init-hook (lambda () (print-time-since-init "init.el, after all init complete")))

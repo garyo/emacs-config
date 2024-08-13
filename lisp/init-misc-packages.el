@@ -95,13 +95,6 @@
 ;;  (define-key calc-mode-map (kbd "C-o") 'casual-main-menu)
 ;;  )
 
-;; Transient-based menu for dired mode on "C-o"
-;;; Not working as of 2024-06-24
-;; (use-package casual-dired
-;;  :config
-;;  (define-key dired-mode-map (kbd "C-o") 'casual-dired-tmenu)
-;;  )
-
 ;; Nice little package to make a QR Code from the region or URL under point.
 ;; Could be useful to send small stuff to phone.
 (use-package qrencode

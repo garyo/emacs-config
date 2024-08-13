@@ -1,5 +1,6 @@
 #*
 *~
+var/
 auto-save-list/
 bookmarks
 company-statistics-cache.el

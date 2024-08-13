@@ -21,6 +21,7 @@
 ;; Disable `package' in favor of `straight' or `elpaca'.
 (setq package-enable-at-startup nil)
 
+(startup-redirect-eln-cache (expand-file-name "var/eln-cache" user-emacs-directory))
 
 ;; If an `.el' file is newer than its corresponding `.elc', load the `.el'.
 (setq load-prefer-newer t)

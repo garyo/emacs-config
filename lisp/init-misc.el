@@ -22,34 +22,6 @@
   (windmove-default-keybindings)
   (setq windmove-wrap-around t))
 
-;; save/restore window configs to disk automatically
-(use-package desktop
-  :ensure nil
-  :config
-  ;; Doesn't seem to work in wsl2 for now
-  (when (not wsl2-p)
-    (desktop-save-mode t)
-    ;; don't save any files; just the window configuration
-    ;; and don't load if the desktop file is locked
-    (setq desktop-files-not-to-save ".*"
-          desktop-buffers-not-to-save ".*"
-          desktop-load-locked-desktop nil)
-    ;; Override stale desktop-file locks (from emacswiki)
-    (defun garyo/desktop-owner-advice (original &rest args)
-      (let ((owner (apply original args)))
-        (if (and owner (/= owner (emacs-pid)))
-            (and (car (member owner (list-system-processes)))
-                 (let (cmd (attrlist (process-attributes owner)))
-                   (if (not attrlist) owner
-                     (dolist (attr attrlist)
-                       (and (car attr) (string= "comm" (car attr))
-                            (setq cmd (cdr attr))))
-                     (and cmd (string-match-p "[Ee]macs" cmd) owner))))
-          owner)))
-    ;; Ensure that dead system processes don't own it.
-    (advice-add #'desktop-owner :around #'garyo/desktop-owner-advice)
-    ))
-
 ;; Turn off visual-line-mode
 (visual-line-mode nil) ; next-line go to real next line, see also line-move-visual
 (global-visual-line-mode 0)
@@ -120,17 +92,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-;; Dired-x (extra functions for dired mode)
-(add-hook 'dired-load-hook
-          (lambda ()
-            (load "dired-x")
-            ;; Set dired-x global variables here.  For example:
-            ;; (setq dired-guess-shell-gnutar "gtar")
-            ;; (setq dired-x-hands-off-my-keys nil)
-            (setq dired-omit-localp nil) ; match full pathname (slower)
-            (setq dired-omit-files "/\\.svn/\\|\\.svn-base$\\|/SBuild/\\|/\\.?#\\|/\\.$\\|/\\.\\.$")
-            ))
 
 ;; ibuffer: I don't use this anymore; consult-buffer is better.
 (setq ibuffer-formats '((mark modified read-only " " (name 16 16) " "
