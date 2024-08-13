@@ -1,6 +1,6 @@
 # -*- mode: snippet -*-
-# name: c++ header
-# key: hdr-file
+# name: C++ CPP header file header
+# key: hdr-file-header
 # --
 /*`(make-string 60 ?*)`*/
 /*`(make-string 60 ? )`*/

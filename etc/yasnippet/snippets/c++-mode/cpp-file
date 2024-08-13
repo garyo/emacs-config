@@ -1,6 +1,6 @@
 # -*- mode: snippet -*-
-# name: C++ file
-# key: cpp-file
+# name: C++ CPP source file header
+# key: cpp-file-header
 # --
 /*`(make-string 60 ?*)`*/
 /*`(make-string 60 ? )`*/
