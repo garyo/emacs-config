@@ -119,6 +119,7 @@
                    "\\.projects\\.ede"
                    "\\.ido\\.last"
                    "recentf"
+                   "\\.config/emacs/var/"
                    "ido\\.last"
                    ".tmp.babel-"
                    "/[a-z]+:.*:"       ;don't save tramp files

@@ -198,7 +198,7 @@
   (global-corfu-mode 1)
   :custom
   (corfu-auto t)
-  (corfu-auto-delay 0.5)
+  (corfu-auto-delay 0.75)
   (corfu-quit-no-match t) ; quit when the popup appears and I type anything else
   ;; Might want to customize corfu-sort-function
   :bind

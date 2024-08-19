@@ -13,7 +13,10 @@
  '(ag-reuse-window t)
  '(align-to-tab-stop nil)
  '(custom-safe-themes
-   '("e410458d3e769c33e0865971deb6e8422457fad02bf51f7862fa180ccc42c032"
+   '("99d1e29934b9e712651d29735dd8dcd431a651dfbe039df158aa973461af003e"
+     "8d146df8bd640320d5ca94d2913392bc6f763d5bc2bb47bed8e14975017eea91"
+     "9a977ddae55e0e91c09952e96d614ae0be69727ea78ca145beea1aae01ac78d2"
+     "e410458d3e769c33e0865971deb6e8422457fad02bf51f7862fa180ccc42c032"
      "e5e253a4d31d709f1b7147fe6bb237ed2b9353685eea9a9e18652ac917f48823"
      "36b57dcbe8262c52d3123ed30fa34e5ef6b355881674142162a8ca8e26124da9"
      "0f76f9e0af168197f4798aba5c5ef18e07c926f4e7676b95f2a13771355ce850"
@@ -58,7 +61,7 @@
  '(js-indent-level 2)
  '(js2-strict-missing-semi-warning nil)
  '(llm-warn-on-nonfree nil)
- '(markdown-command "pandoc" t)
+ '(markdown-command "pandoc")
  '(mhtml-tag-relative-indent nil)
  '(mouse-wheel-tilt-scroll t)
  '(ns-command-modifier 'meta)
