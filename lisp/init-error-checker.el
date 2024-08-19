@@ -68,18 +68,27 @@ Return the errors parsed with the error patterns of CHECKER."
   (use-package flymake
     :ensure nil                         ; use emacs built-in version
     )
+
+  ;; NOTE: don't need flymake-posframe with eglot, at least in C++,
+  ;; because eglot gets errors from its LSP server and displays them
+  ;; in the eldoc-box (see below).
+  (defun flymake-posframe-mode-if-not-eglot (&rest args)
+    (unless eglot--managed-mode
+      (apply 'flymake-posframe-mode args)))
+
   (use-package flymake-posframe
     ;; Note: this is a fork of the main flymake-posframe, with a fix for eglot
     :ensure (:host github
                    :repo "articuluxe/flymake-posframe"
                    :branch "feature/eglot")
-    :hook (flymake-mode . flymake-posframe-mode)
+    :demand t
+    :hook (flymake-mode . flymake-posframe-mode-if-not-eglot)
     )
   ;; This is what eglot uses to show popup doc windows on hover
   (use-package eldoc-box
     ;; note: I've set 'variable-pitch to be quite large, too large for
     ;; doc boxes, so best to explicitly set height here.
-    :custom-face (eldoc-box-body ((t (:inherit 'variable-pitch :height 100))))
+    :custom-face (eldoc-box-body ((t (:inherit 'variable-pitch :height 110))))
     :hook (eglot-managed-mode . eldoc-box-hover-mode)
     :config
     (setq eldoc-box-max-pixel-width 500)
