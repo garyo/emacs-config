@@ -84,12 +84,25 @@ Return the errors parsed with the error patterns of CHECKER."
     :demand t
     :hook (flymake-mode . flymake-posframe-mode-if-not-eglot)
     )
+
+  ;; Set the selected frame to partially transparent; this makes it possible
+  ;; to read the text below an eldoc-box doc frame.
+  (defun set-eldoc-frame-params (_main_frame)
+    (let* ((frame (selected-frame))
+          (window (frame-selected-window frame)))
+      (set-window-margins window 0)
+      (set-frame-parameter frame 'alpha 0.7)
+      ;; I'd prefer this but it doesn't work
+      ; (set-frame-parameter frame 'alpha-background 0.5)
+      ))
+
   ;; This is what eglot uses to show popup doc windows on hover
   (use-package eldoc-box
     ;; note: I've set 'variable-pitch to be quite large, too large for
     ;; doc boxes, so best to explicitly set height here.
     :custom-face (eldoc-box-body ((t (:inherit 'variable-pitch :height 110))))
     :hook (eglot-managed-mode . eldoc-box-hover-mode)
+    :hook (eldoc-box-frame . set-eldoc-frame-params)
     :config
     (setq eldoc-box-max-pixel-width 500)
     :diminish eldoc-box-hover-mode
