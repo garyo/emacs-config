@@ -77,7 +77,14 @@
 (use-package consult
   :defines consult-buffer-sources
   :demand t
-  :bind (;; C-c bindings (mode-specific-map)
+  :init
+  (setq consult-preview-key 'any)
+  :bind (
+         ;; !!! Replace isearch with consult-line!
+         ("C-s" . consult-line)
+         ("C-r" . consult-line)
+
+         ;; C-c bindings (mode-specific-map)
          ("C-c h" . consult-history)
          ("C-c b" . consult-bookmark)
          ("C-c k" . consult-kmacro)
