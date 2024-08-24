@@ -21,6 +21,7 @@
 
 (use-package ibuffer
   :hook (ibuffer-mode . ibuffer-auto-mode)
+  :ensure nil                           ; built-in
   :defer t)
 (use-package casual-ibuffer
   :bind (:map
@@ -38,6 +39,7 @@
   :after (ibuffer))
 
 (use-package re-builder
+  :ensure nil
   :defer t)
 (use-package casual-re-builder
   :bind (:map
@@ -47,6 +49,7 @@
   :after (re-builder))
 
 (use-package bookmark
+  :ensure nil
   :defer t)
 (use-package casual-bookmarks
   :bind (:map bookmark-bmenu-mode-map
