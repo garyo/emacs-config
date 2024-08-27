@@ -80,9 +80,14 @@
   :init
   (setq consult-preview-key 'any)
   :bind (
-         ;; !!! Replace isearch with consult-line!
-         ("C-s" . consult-line)
-         ("C-r" . consult-line)
+         ;; ;; !!! Replace isearch with consult-line
+         ;; Update: NO, it can't really replace isearch. No way to go
+         ;; between results on the same line, hard to exit the search
+         ;; easily (have to use RET)... just too much friction.
+         ;; But see below; I already have M-s l and C-o in isearch mode
+         ;; to switch to consult-line.
+         ;; ("C-s" . consult-line)
+         ;; ("C-r" . consult-line)
 
          ;; C-c bindings (mode-specific-map)
          ("C-c h" . consult-history)
