@@ -18,7 +18,9 @@
   :mode ("\\.cu$")
   )
 
-;;; Vue mode, based on mmm-mode -- set up for .vue files (html/css/script)
+;; Vue mode: instead of the old mmm-mode one, use a custom mode derived from web-mode
+;; -- set up for .vue files (html/css/script)
+
 ;; (use-package vue-mode
 ;;   :mode "\\.vue$"
 ;;   :config
@@ -27,7 +29,6 @@
 ;;   )
 ;; 2021: web-mode is better than vue-mode (simpler)
 (use-package web-mode
-  :mode "\\.vue$"
   :config
   (setq web-mode-code-indent-offset 2
         web-mode-css-indent-offset 2
@@ -37,6 +38,9 @@
         web-mode-enable-current-column-highlight t
         )
   )
+(define-derived-mode vue-mode web-mode "GO.Vue"
+    "A major mode derived from web-mode, for editing .vue files with LSP support.")
+(add-to-list 'auto-mode-alist '("\\.vue\\'" . vue-mode))
 
 (use-package php-mode
   :mode "\\.php$"

@@ -75,38 +75,39 @@
     )
   )
 
-(eval-after-load "eglot"
-  (defun my-eglot-init ()
-    """Initialize eglot."""
+;; Run this before loading eglot
+(defun my-eglot-vue-init ()
+  """Initialize Vue Language Server for eglot."""
 
-    ;;; Set up Vue Language Server
+  ;; Find the location of "typescript.js"
+  ;; On my M1 Mac, it's in $(yarn global dir)/node_modules/typescript/lib
+  (defun typescript-lib-dir ()
+    (expand-file-name
+     "node_modules/typescript/lib"
+     (string-trim-right (shell-command-to-string "yarn global dir"))
+     ))
 
-    (defclass eglot-vls (eglot-lsp-server) ()
-      :documentation "Vue Language Server.")
+  (defun vue-eglot-init-options ()
+    (let ((tsdk-path (typescript-lib-dir)))
+      `(:typescript (:tsdk ,tsdk-path)
+                    :vue (:hybridMode :json-false)
+                    :languageFeatures (:completion
+                                       (:defaultTagNameCase "both"
+                                                            :defaultAttrNameCase "kebabCase"
+                                                            :getDocumentNameCasesRequest nil
+                                                            :getDocumentSelectionRequest nil)
+                                       :diagnostics
+                                       (:getDocumentVersionRequest nil))
+                    :documentFeatures (:documentFormatting
+                                       (:defaultPrintWidth 100
+                                                           :getDocumentPrintWidthRequest nil)
+                                       :documentSymbol t
+                                       :documentColor t))))
 
-    (add-hook 'eglot-server-initialized-hook
-              (lambda (server)
-                (if (eglot-vls-p server)
-                    (setq eglot-workspace-configuration vls-workspace-configuration)
-                  )))
+  )
 
-    (add-to-list 'eglot-server-programs
-                 '(vue-mode . (eglot-vls . ("vls" "--stdio"))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-    (cl-defmethod eglot-initialization-options ((server eglot-vls))
-      "Passes through required vetur initialization options to VLS."
-      `(:config
-        (:vetur ,vls-vetur-configuration
-                :css (:suggest nil)
-                :html (:suggest nil)
-                :prettier :json-false
-                :javascript (:format nil :suggest nil)
-                :typescript (:format nil :suggest nil)
-                :emmet nil
-                :stylusSupremacy nil
-                )))
-    )
- )
 
 ;; Set up LSP or Eglot
 
@@ -182,6 +183,9 @@
 ;; Tested & working with C++ (clangd), Python (pyright-langserver),
 ;; and Typescript (typescript-language-server).
 
+;; note: eglot uses eldoc-box for popup doc
+;; and flymake for errors (I use flymake-posframe so errors show up as popups)
+
 (defun setup-eglot-mode ()
   ;(use-package jsonrpc) NO -- leave this as built-in
   (use-package eglot
@@ -190,7 +194,7 @@
     ;;                  :repo "joaotavora/eglot"
     ;;                  :branch "master")
     :ensure nil
-    :commands eglot-ensure
+    :commands eglot-ensure eglot
     :hook ((vue-mode . eglot-ensure)
            (c-mode-common . eglot-ensure)
            (c-ts-base-mode . eglot-ensure)
@@ -203,11 +207,17 @@
            (typescript-ts-base-mode . eglot-ensure)
                                         ; (prog-mode . eglot-ensure) ; all prog modes: C++, python, typescript etc.
            )
+    :init
+    (my-eglot-vue-init)
     :config
+    ;; Install like this:
+    ;;  yarn global add @vue/language-server@latest @vue/typescript-plugin@latest
+    ;; and make sure $(yarn global bin) is in exec-path
+    (add-to-list 'eglot-server-programs
+                 `(vue-mode . ("vue-language-server" "--stdio"
+                                   :initializationOptions ,(vue-eglot-init-options))))
     (define-key eglot-mode-map (kbd "C-c h") 'display-local-help)
-    (my-eglot-init)
-    ;; note: eglot uses eldoc-box for popup doc
-    ;; and flymake for errors (I use flymake-posframe so errors show up as popups)
+
     )
   )
 
@@ -216,13 +226,5 @@
 (if (and use-lsp-mode (has-fast-json))
   (setup-lsp-mode)
   (setup-eglot-mode))
-
-(when use-lsp-mode
-  ;; Volar is a good LSP client for Vue files
-  (use-package volar
-    :ensure (:host github
-             :repo "jadestrong/lsp-volar"))
-  (use-package lsp-volar))
-
 
 (provide 'init-language-server)
