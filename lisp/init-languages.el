@@ -56,6 +56,11 @@
   :mode ("\\.gd$")
 )
 
+(use-package opencl-c-mode
+  :ensure (:main "opencl-c-mode.el")
+  :mode ("\\.cl$" . opencl-c-mode)
+)
+
 ;; instant live github markdown preview in markdown mode, C-c C-c g
 ;; Requires 'grip', a python package (pip install grip) installed in system python
 (use-package grip-mode

@@ -28,10 +28,12 @@
    (remove-hook 'magit-status-sections-hook 'magit-insert-unpulled-from-pushremote)
    (remove-hook 'magit-status-sections-hook 'magit-insert-unpulled-from-upstream)
    (remove-hook 'magit-status-sections-hook 'magit-insert-unpushed-to-upstream-or-recent)
+   ;; If we have native git, use it no matter what $PATH says
+   (if (file-exists-p "c:/Program Files/git/bin/git.exe")
+       (setq magit-git-executable "c:/Program Files/git/bin/git.exe"))
    )
   :custom
   (magit-backup-mode nil)
-  (magit-cygwin-mount-points '(("/c" . "c:")))
   (magit-diff-expansion-threshold 999.0)
   (magit-diff-refine-hunk t)
   (magit-display-buffer-function 'magit-display-buffer-fullframe-status-v1)
