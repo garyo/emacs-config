@@ -14,7 +14,7 @@
   :bind (:map dired-mode-map ("C-o" . casual-dired-tmenu)))
 
 (use-package casual-avy
-  :bind ("M-g" . casual-avy-tmenu))
+  :bind ("M-G" . casual-avy-tmenu))
 
 (use-package casual-isearch
   :bind (:map isearch-mode-map ("<f2>" . casual-isearch-tmenu)))
