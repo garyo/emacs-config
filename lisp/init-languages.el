@@ -67,25 +67,6 @@
   :bind (:map markdown-mode-command-map
          ("g" . grip-mode)))
 
-;;; Work with python virtualenvs
-;;; M-x venv-workon (has completion), M-x venv-deactivate, M-x venv-*
-;;; Looks in ~/.virtualenvs
-(use-package virtualenvwrapper
-  :commands venv-workon)
-
-(use-package conda
-  :after python
-  :commands conda-env-activate-for-buffer conda-env-autoactivate-mode
-  :config
-  ;; for interactive shell support
-  (conda-env-initialize-interactive-shells)
-  ;; auto-activation
-  (conda-env-autoactivate-mode t)
-  ;; automatically activate a conda environment on the opening of a file
-  :hook (find-file . (lambda () (when (bound-and-true-p conda-project-env-path)
-                                  (conda-env-activate-for-buffer))))
-  )
-
 (use-package dumb-jump
   :config (add-hook 'xref-backend-functions #'dumb-jump-xref-activate)
   )
@@ -114,13 +95,6 @@
 (add-hook 'c-mode-common-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 (add-hook 'glsl-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
 (add-hook 'c-ts-base-mode-hook (lambda () (clang-format-save-hook-for-this-buffer)))
-
-;;;; Format Python buffers with ~black~
-
-(use-package python-black
-  :demand t
-  :after python
-  :hook (python-mode . python-black-on-save-mode))
 
 ;;; Language Settings
 
