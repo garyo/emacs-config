@@ -42,6 +42,10 @@
     "A major mode derived from web-mode, for editing .vue files with LSP support.")
 (add-to-list 'auto-mode-alist '("\\.vue\\'" . vue-mode))
 
+(define-derived-mode astro-mode web-mode "astro"
+    "A major mode derived from web-mode, for editing .astro files with LSP support.")
+(add-to-list 'auto-mode-alist '("\\.astro\\'" . astro-mode))
+
 (use-package php-mode
   :mode "\\.php$"
   )

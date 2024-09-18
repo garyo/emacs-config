@@ -216,6 +216,11 @@
     (add-to-list 'eglot-server-programs
                  `(vue-mode . ("vue-language-server" "--stdio"
                                    :initializationOptions ,(vue-eglot-init-options))))
+    ;; Astro web framework
+    (add-to-list 'eglot-server-programs
+                 `(astro-mode . ("astro-ls" "--stdio"
+                                   :initializationOptions
+                                   (:typescript (:tsdk "./node_modules/typescript/lib")))))
     (define-key eglot-mode-map (kbd "C-c h") 'display-local-help)
 
     )
