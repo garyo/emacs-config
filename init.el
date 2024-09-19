@@ -94,6 +94,11 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (require 'init-settings)
 (require 'init-themes)
 
+;; My own packages
+(use-package dup-transform
+  :ensure (:host github :repo "garyo/dup-transform.el")
+)
+
 ;;; Enable a few global commands
 (put 'set-goal-column 'disabled nil)
 (put 'eval-expression 'disabled nil)
