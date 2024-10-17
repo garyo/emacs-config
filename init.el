@@ -97,6 +97,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 ;; My own packages
 (use-package dup-transform
   :ensure (:host github :repo "garyo/dup-transform.el")
+  :hook ((prog-mode . dup-transform-mode))
 )
 
 ;;; Enable a few global commands

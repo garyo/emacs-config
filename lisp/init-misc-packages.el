@@ -159,6 +159,6 @@
                   ("w3schools.com" . js-ts-mode)))
   )
 
-
+(use-package package-lint)
 
 (provide 'init-misc-packages)

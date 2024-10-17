@@ -216,7 +216,7 @@
     (add-to-list 'eglot-server-programs
                  `(vue-mode . ("vue-language-server" "--stdio"
                                    :initializationOptions ,(vue-eglot-init-options))))
-    ;; Astro web framework
+    ;; Astro web framework -- install @astrojs/language-server
     (add-to-list 'eglot-server-programs
                  `(astro-mode . ("astro-ls" "--stdio"
                                    :initializationOptions
