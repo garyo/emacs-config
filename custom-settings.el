@@ -1,5 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; NOTE: this is used by Custom, but I do NOT load it!
+;;; Instead, copy things into lisp/init-settings.el
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (custom-set-variables
@@ -13,7 +14,8 @@
  '(ag-reuse-window t)
  '(align-to-tab-stop nil)
  '(custom-safe-themes
-   '("99d1e29934b9e712651d29735dd8dcd431a651dfbe039df158aa973461af003e"
+   '("1ba19ef4cffe927eb8c8108079ef731a4894c6702aa7100541d0dd6c66248d4f"
+     "99d1e29934b9e712651d29735dd8dcd431a651dfbe039df158aa973461af003e"
      "8d146df8bd640320d5ca94d2913392bc6f763d5bc2bb47bed8e14975017eea91"
      "9a977ddae55e0e91c09952e96d614ae0be69727ea78ca145beea1aae01ac78d2"
      "e410458d3e769c33e0865971deb6e8422457fad02bf51f7862fa180ccc42c032"
@@ -61,7 +63,7 @@
  '(js-indent-level 2)
  '(js2-strict-missing-semi-warning nil)
  '(llm-warn-on-nonfree nil)
- '(markdown-command "pandoc")
+ '(markdown-command "pandoc" t)
  '(mhtml-tag-relative-indent nil)
  '(mouse-wheel-tilt-scroll t)
  '(ns-command-modifier 'meta)
