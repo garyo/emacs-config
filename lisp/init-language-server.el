@@ -216,6 +216,12 @@
     (add-to-list 'eglot-server-programs
                  `(vue-mode . ("vue-language-server" "--stdio"
                                    :initializationOptions ,(vue-eglot-init-options))))
+    ;; See https://github.com/kristoff-it/superhtml
+    (add-to-list 'eglot-server-programs
+                 `(web-mode . ("superhtml" "lsp"
+                               )))
+    (put 'web-mode 'eglot-language-id "html") ; superhtml needs to get proper languageId
+
     ;; Astro web framework -- install @astrojs/language-server
     (add-to-list 'eglot-server-programs
                  `(astro-mode . ("astro-ls" "--stdio"

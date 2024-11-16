@@ -64,6 +64,7 @@
 ;; Automatically revert files that change on disk
 ;; (but only when the buffer is unmodified, so it's safe)
 (global-auto-revert-mode t)
+(setq global-auto-revert-non-file-buffers t) ; dired
 
 ;; Save all backup(~) files and auto-save files in /tmp
 ;; This keeps clutter down.

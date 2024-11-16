@@ -80,6 +80,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 ;(require 'init-ekg)                     ; emacs knowledge graph (not working 2024-06-23)
 (require 'init-version-control)
 (require 'init-window-management)
+;; Not yet working well
+;; (require 'init-combobulate)             ; structured editing & movement
 (require 'init-logseq)
 (require 'init-modeline)
 (require 'init-fill)
