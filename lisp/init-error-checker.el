@@ -77,10 +77,8 @@ Return the errors parsed with the error patterns of CHECKER."
       (apply 'flymake-posframe-mode args)))
 
   (use-package flymake-posframe
-    ;; Note: this is a fork of the main flymake-posframe, with a fix for eglot
     :ensure (:host github
-                   :repo "articuluxe/flymake-posframe"
-                   :branch "feature/eglot")
+                   :repo "Ladicle/flymake-posframe")
     :demand t
     :hook (flymake-mode . flymake-posframe-mode-if-not-eglot)
     )
@@ -91,9 +89,9 @@ Return the errors parsed with the error patterns of CHECKER."
     (let* ((frame (selected-frame))
           (window (frame-selected-window frame)))
       (set-window-margins window 0)
-      (set-frame-parameter frame 'alpha 0.7)
-      ;; I'd prefer this but it doesn't work
-      ; (set-frame-parameter frame 'alpha-background 0.5)
+      ;;(set-frame-parameter frame 'alpha 0.7)
+      ;; This is better for emacsen that support it (2025+)
+      (set-frame-parameter frame 'alpha-background 0.5)
       ))
 
   ;; This is what eglot uses to show popup doc windows on hover
