@@ -15,6 +15,13 @@
 
 (message "Starting emacs... early-init.el")
 
+(when (eq system-type 'windows-nt)
+  ;; Add emacs bin directory to path, for native-compilation.
+  ;; Beware of resetting $PATH later though!
+  (add-to-list 'exec-path invocation-directory)
+  (setenv "PATH" (concat invocation-directory path-separator (getenv "PATH")))
+  )
+
 ;; Defer garbage collection further back in the startup process
 (setq gc-cons-threshold most-positive-fixnum)
 

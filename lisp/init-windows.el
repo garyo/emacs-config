@@ -5,11 +5,20 @@
 
 ;;; Code:
 
+(defun scoop-msys-root ()
+  (let*
+      ((scoop-root (expand-file-name "~/scoop/apps/msys2/current"))
+       )
+    scoop-root
+  ))
+
 (defvar msys-root
   (cond ((file-exists-p "c:/tools/msys64/msys64")
          "c:/tools/msys64/msys64")
         ((file-exists-p "c:/tools/msys64")
          "c:/tools/msys64")
+        ((file-exists-p (scoop-msys-root))
+         (scoop-msys-root))
         (t
          "NO_MSYS"))
   "Root of Msys64 install; should contain e.g. usr/bin/zsh.exe")
