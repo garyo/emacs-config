@@ -33,6 +33,10 @@
             nil keep-buffer verbose)
            ;; Handle $PATH specially; translate from cygwin style to Windows style
            (message "Updating emacs path from Windows zsh")
+           ;; After importing env, we'll need to add Emacs' invocation dir to $PATH and exec-path.
+           ;; This is needed for native-comp.
+           (add-hook 'system-environment-import-async-hook
+                     #'gco-add-invocation-dir-to-path)
            (system-environment-import-from-async-command
             '("zsh" "-i" "-c" "echo PATH=$(cygpath -p -m $PATH)")
             '("PATH")

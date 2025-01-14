@@ -15,11 +15,33 @@
 
 (message "Starting emacs... early-init.el")
 
-(when (eq system-type 'windows-nt)
-  ;; Add emacs bin directory to path, for native-compilation.
-  ;; Beware of resetting $PATH later though!
+(defun dir-in-path-p (directory)
+  "Return non-nil if DIRECTORY is in PATH environment variable.
+Handles path normalization and OS-specific path separators."
+  (let* ((normalized-dir (directory-file-name
+                         (expand-file-name directory)))
+         (path (getenv "PATH"))
+         (path-dirs (split-string path path-separator t)))
+    (catch 'found
+      (dolist (path-dir path-dirs)
+        (when (string= normalized-dir
+                      (directory-file-name
+                       (expand-file-name path-dir)))
+          (throw 'found t)))
+      nil)))
+
+(defun gco-add-invocation-dir-to-path ()
+  "Add emacs bin directory to path, for native-compilation.
+Beware of resetting $PATH later though! If you do, just
+call ~gco-add-invocation-dir-to-path~ again."
   (add-to-list 'exec-path invocation-directory)
-  (setenv "PATH" (concat invocation-directory path-separator (getenv "PATH")))
+  (unless (dir-in-path-p invocation-directory)
+    (setenv "PATH" (concat invocation-directory path-separator (getenv "PATH")))
+    )
+  )
+
+(when (eq system-type 'windows-nt)
+  (gco-add-invocation-dir-to-path)
   )
 
 ;; Defer garbage collection further back in the startup process
