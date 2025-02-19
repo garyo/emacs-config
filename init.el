@@ -44,63 +44,73 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
 ;; The rest of the config is broken into individual files for specific
 ;; packages, features, and concepts.
+;; For Android, we only load a few things.
 
-(require 'initial-utils)
-(require 'initial-setup)
-(require 'elpaca-bootstrap)
+(pcase system-type
+  ("android"
+   (require 'init-android)
+   )
+  (_
+   (require 'initial-utils)
+   (require 'initial-setup)
+   (require 'elpaca-bootstrap)
 
-(require 'init-no-littering)            ; should be early
+   (require 'init-no-littering)         ; should be early
 
 ;;; Profile emacs init
-; (use-package esup)
+                                        ; (use-package esup)
 
-(require 'init-options)
+   (require 'init-options)
 
-(require 'init-diminish)
-(require 'init-windows)                 ; Win32/WSL setup
-(require 'init-mac)
+   (require 'init-diminish)
+   (require 'init-windows)              ; Win32/WSL setup
+   (require 'init-mac)
 
-(require 'init-fonts-and-frames)
-(require 'init-desktop)
-(require 'init-system-env)
-(require 'init-shell)
-(require 'init-grep)
-(require 'init-dired)
-(require 'init-completion)
-(require 'init-project)
-(require 'init-python)
-(require 'init-languages)
-(require 'init-elisp-mode)
-(require 'init-markdown)
-(require 'init-snippets)
-(require 'init-error-checker)
-(require 'init-language-server)
-(require 'init-org)
-(require 'init-llm)
-;(require 'init-ekg)                     ; emacs knowledge graph (not working 2024-06-23)
-(require 'init-version-control)
-(require 'init-window-management)
-;; Not yet working well
-;; (require 'init-combobulate)             ; structured editing & movement
-(require 'init-logseq)
-(require 'init-modeline)
-(require 'init-fill)
-(require 'init-system-open)
-(require 'init-avy)
-(require 'init-casual)
-(require 'init-misc-packages)
-(require 'init-transient)
-(require 'init-helpful)
-(require 'init-misc)                    ; uncategorized stuff
-(require 'init-keybindings)
-(require 'init-settings)
-(require 'init-themes)
+   (require 'init-fonts-and-frames)
+   (require 'init-desktop)
+   (require 'init-system-env)
+   (require 'init-shell)
+   (require 'init-grep)
+   (require 'init-dired)
+   (require 'init-completion)
+   (require 'init-project)
+   (require 'init-python)
+   (require 'init-languages)
+   (require 'init-elisp-mode)
+   (require 'init-markdown)
+   (require 'init-snippets)
+   (require 'init-error-checker)
+   (require 'init-language-server)
+   (require 'init-org)
+   (require 'init-llm)
+                                        ;(require 'init-ekg)                     ; emacs knowledge graph (not working 2024-06-23)
+   (require 'init-version-control)
+   (require 'init-window-management)
+   ;; Not yet working well
+   ;; (require 'init-combobulate)             ; structured editing & movement
+   (require 'init-logseq)
+   (require 'init-modeline)
+   (require 'init-fill)
+   (require 'init-system-open)
+   (require 'init-avy)
+   (require 'init-casual)
+   (require 'init-misc-packages)
+   (require 'init-transient)
+   (require 'init-helpful)
+   (require 'init-misc)                 ; uncategorized stuff
+   (require 'init-keybindings)
+   (require 'init-settings)
+   (require 'init-themes)
 
-;; My own packages
-(use-package dup-transform
-  :ensure (:host github :repo "garyo/dup-transform.el")
-  :hook ((prog-mode . dup-transform-mode))
-)
+   ;; My own packages
+   (elpaca (dup-transform :host github :repo "garyo/dup-transform.el")
+     :ensure t
+     )
+   (use-package dup-transform :ensure nil
+     :hook ((prog-mode . dup-transform-mode))
+     )
+   )
+  )
 
 ;;; Enable a few global commands
 (put 'set-goal-column 'disabled nil)

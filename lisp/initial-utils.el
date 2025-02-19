@@ -22,6 +22,12 @@
         `(progn ,@body)
       nil)
     )
+  (defmacro when-android (&rest body)
+    "Evaluate BODY only when `system-type' is `android'."
+    (if (eq system-type 'android)
+        `(progn ,@body)
+      nil)
+    )
   )
 
 (provide 'initial-utils)

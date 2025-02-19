@@ -7,6 +7,13 @@
 
 ;;; Code:
 
+(when (eq system-type 'android)
+  ;; Add Termux binaries to PATH environment
+  (let ((termuxpath "/data/data/com.termux/files/usr/bin"))
+    (setenv "PATH" (concat (getenv "PATH") ":" termuxpath))
+    (setq exec-path (append exec-path (list termuxpath)))))
+
+
 (defconst emacs-start-time (float-time))
 (defun print-time-since-init (loc)
   (let* ((now (float-time))
@@ -56,9 +63,11 @@ call ~gco-add-invocation-dir-to-path~ again."
 (setq load-prefer-newer t)
 
 ;; Faster to disable these here (before they've been initialized)
-(push '(menu-bar-lines . 0) default-frame-alist)
-(push '(tool-bar-lines . 0) default-frame-alist)
-(push '(vertical-scroll-bars) default-frame-alist)
+(unless (eq system-type 'android)
+   (push '(menu-bar-lines . 0) default-frame-alist)
+   (push '(tool-bar-lines . 0) default-frame-alist)
+   (push '(vertical-scroll-bars) default-frame-alist)
+   )
 
 ;; Resizing the Emacs frame can be an expensive part of changing the
 ;; font. Inhibit this to reduce startup times with fonts that are
