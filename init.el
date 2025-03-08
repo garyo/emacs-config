@@ -121,6 +121,21 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (print-time-since-init "init.el")
 (add-hook 'elpaca-after-init-hook (lambda () (print-time-since-init "init.el, after all init complete")))
 
+;; Show my bookmarks at startup, instead of the *scratch* buffer
+(defun my/bmkp-list-all ()
+  "Open a bookmark list that has no filter applied (i.e., show all bookmarks)."
+  (interactive)
+  ;; Clear any existing filter/pattern.
+  (setq bmkp-bmenu-filter-function  nil
+        bmkp-bmenu-filter-pattern   nil
+        bmkp-bmenu-title            "All Bookmarks")
+  ;; Rebuild and display the bookmark list buffer.
+  (bookmark-bmenu-list 'NO-MSG-P)
+  (switch-to-buffer "*Bookmark List*"))
+
+(add-hook 'emacs-startup-hook
+          my/bmkp-list-all)
+
 (provide 'emacs)
 
 ;;; init.el ends here

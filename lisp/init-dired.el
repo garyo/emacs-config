@@ -8,7 +8,7 @@
   :ensure nil
   :custom
   (dired-listing-switches "-lah")       ; long, add dotfiles, human-readable sizes
-  (dired-kill-when-opening-new-dired-buffer t "Only one Dired buffer")
+  ;(dired-kill-when-opening-new-dired-buffer t "Only one Dired buffer")
   (image-dired-thumb-margin 5)
   (dired-dwim-target t "Suggest already opened Dired buffers for file operations")
   (dired-recursive-copies 'always)
@@ -34,7 +34,8 @@
   :hook (dired-mode . all-the-icons-dired-mode))
 
 (use-package dired-hide-dotfiles
-  :hook (dired-mode . dired-hide-dotfiles-mode)
+  ;; Uncomment this to hide by default
+  ;; :hook (dired-mode . dired-hide-dotfiles-mode)
   :bind
   (:map dired-mode-map
         ("H" . dired-hide-dotfiles-mode)))
@@ -44,20 +45,39 @@
   :after dired
   :bind
   (:map dired-mode-map
-        ("r" . dired-rsync))
+        ("r" . dired-rsync)
+        ("I" . dired-kill-subdir)
+        )
   :config
   (add-to-list 'mode-line-misc-info '(:eval dired-rsync-modeline-status 'append)))
 
-;; Dired-x (extra functions for dired mode)
-(add-hook 'dired-load-hook
-          (lambda ()
-            (load "dired-x")
-            ;; Set dired-x global variables here.  For example:
-            ;; (setq dired-guess-shell-gnutar "gtar")
-            ;; (setq dired-x-hands-off-my-keys nil)
-            (setq dired-omit-localp nil) ; match full pathname (slower)
-            (setq dired-omit-files "/\\.svn/\\|\\.svn-base$\\|/SBuild/\\|/\\.?#\\|/\\.$\\|/\\.\\.$")
-            ))
+;; Expand subtrees inline using TAB
+(use-package dired-subtree
+  :after dired
+  :bind (:map dired-mode-map
+              ("<tab>" . dired-subtree-toggle)
+              ("<backtab>" . dired-subtree-cycle)
+              ("M-<down>" . dired-subtree-insert)
+              ("M-<up>" . dired-subtree-remove))
+  :config
+  ;(setq dired-subtree-use-backgrounds nil) ;; Disable background colorization
+  )
+
+;; When a dir has only one child, show it inline -- nice.
+(use-package dired-collapse
+  :after dired
+  :config
+  (global-dired-collapse-mode)
+)
+
+(use-package dired-filter
+  :after dired
+  :bind (:map dired-mode-map
+              ("/" . dired-filter-map)      ;; Open filter menu
+              ("C-/" . dired-filter-pop-all)) ;; Quickly clear filters ("/ /" also works)
+  :config
+  ;; Enable persistent filtering across Dired buffers
+  (setq dired-filter-persistent t))
 
 ;; Transient-based menu for dired mode on "C-o"
 ;;; Not working as of 2024-06-24

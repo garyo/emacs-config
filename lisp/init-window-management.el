@@ -45,6 +45,61 @@
                  (display-buffer-same-window) ; try this; see how I like it
                  ))
 
+;; default compilation window height to smallish
+(setq compilation-window-height 15)
+
+;; Compilation buffers:
+;; - Open at the bottom.
+;; - Reuse the same window if possible.
+;; - Stay under 15 lines high.
+;; - Split the right-hand window if the frame is split vertically.
+
+(defun my/rightmost-window ()
+  "Return the rightmost live window in the current frame, or nil if there's only one window.
+‘Rightmost’ is determined by the largest left-edge X-coordinate."
+  (let* ((all-windows (window-list))
+         ;; We only consider a 'rightmost' window if there's more than one window total.
+         (window-count (length all-windows)))
+    (cond
+     ((< window-count 2)
+      nil)
+     (t
+      (car (sort (copy-sequence all-windows)
+                 (lambda (w1 w2)
+                   (let ((left1 (nth 0 (window-edges w1)))
+                         (left2 (nth 0 (window-edges w2))))
+                     (> left1 left2)))))))))
+
+(defun my/split-bottom-right (buffer _alist)
+  "Ensure *compilation* opens at the bottom, reusing the same window if possible.
+If the frame is split side by side, ensure *compilation* appears in the bottom
+of the right-hand column. Otherwise, open a bottom side window."
+  (let ((existing (get-buffer-window buffer 'visible))
+        (rightmost (my/rightmost-window)))
+    (cond
+     ;; 1) If *compilation* is already visible, reuse it.
+     (existing
+      (display-buffer-reuse-window
+       buffer
+       `((reusable-frames . t))))
+
+     ;; 2) If there's a distinct 'rightmost' window (a left-right split),
+     ;;    split that horizontally to put compilation at the bottom-right.
+     ((window-live-p rightmost)
+      (let ((new-win (split-window rightmost (- compilation-window-height) 'below)))
+        (window--display-buffer buffer new-win 'window)))
+
+     ;; 3) Otherwise, open at the bottom side window.
+     (t
+      (display-buffer-in-side-window
+       buffer
+       `((side . bottom)
+         (slot . 0)
+         (window-height . ,compilation-window-height)
+         (reusable-frames . t)))))))
+
+(add-to-list 'display-buffer-alist
+             '("\\*compilation\\*" my/split-bottom-right))
 
 ;;; Window management
 
