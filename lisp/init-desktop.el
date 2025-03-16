@@ -53,42 +53,41 @@
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Frameset version
+;; Frameset version (actually I don't even need frameset -- just save/load frame props)
 
-(defun my/saved-frames-file ()
-  "Return the path to the saved frameset file."
-  (expand-file-name "var/saved-frames.frameset" user-emacs-directory))
+(defvar my-frame-geometry-file
+  (expand-file-name "var/saved-frame-geometry.el" user-emacs-directory)
+  "File for saving only the top-level frame geometry (no subwindows).")
 
-(defun my/save-frame-position ()
-  "Save the current frame layout to a file."
-  (let ((frameset (frameset-save nil)))
-    (with-temp-file (my/saved-frames-file)
-      (prin1 frameset (current-buffer)))))
+(defun my/get-frame-geometry ()
+  "Return an alist of just the geometry-related frame parameters for the current frame."
+  (let ((parms (frame-parameters nil)))  ; nil => current (selected) frame
+    (list (cons 'left       (cdr (assq 'left       parms)))
+          (cons 'top        (cdr (assq 'top        parms)))
+          (cons 'width      (cdr (assq 'width      parms)))
+          (cons 'height     (cdr (assq 'height     parms)))
+          (cons 'fullscreen (cdr (assq 'fullscreen parms))))))
 
-(defun my/restore-frame-position ()
-  "Restore the last saved frame layout from file."
-  (let ((file (my/saved-frames-file)))
-    (when (file-exists-p file)
-      (with-temp-buffer
-        (insert-file-contents file)
-        (goto-char (point-min))
-        (let ((frameset (read (current-buffer))))
-          (frameset-restore frameset :reuse-frames t))))))
+(defun my/save-frame-geometry ()
+  "Write the current frame geometry to `my-frame-geometry-file`."
+  (with-temp-file my-frame-geometry-file
+    (prin1 (my/get-frame-geometry) (current-buffer))))
+
+(defun my/restore-frame-geometry ()
+  "Restore frame geometry from `my-frame-geometry-file`, if it exists."
+  (when (file-exists-p my-frame-geometry-file)
+    (condition-case err
+        (let ((geom (with-temp-buffer
+                      (insert-file-contents my-frame-geometry-file)
+                      (read (current-buffer)))))
+          (modify-frame-parameters nil geom))
+      (error
+       (message "Error restoring frame geometry: %S" err)))))
 
 (when (eq window-save-restore-method 'frameset)
-  (add-hook 'kill-emacs-hook #'my/save-frame-position)
-  (add-hook 'after-init-hook #'my/restore-frame-position)
+  (add-hook 'kill-emacs-hook #'my/save-frame-geometry)
+  (add-hook 'after-init-hook #'my/restore-frame-geometry)
   )
-
-;; Try bookmark+ -- can use it just for saving/restoring named desktops.
-;; It can do a lot more than that but bkmp-set-desktop-bookmark,
-;; bkmp-jump-desktop, and bkmp-bmenu-list should be good enough for a
-;; start.
-(use-package bookmark+
-  :after desktop
-  :ensure (:host github :repo "emacsmirror/bookmark-plus")
-  :config
-  (setq bmkp-desktop-jump-save-before-flag t)) ;; Auto-save before switching
 
 
 (provide 'init-desktop)

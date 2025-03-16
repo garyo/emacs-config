@@ -68,6 +68,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
    (require 'init-fonts-and-frames)
    (require 'init-desktop)
+   (require 'init-bookmark)
    (require 'init-system-env)
    (require 'init-shell)
    (require 'init-grep)
