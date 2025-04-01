@@ -131,7 +131,10 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
         bmkp-bmenu-filter-pattern   nil
         bmkp-bmenu-title            "All Bookmarks")
   ;; Rebuild and display the bookmark list buffer.
-  (bookmark-bmenu-list 'NO-MSG-P)
+  (condition-case err
+      (bookmark-bmenu-list 'NO-MSG-P)
+    (wrong-number-of-arguments
+     (bookmark-bmenu-list)))
   (switch-to-buffer "*Bookmark List*"))
 
 (add-hook 'emacs-startup-hook
