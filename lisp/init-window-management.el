@@ -135,5 +135,24 @@ of the right-hand column. Otherwise, open a bottom side window."
   (winum-mode)
   )
 
+;; Window manipulation keymap
+(defvar-keymap window-manipulation-command-map
+  :doc "Keymap for window manipulation commands."
+  "r" 'rotate-windows
+  "R" 'rotate-windows-back
+  "f" 'flip-window-layout-horizontally
+  "F" 'flip-window-layout-vertically
+  "w" 'rotate-window-layout-clockwise
+  "W" 'rotate-window-layout-anticlockwise
+)
+
+;; Bind the window-manipulation keymap to C-c w
+(keymap-set global-map "C-c w" window-manipulation-command-map)
+
+;; Make window commands auto-repeat
+(dolist (cmd '(rotate-windows rotate-windows-back
+               flip-window-layout-horizontally flip-window-layout-vertically
+               rotate-window-layout-clockwise rotate-window-layout-counterclockwise))
+  (put cmd 'repeat-map 'window-manipulation-command-map))
 
 (provide 'init-window-management)
