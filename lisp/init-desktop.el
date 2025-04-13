@@ -73,6 +73,23 @@
   (with-temp-file my-frame-geometry-file
     (prin1 (my/get-frame-geometry) (current-buffer))))
 
+(defun check-frame-position-sanity (frame-params &optional min max)
+  "Check if frame position parameters are within a reasonable range.
+FRAME-PARAMS is an alist with frame parameters.
+MIN is the minimum acceptable value (default 0).
+MAX is the maximum acceptable value (default 10000).
+This helps prevent the window being completely off-screen."
+  (let ((min-val (or min -10))
+        (max-val (or max 10000))
+        (result t))
+    (dolist (param '(left top))
+      (when-let* ((pair (assq param frame-params))
+                  (val (cdr pair)))
+        (when (or (< val min-val) (> val max-val))
+          (message "Frame parameter %s has suspicious value: %s" param val)
+          (setq result nil))))
+    result))
+
 (defun my/restore-frame-geometry ()
   "Restore frame geometry from `my-frame-geometry-file`, if it exists."
   (when (file-exists-p my-frame-geometry-file)
@@ -80,7 +97,9 @@
         (let ((geom (with-temp-buffer
                       (insert-file-contents my-frame-geometry-file)
                       (read (current-buffer)))))
-          (modify-frame-parameters nil geom))
+          (when (check-frame-position-sanity geom)
+            (message (format "Restoring frame geometry %s" geom))
+            (modify-frame-parameters nil geom)))
       (error
        (message "Error restoring frame geometry: %S" err)))))
 
