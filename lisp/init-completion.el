@@ -141,21 +141,37 @@
   (setq consult-narrow-key "<") ; use this to show different types of things in C-x b
 
   (consult-customize
-   consult-theme
-   :preview-key '(:debounce 0.4 any)
-   consult-ripgrep consult-git-grep consult-grep
-   consult-bookmark consult-recent-file consult-xref
-   consult--source-recent-file consult--source-project-recent-file consult--source-bookmark
+   consult-theme                         :preview-key '(:debounce 0.4 any)
+   consult--source-buffer
+   consult--source-recent-file
+   consult--source-project-recent-file
+   consult--source-project-buffer-hidden
+   consult--source-project-root
+   consult--source-bookmark
+   consult--source-hidden-buffer
    )
-  ;; Use projects as a source for consult-buffer
-  ;; Works, but hides "file" sources -- use "<" to select other sources
-  (setq my-consult-source-projects
-        `(:name "Project.el projects"
-                :narrow   ?P
-                :category project
-                :action   ,#'project-switch-project
-                :items    ,(project-known-project-roots)))
-  (add-to-list 'consult-buffer-sources my-consult-source-projects 'append)
+
+  (defvar consult--source-git-project-files
+    `(:name     "Git Project Files"
+                :narrow   ?g
+                :category file
+                :face     consult-file
+                :history  file-name-history
+                :action   ,#'find-file
+                :items
+                ,(lambda ()
+                   (when-let ((project (project-current)))
+                     (let ((default-directory (project-root project)))
+                       (split-string (shell-command-to-string "git ls-files") "\n" t))))))
+
+  (setq consult-buffer-sources
+        '(consult--source-buffer               ; open buffers (file and non-file)
+          consult--source-project-buffer       ; buffers of the current project
+          consult--source-modified-buffer      ; modified buffers
+          consult--source-git-project-files    ; all source files, current project
+          consult--source-recent-file          ; recentf files
+          consult--source-project-root         ; roots of all known projects
+          consult--source-bookmark))           ; hidden (special) buffers
   )
 
 (use-package consult-dir
