@@ -161,8 +161,11 @@
                 :items
                 ,(lambda ()
                    (when-let ((project (project-current)))
-                     (let ((default-directory (project-root project)))
-                       (split-string (shell-command-to-string "git ls-files") "\n" t))))))
+                     (let* ((default-directory (project-root project))
+                            (files (split-string (shell-command-to-string "git ls-files") "\n" t)))
+                       (mapcar (lambda (file)
+                                 (expand-file-name file default-directory))
+                               files))))))
 
   (setq consult-buffer-sources
         '(consult--source-buffer               ; open buffers (file and non-file)
