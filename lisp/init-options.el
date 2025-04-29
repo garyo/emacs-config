@@ -13,7 +13,8 @@
 (prefer-coding-system 'utf-8-unix)
 (set-charset-priority 'unicode)
 (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
-
-
+(setq-default buffer-file-coding-system 'utf-8)
+;; Force UTF-8 for log files
+(modify-coding-system-alist 'file "\\.log\\'" 'utf-8)
 
 (provide 'init-options)
