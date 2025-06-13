@@ -14,8 +14,12 @@
     (setq exec-path (append exec-path (list termuxpath)))))
 
 
-(defconst emacs-start-time (float-time))
+(defconst emacs-start-time (float-time)
+  "Time when Emacs was started (early-init loaded).")
+
 (defun print-time-since-init (loc)
+  "Print elapsed time since Emacs started.
+LOC is the init-file name to print in the message."
   (let* ((now (float-time))
          (elapsed (- now emacs-start-time)))
     (message "Init file %s: time=%.4f sec" loc elapsed)))
@@ -38,7 +42,7 @@ Handles path normalization and OS-specific path separators."
       nil)))
 
 (defun gco-add-invocation-dir-to-path ()
-  "Add emacs bin directory to path, for native-compilation.
+  "Add Emacs bin directory to path, for native-compilation.
 Beware of resetting $PATH later though! If you do, just
 call ~gco-add-invocation-dir-to-path~ again."
   (add-to-list 'exec-path invocation-directory)

@@ -1,7 +1,7 @@
-;; -*- lexical-binding: t; -*-
-;;; Gary Oberbrunner's Emacs init file
+;;; package --- Gary Oberbrunner's Emacs init file  -*- lexical-binding: t; -*-
 ;; garyo@oberbrunner.com
 
+;;; Commentary:
 ;; This is my Emacs config file. Parts of it are from the 1980s but
 ;; most of it is fairly up to date. I intend for it to work on any
 ;; recent Emacs, on Windows, Linux, and Mac. These days, I usually
@@ -9,9 +9,11 @@
 
 ;;; Startup debugging:
 
-; (setopt debug-on-error nil)
+;; (setopt debug-on-error t)
 ;; Prefer .el file if newer than .elc
 ;(setq load-prefer-newer t)
+
+;;; Code:
 
 (message "Loading init.el: ~ is %S, user-emacs-directory is %S"
          (expand-file-name "~") user-emacs-directory)
@@ -40,7 +42,7 @@
 Always uses eglot if this Emacs doesn't have fast JSON.")
 
 (defconst modeline-package 'doom
-  "Modeline package to use: sml or doom")
+  "Modeline package to use: sml or doom.")
 
 ;; The rest of the config is broken into individual files for specific
 ;; packages, features, and concepts.
@@ -84,7 +86,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
    (require 'init-language-server)
    (require 'init-org)
    (require 'init-llm)
-                                        ;(require 'init-ekg)                     ; emacs knowledge graph (not working 2024-06-23)
+   ;;(require 'init-ekg)                     ; emacs knowledge graph (not working 2024-06-23)
    (require 'init-version-control)
    (require 'init-window-management)
    ;; Not yet working well
@@ -110,14 +112,32 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
    (use-package dup-transform :ensure nil
      :hook ((prog-mode . dup-transform-mode))
      )
-   )
+
+   ;; My local packages (in development)
+
+   ;; contextum:
+   (add-to-list 'trusted-content "~/src/contextum/")
+   (use-package org-ml :ensure t)
+   (use-package contextum
+     :ensure nil
+     :load-path "~/src/contextum"
+     :init (message "About to load contextum")
+     :config (message "After loading contextum")
+     :after (uuid org-ml)))
   )
+
+
 
 ;;; Enable a few global commands
 (put 'set-goal-column 'disabled nil)
 (put 'eval-expression 'disabled nil)
 (put 'narrow-to-region 'disabled nil)
 (put 'narrow-to-page 'disabled nil)
+
+;;; Trust all of my elisp files (this enables flymake byte-compile checking)
+(add-to-list 'trusted-content "~/.config/emacs/init.el")
+(add-to-list 'trusted-content "~/.config/emacs/early-init.el")
+(add-to-list 'trusted-content "~/.config/emacs/lisp/")
 
 (print-time-since-init "init.el")
 (add-hook 'elpaca-after-init-hook (lambda () (print-time-since-init "init.el, after all init complete")))

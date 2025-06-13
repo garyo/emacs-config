@@ -27,6 +27,18 @@
         web-mode-script-padding 0       ; start script in col 0
         web-mode-enable-current-column-highlight t
         )
+  (defun my-web-mode-prettier-on-save ()
+    (when (and buffer-file-name
+               (or (derived-mode-p 'web-mode)
+                   (derived-mode-p 'javascript-mode))
+               (executable-find "bunx"))
+      (let ((output (shell-command-to-string
+                     (format "bunx prettier --write %s"
+                             (shell-quote-argument buffer-file-name)))))
+        (when (string-match-p (regexp-quote (file-name-nondirectory buffer-file-name)) output)
+          (revert-buffer :ignore-auto :noconfirm)))))
+  (add-hook 'after-save-hook #'my-web-mode-prettier-on-save)
+
   )
 (add-to-list 'auto-mode-alist '("\\.html\\'" . web-mode))
 

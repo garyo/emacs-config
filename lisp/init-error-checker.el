@@ -19,7 +19,7 @@
 ;; related to finding errors.
 
 (defun setup-flycheck ()
-  "Set up flycheck as the checker"
+  "Set up flycheck as the checker."
   (use-package flycheck
     :config (global-flycheck-mode)
     )
@@ -63,24 +63,30 @@ Return the errors parsed with the error patterns of CHECKER."
   )
 
 (defun setup-flymake ()
-  "Set up built-in flymake as the checker"
+  "Set up built-in flymake as the checker."
 
   (use-package flymake
     :ensure nil                         ; use emacs built-in version
+    :hook (prog-mode . flymake-mode)
     )
 
-  ;; NOTE: don't need flymake-posframe with eglot, at least in C++,
-  ;; because eglot gets errors from its LSP server and displays them
-  ;; in the eldoc-box (see below).
-  (defun flymake-posframe-mode-if-not-eglot (&rest args)
-    (unless eglot--managed-mode
-      (apply 'flymake-posframe-mode args)))
+  (defvar use-flymake-posframe nil
+    "Use flymake-posframe; else use eldoc and eldoc-box always.")
+  (when use-flymake-posframe
+    ;; NOTE: don't need flymake-posframe with eglot, at least in C++,
+    ;; because eglot gets errors from its LSP server and displays them
+    ;; in the eldoc-box (see below).
+    (defun flymake-posframe-mode-if-not-eglot (&rest args)
+      (unless (and (boundp 'eglot-current-server)
+                   (not (eglot-current-server)))
+        (apply 'flymake-posframe-mode args)))
 
-  (use-package flymake-posframe
-    :ensure (:host github
-                   :repo "Ladicle/flymake-posframe")
-    :demand t
-    :hook (flymake-mode . flymake-posframe-mode-if-not-eglot)
+    (use-package flymake-posframe
+      :ensure (:host github
+                     :repo "Ladicle/flymake-posframe")
+      :demand t
+      :hook (flymake-mode . flymake-posframe-mode-if-not-eglot)
+      )
     )
 
   ;; Set the selected frame to partially transparent; this makes it possible
@@ -94,15 +100,20 @@ Return the errors parsed with the error patterns of CHECKER."
       (set-frame-parameter frame 'alpha-background 0.5)
       ))
 
-  ;; This is what eglot uses to show popup doc windows on hover
+  ;; This is what eglot (and any eldoc mode) uses to show popup doc
+  ;; windows on hover
   (use-package eldoc-box
     ;; note: I've set 'variable-pitch to be quite large, too large for
     ;; doc boxes, so best to explicitly set height here.
     :custom-face (eldoc-box-body ((t (:inherit 'variable-pitch :height 110))))
     :hook (eglot-managed-mode . eldoc-box-hover-mode)
+    :hook (prog-mode . eldoc-box-hover-mode)
     :hook (eldoc-box-frame . set-eldoc-frame-params)
     :config
-    (setq eldoc-box-max-pixel-width 500)
+    (setq-default eldoc-box-max-pixel-width 500)
+    ;; show both documentation and flymake errors (and anything else
+    ;; in eldoc-documentation-functions)
+    (setq eldoc-documentation-strategy #'eldoc-documentation-compose)
     :diminish eldoc-box-hover-mode
     )
 
@@ -128,7 +139,7 @@ Return the errors parsed with the error patterns of CHECKER."
   "Process compile errors from FILENAME, looking for sources in SPEC-DIRECTORY.
 
       SCons (with -D) starts builds from the top of the source tree,
-      and it builds into an 'SBuild' subdir. But we want to find the
+      and it builds into an `SBuild' subdir. But we want to find the
       original errors in the regular source dir, regardless of the
       current directory when we run \\[compile]. Note
       \"default-directory\" may not be what you expect here, and the

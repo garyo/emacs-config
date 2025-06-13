@@ -17,12 +17,15 @@
                 ))
   :bind
   (:map org-mode-map
-        ("M-RET" . completion-at-point)
+        ;; NO -- M-RET in org-mode is for indent to same level
+        ; ("M-RET" . completion-at-point)
    )
   :config
   (require 'org-tempo)
 )
 
+;; Modern functional API for org-mode
+(use-package org-ml)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Org agenda setup:

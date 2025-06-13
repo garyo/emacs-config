@@ -68,6 +68,7 @@
  '(egg-log-graph-chars [9608 124 45 47 92])
  '(egg-quit-window-actions '((egg-status-buffer-mode kill restore-windows)))
  '(eldoc-echo-area-use-multiline-p t)
+ '(eldoc-help-at-pt t)                  ; good for seeing org-mode links
  '(extended-command-suggest-shorter nil)
  '(ggtags-enable-navigation-keys nil)
  '(git-commit-summary-max-length 64)
