@@ -106,25 +106,21 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
    (require 'init-themes)
 
    ;; My own packages
-   (elpaca (dup-transform :host github :repo "garyo/dup-transform.el")
-     :ensure t
-     )
-   (use-package dup-transform :ensure nil
-     :hook ((prog-mode . dup-transform-mode))
+   (elpaca '(dup-transform :host github :repo "garyo/dup-transform.el")
+	   (use-package dup-transform
+	     :hook ((prog-mode . dup-transform-mode))
+	     )
      )
 
    ;; My local packages (in development)
 
    ;; contextum:
    (add-to-list 'trusted-content "~/src/contextum/")
-   (use-package org-ml :ensure t)
-   (use-package contextum
-     :ensure nil
-     :load-path "~/src/contextum"
-     :init (message "About to load contextum")
-     :config (message "After loading contextum")
-     :after (uuid org-ml)))
-  )
+   ;; Note: requires elpaca of 2025-06-15 or later, with local repo support
+   (elpaca '(contextum :repo "/Users/garyo/src/contextum")
+     :after 'org-ml
+     )
+  ))
 
 
 
