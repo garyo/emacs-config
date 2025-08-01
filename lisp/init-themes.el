@@ -4,19 +4,30 @@
 
 (use-package modus-themes
   :init
-  (setq modus-vivendi-palette-overrides
+  (setopt modus-vivendi-palette-overrides
         '(
-          (bg-mode-line-active bg-blue-subtle)
-          (border-mode-line-inactive bg-mode-line-inactive)
           (bg-removed "#661119") ; more visible to me vs. green bg-added color
-          )
-        modus-themes-italic-constructs t ; italic comments, doc strings
-        )
-  (setq modus-themes-headings
-        '((1 . (rainbow overline background 1.4))
-          (2 . (rainbow background 1.3))
-          (3 . (rainbow bold 1.2))
-          (t . (semilight 1.1)))
+          ))
+  (setopt modus-themes-common-palette-overrides
+          '(
+            (bg-mode-line-active bg-blue-subtle)
+            (border-mode-line-inactive bg-mode-line-inactive)
+            (overline-heading-1 fg-main)
+            (line-height-heading-1 1.5)
+            (fg-heading-1 fg-main)
+            (fg-heading-2 red-warmer)
+            (fg-heading-3 yellow)
+            (fg-heading-4 green-warmer)
+            (fg-heading-6 blue)
+            (fg-heading-7 white)
+          ))
+  (setopt modus-themes-italic-constructs t) ; italic comments, doc strings
+  ;; for org-mode headings
+  (setopt modus-themes-headings
+        '((1 . (1.1 weight bold))
+          (2 . (1.05))
+          (3 . (1.01))
+          (t . (semilight)))
         )
   :config
   ;; Customizations to override theme defaults
