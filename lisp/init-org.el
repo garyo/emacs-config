@@ -1,4 +1,4 @@
-;;; init-org.el ---  -*- lexical-binding: t -*-
+;; init-org.el ---  -*- lexical-binding: t -*-
 ;;; Commentary:
 ;;; Code:
 
@@ -16,38 +16,112 @@
                       (delete #'ispell-completion-at-point completion-at-point-functions))
                 ))
   :bind
-  (:map org-mode-map
-        ;; NO -- M-RET in org-mode is for indent to same level
-        ; ("M-RET" . completion-at-point)
-   )
+  (("C-c c" . org-capture)
+   ("C-c a" . org-agenda))
   :config
   (require 'org-tempo)
-)
+  (setopt
+   ;; Directories and files
+   org-directory "~/Documents/org-agenda"
+   org-agenda-files (list org-directory)
+   org-default-notes-file (concat org-directory "/journal.org")
+
+   ;; TODO keywords and logging
+   org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)"))
+   org-log-done 'time
+
+   ;; Navigation and links
+   org-return-follows-link t
+   org-use-speed-commands t
+
+   ;; Agenda behavior
+   org-agenda-skip-scheduled-if-done t
+   org-agenda-skip-deadline-if-done t
+   org-agenda-start-on-weekday nil
+
+   ;; Tags and refiling
+   org-tags-exclude-from-inheritance '("project")
+   org-tag-faces '(("@work" . "#0066ff")
+                   ("@home" . "#bb0000")
+                   ("volunteer" . "#005500"))
+   org-refile-targets '((nil :maxlevel . 4)
+                        (org-agenda-files :maxlevel . 4))
+
+   ;; Display and formatting
+   org-startup-folded 'nofold
+   org-src-fontify-natively t
+   org-list-allow-alphabetical t
+   org-use-sub-superscripts '{}
+   org-indent-mode-turns-on-hiding-stars nil
+   org-startup-with-inline-images t
+   org-image-actual-width nil
+
+   ;; Babel
+   org-confirm-babel-evaluate nil
+
+   ;; Export settings
+   org-export-backends '(ascii html icalendar latex odt koma-letter)
+   org-export-coding-system 'utf-8
+   org-export-with-sub-superscripts '{}
+   org-export-with-toc nil
+
+   ;; LaTeX export
+   org-latex-listings t
+   org-latex-packages-alist '(("cm" "fullpage" nil)
+                              ("compact" "titlesec" nil)
+                              ("" "paralist" nil)
+                              ("" "color" nil)
+                              ("" "tabularx" nil)
+                              ("" "enumitem" nil))
+
+   ;; ODT export
+   org-odt-convert-processes '(("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 5/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
+                               ("unoconv" "unoconv -f %f -o %d %i"))
+   org-odt-preferred-output-format "docx"
+
+   ;; Table settings
+   org-table-convert-region-max-lines 9999
+   )
+
+   ;; Babel (code execution)
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (C . t)
+     (python . t)
+     (js . t)
+     (dot . t)
+     (ditaa . t)
+     (latex . t)
+     (sql . t)
+     (shell . t)))
+  (setq org-babel-python-command "uv run python")
+
+  ;; when modifying agenda files make sure to update appt
+  (when (file-exists-p org-directory)
+    (require 'filenotify)
+    (file-notify-add-watch org-directory '(change) #'gco-org-agenda-file-notify))
+  )
 
 ;; Modern functional API for org-mode
 (use-package org-ml)
 
+;; Images
+(use-package org-remoteimg
+  :ensure (:host github :repo "gaoDean/org-remoteimg")
+  :after org
+  :config
+  (setopt org-display-remote-inline-images 'cache)
+  )
+
+(use-package org-imgtog    ; toggle images off when cursor enters them
+  :ensure (:host github :repo "gaoDean/org-imgtog")
+  :hook org-mode)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Org agenda setup:
+;; Org agenda/supertag PKM/second-brain/note-taking setup:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(setq org-directory "~/Documents/org-agenda") ; inbox.org, gtd.org, tickler.org ...
-(setq org-agenda-files (list org-directory)) ; all .org files in these dirs
-(setq org-default-notes-file (concat org-directory "/notes.org"))
-(setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
-(setq org-log-done 'time)
-(setq org-return-follows-link t)        ; Enter key to follow links
-(setq org-agenda-skip-scheduled-if-done t)
-(setq org-agenda-skip-deadline-if-done t)
-(setq org-agenda-start-on-weekday nil)  ; start on today
-;; Projects are headings with the :project: tag, shouldn't be inherited.
-(setq org-tags-exclude-from-inheritance '("project"))
-(setq org-tag-faces
-      '(("@work" . "#0066ff")
-        ("@home" . "#bb0000")
-        ("volunteer" . "#005500")))
-(setq org-refile-targets (quote ((nil :maxlevel . 4)
-                                 (org-agenda-files :maxlevel . 4))))
 
 ;; Exporting source blocks to HTML needs this
 (use-package htmlize)
@@ -62,15 +136,20 @@
   "Exclude TODOS as refile targets."
   (not (member (nth 2 (org-heading-components)) (list "TODO" "DONE"))))
 (setq org-refile-target-verify-function 'go/verify-refile-target)
-                                        ;(add-hook 'auto-save-hook 'org-save-all-org-buffers)            ; autosave always
-                                        ;(advice-add 'org-agenda-quit :before 'org-save-all-org-buffers) ; autosave on quit agenda
 
-;;; Used these when I was trying org agenda
-;; (global-set-key (kbd "C-c l") 'org-store-link)
-;; (global-set-key (kbd "C-c a") 'org-agenda)
-;; (global-set-key (kbd "<f9>") 'org-agenda) ; faster, one keystroke
-;; (global-set-key (kbd "<f8>") 'org-capture) ; faster, one keystroke
-;; (global-set-key (kbd "C-c c") 'org-capture)
+;; C-c c j/n/t
+(setq org-capture-templates
+  '(("j" "Journal Note" item
+     (file+olp+datetree org-default-notes-file)
+     "- %?\n")
+    ("n" "Note" entry
+     (file org-default-notes-file)
+     "* %U - %?\n")
+    ("t" "TODO" entry
+     (file+headline org-default-notes-file "Tasks")
+     "* TODO %?\n  SCHEDULED: %t\n")
+    )
+)
 
 (setq org-agenda-custom-commands        ; C-a a <cmd>
       '(("w" "At work"
@@ -123,42 +202,6 @@
          (first-of-month-unless-weekend))
     ))
 
-;; agenda template expansions: (e.g. C-c c t to capture a todo)
-;; ^G: prompt for tags
-;; ^t: prompt for timestamp
-;; %U: add inactive timestamp (creation time)
-;; (defvar org-capture-templates
-;;   '(("t" "Todo [inbox]" entry
-;;      (file+headline "inbox.org" "Tasks")
-;;      "* TODO %i%?\n  %U"
-;;      :prepend t)
-;;     ("." "Today" entry
-;;      (file+headline "inbox.org" "Tasks")
-;;      "* TODO %^{Task}\nSCHEDULED: %t\n"
-;;      :immediate-finish t)
-;;     ("s" "Scheduled TODO" entry
-;;      (file+headline "inbox.org" "Tasks") ;prompts for tags and schedule date (^G, ^t)
-;;      "* TODO %? %^G \nSCHEDULED: %^t\n  %U")
-;;     ("d" "Deadline" entry
-;;      (file+headline "inbox.org" "Tasks")
-;;      "* TODO %? %^G \n  DEADLINE: %^t"
-;;      :empty-lines 1)
-;;     ("w" "Work" entry
-;;      (file+headline "gtd.org" "Work")
-;;      "* TODO %i%?\n  %U"
-;;      :prepend t)
-;;     ("h" "Home" entry
-;;      (file+headline "gtd.org" "Home")
-;;      "* TODO %i%?\n  %U"
-;;      :prepend t)
-;;     ("T" "Tickler" entry
-;;      (file+headline "tickler.org" "Tickler")
-;;      "* TODO %i%? \n %U")
-;;     ))
-;; (defun gtd ()
-;;   (interactive)
-;;   (find-file (concat org-directory "/gtd.org")))
-
 ;; Auto regenerate agenda when files change - use inotify
 (defun gco-org-agenda-file-notify (_event)
   "Rebuild all agenda buffers when _EVENT specifies any org agenda files change."
@@ -167,48 +210,18 @@
     (with-current-buffer buffer
       (when (derived-mode-p 'org-agenda-mode)
         (org-agenda-redo t)))))
-;; when modifying agenda files make sure to update appt
-(if (file-exists-p org-directory)
-    (progn
-      (require 'filenotify)
-      (dolist (file org-agenda-files)
-        (file-notify-add-watch file '(change) #'gco-org-agenda-file-notify))
-      ))
 
-(setq
- org-babel-load-languages
-   '((emacs-lisp . t)
-     (python . t)
-     (dot . t)
-     (ditaa . t)
-     (latex . t)
-     (sql . t)
-     (shell . t))
- org-confirm-babel-evaluate nil
- org-export-backends '(ascii html icalendar latex odt koma-letter)
- org-export-coding-system 'utf-8
- org-export-with-sub-superscripts '{}
- org-export-with-toc nil
- org-latex-listings t
- org-latex-packages-alist
-   '(("cm" "fullpage" nil)
-     ("compact" "titlesec" nil)
-     ("" "paralist" nil)
-     ("" "enumitem" nil)
-     ("" "color" nil)
-     ("" "tabularx" nil)
-     ("" "enumitem" nil))
- org-list-allow-alphabetical t
- org-odt-convert-processes
-   '(("LibreOffice" "\"c:/Program Files (x86)/LibreOffice 5/program/soffice\" --headless --convert-to %f%x --outdir %d %i")
-     ("unoconv" "unoconv -f %f -o %d %i"))
- org-odt-preferred-output-format "docx"
- org-src-fontify-natively t
- org-startup-folded nil
- org-startup-indented t                 ; indent content
- org-table-convert-region-max-lines 9999
- org-use-sub-superscripts '{}
- org-use-speed-commands t)
+;; Add notifications for appointments
+(use-package appt
+  :ensure nil
+  :config
+  (appt-activate t)
+  (setq appt-display-mode-line t
+        appt-display-interval 5
+        appt-message-warning-time 10)
+  (add-hook 'org-agenda-finalize-hook 'org-agenda-to-appt)
+  )
+
 
 ;;; Prettify org-mode buffers
 
@@ -229,8 +242,9 @@
                            (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "◦"))))))
 
 ;; De-emphasize the tildes org-mode uses for source snippets by making them small
+;; This doesn't work with modus-themes, which seems to override it.
 (defface org-tilde-face
-  '((t :inherit default :height 0.7))
+  '((t :inherit default :height 0.5))
   "Face for highlighting tildes in org-mode")
 (font-lock-add-keywords 'org-mode '(("~" . ''org-tilde-face)))
 
@@ -258,15 +272,19 @@
       (require 'org-roam-dailies) ;; Ensure the keymap is available
       (org-roam-db-autosync-mode)))
 
-;;; Org remote images
+;;; org-supertag: logseq-like org management
+(use-package deferred
+      :ensure t)
+(use-package epc
+      :ensure t)
 
-(use-package org-remoteimg
-  :ensure (:host github :repo "gaoDean/org-remoteimg")
-  :after org
+;;; org-supertag: inline tags, transclusion and db-based searching
+(use-package org-supertag
+  :ensure (:host github :repo "yibie/org-supertag")
+  :after org deferred epc
   :config
-  (setq org-display-remote-inline-images 'cache)
-  )
-
+  (setq org-supertag-sync-directories (list org-directory)) ;; Configure sync folders
+  (org-supertag-setup))
 
 
 (provide 'init-org)
