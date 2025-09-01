@@ -41,7 +41,8 @@
     )
   (add-hook 'enable-theme-functions #'customize-theme-faces)
 
-  (load-theme 'modus-vivendi)           ; load dark theme
+  ;(load-theme 'modus-vivendi)           ; load dark theme
+  (load-theme 'modus-operandi)           ; load light theme
   )
 
 (provide 'init-themes)

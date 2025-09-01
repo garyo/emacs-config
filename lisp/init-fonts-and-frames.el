@@ -124,16 +124,17 @@
 
 ;; Geneva works & looks good on Mac
 ;; or try Lucida Grande
-(cond ((find-font (font-spec :name "Geneva"))
-       (set-face-attribute 'variable-pitch nil :font "Geneva" :weight 'light :height 1.25))
+(cond ((find-font (font-spec :name "Helvetica Neue"))
+       (set-face-attribute 'variable-pitch nil :font "Helvetica Neue" :weight 'regular :height 1.15))
+      ((find-font (font-spec :name "Geneva"))
+       (set-face-attribute 'variable-pitch nil :font "Geneva" :weight 'light :height 1.15))
       ((find-font (font-spec :name "Lucida Grande"))
-       (set-face-attribute 'variable-pitch nil :font "Lucida Grande" :weight 'light :height 1.25))
+       (set-face-attribute 'variable-pitch nil :font "Lucida Grande" :weight 'light :height 1.15))
       ((find-font (font-spec :name "Verdana"))
        (set-face-attribute 'variable-pitch nil :font "Verdana" :weight 'light :height 1.3))
       ((find-font (font-spec :name "Times New Roman"))
        (set-face-attribute 'variable-pitch nil :font "Times New Roman" :weight 'light :height 1.3))
       )
-
 
 ;;; to display Unicode math chars, like math A to z (𝐴 .. 𝑧, #x1D434 .. #x1D467)
 ;;; and pi: #1D70B = 𝜋

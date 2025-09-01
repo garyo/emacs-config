@@ -11,6 +11,7 @@
   (org-mode . (lambda ()
                 (mixed-pitch-mode 1)
                 (visual-line-mode 1)
+                (setq line-spacing 0.4) ; seems loose, but it looks good
                 ;; I don't use ispell, no need for this
                 (setq completion-at-point-functions
                       (delete #'ispell-completion-at-point completion-at-point-functions))
@@ -49,6 +50,7 @@
 
    ;; Display and formatting
    org-startup-folded 'nofold
+   org-startup-indented t
    org-src-fontify-natively t
    org-list-allow-alphabetical t
    org-use-sub-superscripts '{}
@@ -102,6 +104,17 @@
     (require 'filenotify)
     (file-notify-add-watch org-directory '(change) #'gco-org-agenda-file-notify))
   )
+
+(defun my/org-refresh-faces ()
+  "Refresh mixed-pitch after tweaking faces."
+  (when (derived-mode-p 'org-mode)
+    (mixed-pitch-mode -1)
+    (mixed-pitch-mode 1)))
+
+(add-hook 'after-setting-font-hook #'my/org-refresh-faces)
+
+;; Org query language. Searches in ~org-agenda-files~.
+(use-package org-ql)
 
 ;; Modern functional API for org-mode
 (use-package org-ml)
