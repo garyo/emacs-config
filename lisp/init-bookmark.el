@@ -27,12 +27,16 @@
 
 (use-package bookmark+
   :after desktop
-  :ensure (:host github :repo "emacsmirror/bookmark-plus")
+  ;:ensure (:host github :repo "emacsmirror/bookmark-plus")
+  :ensure (:host github :repo "garyo/emacs-bookmark-plus")
   :config
   ;; Show my bookmarks at startup, instead of the *scratch* buffer
-  (setq bmkp-desktop-jump-save-before-flag t) ;; Auto-save before switching
+  (setq bmkp-desktop-jump-save-before-flag t ;; Auto-save before switching
+        bmkp-propertize-bookmark-names-flag nil ; Avoid circular refs in bookmarks-default.el
+        )
   (add-hook 'emacs-startup-hook
             (lambda () (my/bmkp-list-all)))
   )
 
 (provide 'init-bookmark)
+;;; init-bookmark.el ends here
