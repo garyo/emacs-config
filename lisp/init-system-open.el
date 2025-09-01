@@ -11,15 +11,18 @@
                     ((string-match "^file://" url)
                      (substring url 7)) ; remove scheme
                     (t url))))
-    (cond (wsl-p
-           (browse-url-xdg-open url))
-          ((eq system-type 'windows-nt)
-           (start-process "system-start" nil "cmd" "/c" "start" path))
-          ((eq system-type 'darwin)
-           (shell-command (concat "open " (shell-quote-argument path))))
-          (t
-           (browse-url-xdg-open url))
-          )))
+    ;; shell-command-do-open is new in emacs 31.1, July 2025
+    (if (functionp 'shell-command-do-open)
+        (shell-command-do-open (list url))
+      (cond (wsl-p
+             (browse-url-xdg-open url))
+            ((eq system-type 'windows-nt)
+             (start-process "system-start" nil "cmd" "/c" "start" path))
+            ((eq system-type 'darwin)
+             (shell-command (concat "open " (shell-quote-argument path))))
+            (t
+             (browse-url-xdg-open url))
+            ))))
 
 ;; Make browse-url open files with system browser (explorer/Finder/etc.), not emacs
 (with-eval-after-load 'browse-url
