@@ -209,6 +209,8 @@
            )
     :init
     (my-eglot-vue-init)
+    :custom
+    (eglot-code-action-indicator "*")
     :config
     ;; Install like this:
     ;;  yarn global add @vue/language-server@latest @vue/typescript-plugin@latest
