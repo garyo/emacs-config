@@ -43,20 +43,33 @@
     (1+ (calendar-absolute-from-gregorian (calendar-current-date))))))
 
 (defun gco-pkm--quick-page-link ()
-  "Create a [[page]] link that creates file if needed."
+  "Insert a [[wiki:page]] link with completion."
   (interactive)
-  (let* ((page-name (read-string "Page name: "))
-         (file-name (expand-file-name
-                    (concat (replace-regexp-in-string " " "-" (downcase page-name))
-                            ".org")
-                    org-directory)))
-    (unless (file-exists-p file-name)
-      (with-temp-file file-name
-        (insert (format "#+title: %s\n#+filetags:\n\n" page-name))
-        (when (fboundp 'org-id-get-create)
-          (org-mode)
-          (org-id-get-create))))
-    (insert (format "[[file:%s][%s]]" file-name page-name))))
+  (let ((page-name (gco-pkm-wiki-complete)))
+    (insert (format "[[wiki:%s]]" page-name))))
+
+(defun gco-pkm--create-new-page ()
+  "Create a new org page/file and jump to it."
+  (interactive)
+  (let* ((title (read-string "Page title: "))
+         (slug (replace-regexp-in-string "[^a-z0-9]+" "-" (downcase title)))
+         (slug (replace-regexp-in-string "^-\\|-$" "" slug))  ; trim hyphens
+         (filename (expand-file-name (concat slug ".org") org-directory)))
+    ;; Check if file exists
+    (when (file-exists-p filename)
+      (if (yes-or-no-p (format "File %s already exists. Open it? " slug))
+          (find-file filename)
+        (error "Cancelled")))
+    ;; Create new file
+    (unless (file-exists-p filename)
+      (find-file filename)
+      (insert (format "#+title: %s\n" title))
+      (when (fboundp 'org-id-get-create)
+        (org-id-get-create))
+      ;; If org-roam is available, update its database
+      (when (fboundp 'org-roam-db-update-file)
+        (save-buffer)
+        (org-roam-db-update-file)))))
 
 (defun gco-pkm--create-block-reference ()
   "Create a reference to current block with ID."
@@ -165,11 +178,15 @@
     ("jc" "Capture to journal" (lambda () (interactive) (org-capture nil "j")))]
    
    ["Create"
-    ("cp" "Page/file" gco-pkm--quick-page-link)
+    ("cP" "New page (jump)" gco-pkm--create-new-page)
+    ("cp" "Wiki link" gco-pkm--quick-page-link 
+     :if-derived org-mode)
     ("cn" "Note (capture)" org-capture)
     ("ct" "TODO" (lambda () (interactive) (org-capture nil "t")))
-    ("cb" "Block reference" gco-pkm--create-block-reference)
-    ("ce" "Embed block" gco-pkm--embed-block)]]
+    ("cb" "Block reference" gco-pkm--create-block-reference 
+     :if-derived org-mode)
+    ("ce" "Embed block" gco-pkm--embed-block 
+     :if-derived org-mode)]]
   
   [:description ""
    ["Search"
@@ -180,6 +197,7 @@
     ("sr" "Recent files" gco-pkm--recent-files)]
    
    ["Insert"
+    :if-derived org-mode
     ("it" "TODO" gco-pkm--insert-todo :transient t)
     ("id" "DONE" gco-pkm--insert-done :transient t)
     ("iw" "WAITING" gco-pkm--insert-waiting :transient t)
@@ -192,11 +210,14 @@
   [:description ""
    ["Navigate"
     ("nf" "Find node" org-roam-node-find)
-    ("ni" "Insert link" org-roam-node-insert)
-    ("nb" "Backlinks" gco-pkm--show-backlinks)
+    ("ni" "Insert link" org-roam-node-insert 
+     :if-derived org-mode)
+    ("nb" "Backlinks" gco-pkm--show-backlinks 
+     :if-derived org-mode)
     ("na" "Agenda" org-agenda)]
    
    ["Organize"
+    :if-derived org-mode
     ("or" "Refile" org-refile)
     ("oa" "Archive" org-archive-subtree)
     ("ot" "Set tags" org-set-tags-command)
@@ -204,7 +225,8 @@
   
   [:description ""
    ["" 
-    ("/" "Slash commands" gco-pkm-slash)
+    ("/" "Slash commands" gco-pkm-slash 
+     :if-derived org-mode)
     ("q" "Quit" transient-quit-one)]])
 
 ;;;; Quick slash command for insert operations
@@ -213,6 +235,7 @@
 (transient-define-prefix gco-pkm-slash ()
   "Quick slash command menu for insertions."
   [:description "Quick Insert (Slash Commands)"
+   :if-derived org-mode
    ["Keywords"
     ("t" "TODO" gco-pkm--insert-todo :transient t)
     ("d" "DONE" gco-pkm--insert-done :transient t) 
@@ -223,7 +246,7 @@
     ("b" "Block ref" gco-pkm--create-block-reference)
     ("e" "Embed" gco-pkm--embed-block)
     ("l" "Link" org-insert-link)
-    ("p" "Page link" gco-pkm--quick-page-link)]
+    ("p" "Wiki link" gco-pkm--quick-page-link)]
    
    ["Meta"
     ("#" "Tag" gco-inline-tags-insert)
@@ -235,6 +258,51 @@
    [""
     ("/" "Main menu" gco-pkm-menu)
     ("q" "Quit" transient-quit-one)]])
+
+;;;; Wiki-style links
+
+(defun gco-pkm-wiki-follow (name)
+  "Follow a wiki link - tries file first, then org-roam node, then creates new."
+  (let ((filename (expand-file-name (concat name ".org") org-directory)))
+    (cond
+     ;; First: Check if file exists
+     ((file-exists-p filename)
+      (find-file filename))
+     
+     ;; Second: Try to find org-roam node with this title
+     ((and (fboundp 'org-roam-node-from-title-or-alias)
+           (org-roam-node-from-title-or-alias name))
+      (org-roam-node-visit (org-roam-node-from-title-or-alias name)))
+     
+     ;; Third: Search for partial matches in org-roam
+     ((fboundp 'org-roam-node-find)
+      (org-roam-node-find nil name))
+     
+     ;; Last resort: Offer to create new file
+     (t
+      (if (y-or-n-p (format "Create new page '%s'? " name))
+          (progn
+            (find-file filename)
+            (insert (format "#+title: %s\n" name))
+            (when (fboundp 'org-id-get-create)
+              (org-id-get-create)))
+        (error "Page not found: %s" name))))))
+
+(defun gco-pkm-wiki-complete ()
+  "Completion for wiki links - combines files and org-roam nodes."
+  (let* ((files (mapcar (lambda (f)
+                         (file-name-sans-extension 
+                          (file-name-nondirectory f)))
+                       (directory-files org-directory nil "\\.org$")))
+         (nodes (when (fboundp 'org-roam-node-list)
+                  (mapcar #'org-roam-node-title (org-roam-node-list))))
+         (all (delete-dups (append files nodes))))
+    (completing-read "Wiki page: " all)))
+
+;; Register the wiki link type
+(org-link-set-parameters "wiki"
+                        :follow #'gco-pkm-wiki-follow
+                        :complete #'gco-pkm-wiki-complete)
 
 (provide 'gco-pkm-transient)
 ;;; gco-pkm-transient.el ends here
