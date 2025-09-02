@@ -31,11 +31,6 @@
   :config
   (require 'org-tempo)
 
-  ;; My own hashtag system:
-  (require 'gco-inline-tags)
-  (setopt gco-inline-tags-roots (list my/notes-dir))
-  (add-hook 'org-mode-hook #'gco-inline-tags-mode)
-
   (setopt
    ;; Directories and files
    org-directory my/notes-dir
@@ -117,6 +112,26 @@
     (require 'filenotify)
     (file-notify-add-watch org-directory '(change) #'gco-org-agenda-file-notify))
   )
+
+;; My own inline hashtag system
+(use-package gco-inline-tags
+  :ensure nil               ; local package, not yet from a repository
+  :load-path "lisp/"
+  :after org
+  :hook (org-mode . gco-inline-tags-mode)
+  :bind (("C-c t s" . gco-inline-tags-search)
+         ("C-c t i" . gco-inline-tags-insert))
+  :config
+  (setopt gco-inline-tags-roots (list my/notes-dir)))
+
+;; PKM transient menu for Logseq-like operations
+(use-package gco-pkm-transient
+  :ensure nil
+  :load-path "lisp/"
+  :after (org transient)
+  :bind (("C-c C-/" . gco-pkm-menu)     ; Main PKM menu
+         ))
+
 
 (defun my/org-refresh-faces ()
   "Refresh mixed-pitch after tweaking faces."
