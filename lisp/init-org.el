@@ -30,6 +30,12 @@
    ("C-c a" . org-agenda))
   :config
   (require 'org-tempo)
+
+  ;; My own hashtag system:
+  (require 'gco-inline-tags)
+  (setopt gco-inline-tags-roots (list my/notes-dir))
+  (add-hook 'org-mode-hook #'gco-inline-tags-mode)
+
   (setopt
    ;; Directories and files
    org-directory my/notes-dir
@@ -102,6 +108,9 @@
      (sql . t)
      (shell . t)))
   (setq org-babel-python-command "uv run python")
+
+  ;; org-inlinetask for pseudo-"inline" tasks (really just deep headings)
+  (require 'org-inlinetask)
 
   ;; when modifying agenda files make sure to update appt
   (when (file-exists-p org-directory)
@@ -364,7 +373,13 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
   :config
   (message "Set up org-roam in %s" org-roam-directory)
   (require 'org-roam-dailies) ;; Ensure the keymap is available
-  (org-roam-db-autosync-mode))
+  (org-roam-db-autosync-mode)
+  (add-to-list 'display-buffer-alist
+               '("\\*org-roam\\*"
+                 (display-buffer-in-direction)
+                 (direction . bottom)
+                 (window-height . 0.25)))
+  )
 
 (use-package consult-org-roam
   :after (org-roam consult)
