@@ -113,24 +113,40 @@
     (file-notify-add-watch org-directory '(change) #'gco-org-agenda-file-notify))
   )
 
-;; My own inline hashtag system
-(use-package gco-inline-tags
-  :ensure nil               ; local package, not yet from a repository
+;; Personal Knowledge Management (PKM) system
+;; For local packages, ensure dependencies are loaded first
+;; then use regular use-package with :ensure nil
+(use-package gco-pkm
+  :ensure nil
   :load-path "lisp/"
   :after org
+  :demand t  ; force loading when org is ready
+  :config
+  (setopt gco-pkm-directory my/notes-dir)
+  (setopt gco-pkm-journal-file "journal.org")
+  (gco-pkm-setup)
+  :bind (("C-c j" . gco-pkm-journal-today)))
+
+(use-package gco-inline-tags
+  :ensure nil
+  :load-path "lisp/"
+  :after org
+  :demand t
   :hook (org-mode . gco-inline-tags-mode)
   :bind (("C-c t s" . gco-inline-tags-search)
          ("C-c t i" . gco-inline-tags-insert))
   :config
   (setopt gco-inline-tags-roots (list my/notes-dir)))
 
-;; PKM transient menu for Logseq-like operations
+;; Ensure transient is loaded first (only if not already in elpaca's queue, for me anyway)
+;(use-package transient :ensure t :demand t)
+
 (use-package gco-pkm-transient
   :ensure nil
   :load-path "lisp/"
-  :after (org transient)
-  :bind (("C-c C-/" . gco-pkm-menu)     ; Main PKM menu
-         ))
+  :after (gco-pkm org transient)
+  :demand t
+  :bind (("C-c C-/" . gco-pkm-menu)))
 
 
 (defun my/org-refresh-faces ()
@@ -202,45 +218,12 @@
   (not (member (nth 2 (org-heading-components)) (list "TODO" "DONE"))))
 (setq org-refile-target-verify-function 'go/verify-refile-target)
 
-(defun go/journal-timestamp-target ()
-  "Return position at the end of today's journal entry body, creating it if needed.
-Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID."
-  (require 'org)
-  (require 'org-datetree)
-  (let* ((ts (format-time-string "<%Y-%m-%d %a>"))
-         (date (calendar-current-date))
-         pos)
-    (with-current-buffer (find-file-noselect org-default-notes-file)
-      (org-with-wide-buffer
-        (widen)
-        ;; Find/create the day headline
-        (setq pos (or (org-find-exact-headline-in-buffer ts)
-                      (save-excursion
-                        (org-datetree-find-date-create date)
-                        (org-edit-headline ts)
-                        (point)))))
-      ;; Ensure ID (creates drawer immediately under the heading if missing)
-      (goto-char pos)
-      (org-id-get-create)
-
-      ;; Jump to end of this headline's contents (after drawer & any existing items)
-      (org-back-to-heading t)
-      (let* ((el (org-element-at-point))
-             (append-pos (or (- (org-element-property :contents-end el) 1)
-                             ;; If no contents yet, use contents-begin (start of body)
-                             (org-element-property :contents-begin el)
-                             ;; Fallback: end of subtree
-                             (save-excursion (org-end-of-subtree t t) (point)))))
-        (goto-char append-pos)
-        ;; Ensure exactly one line for the new item: only add a newline
-        ;; if we're not already at BOL (avoid creating extra blank lines)
-        (unless (bolp) (insert "\n"))
-        (point)))))
+;; Journal target function is now provided by gco-pkm package
 
 ;; C-c c j/n/t/f
 (setq org-capture-templates
   '(("j" "Journal Note" item
-     (file+function org-default-notes-file go/journal-timestamp-target)
+     (file+function org-default-notes-file gco-pkm-journal-timestamp-target)
      "- %?\n")
     ("n" "Note" entry
      (file org-default-notes-file)
@@ -420,41 +403,8 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
 
 ;;; Helper functions for workflows
 
-(defun my/org-journal-today ()
-  "Jump to today's journal entry, creating if needed."
-  (interactive)
-  (find-file org-default-notes-file)
-  (goto-char (point-min))
-  (let ((today (format-time-string "<%Y-%m-%d %a>")))
-    (if (search-forward today nil t)
-        (org-show-subtree)
-      (org-datetree-find-date-create (calendar-current-date) 'subtree-at-point)
-      (org-show-subtree))))
+;; PKM helper functions moved to gco-pkm package
 
-(defun my/org-auto-commit ()
-  "Auto-commit org files after save."
-  (when (and (buffer-file-name)
-             (string-prefix-p (expand-file-name org-directory) (buffer-file-name)))
-    (shell-command-to-string
-     (format "cd %s && git add -A && git commit -m 'Auto-commit: %s'"
-             (shell-quote-argument org-directory)
-             (format-time-string "%Y-%m-%d %H:%M")))))
-
-(defun my/create-tag-page (tag)
-  "Create a dynamic tag page for TAG."
-  (interactive "sTag: ")
-  (let ((filename (format "%s/tag-%s.org" org-directory tag)))
-    (find-file filename)
-    (when (= (buffer-size) 0)
-      (insert (format "#+title: #%s\n\n" tag))
-      (insert (format "#+BEGIN: org-ql :query (tags \"%s\")\n\n#+END:\n\n" tag))
-      (insert "Press C-c C-c on the block above to refresh.\n")
-      (org-dblock-update))))
-
-;; Enable auto-commit (comment out if you don't want this)
-;; (add-hook 'after-save-hook #'my/org-auto-commit)
-
-;; Add keybinding for jumping to today
-(global-set-key (kbd "C-c j") #'my/org-journal-today)
+;; PKM keybindings are now set up in gco-pkm package
 
 (provide 'init-org)
