@@ -71,7 +71,9 @@
   )
 
 ;;; Use M-x mc/<TAB> to see commands
+(use-package phi-search)                ; to make Ctrl-S work with mc
 (use-package multiple-cursors
+  :after phi-search
   :bind (("C-S-<mouse-1>" . 'mc/add-cursor-on-click)) ; activate multiple cursors with Ctrl-shift-click
   )
 
