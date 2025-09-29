@@ -17,11 +17,14 @@
 
     ;; Modify completions, elisp-completion-at-point wouldn't allow me to
     ;; complete elisp things in comments.
-    (defalias 'my-elisp-capf (cape-capf-super #'elisp-completion-at-point
-                                              #'cape-dabbrev
-                                              #'cape-file
-                                              #'cape-dict
-                                              #'cape-elisp-symbol))
+    (defalias 'my-elisp-capf
+      (if (functionp #'cape-capf-super)
+          (cape-capf-super #'elisp-completion-at-point
+                           #'cape-dabbrev
+                           #'cape-file
+                           #'cape-dict
+                           #'cape-elisp-symbol))
+      )
     (setq-local completion-at-point-functions '(my-elisp-capf t))
 )
 (add-hook 'emacs-lisp-mode-hook #'my-emacs-lisp-mode-setup)
