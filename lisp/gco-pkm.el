@@ -11,6 +11,8 @@
 ;; Provides journal, page creation, wiki links, and search functions.
 ;; Designed to work with org-roam when available but doesn't require it.
 
+;; Main menu is on C-c C-/ (see init-org)
+
 ;;; Code:
 
 (require 'org)
@@ -19,6 +21,16 @@
 (require 'org-datetree)
 (require 'org-capture)
 (require 'calendar)
+(require 'org-ql)
+(require 'org-ql-search)
+
+(require 'gco-pkm-consult)
+
+(use-package org-transclusion)
+
+
+;; Prevent warnings when running org-ql sexp queries
+(setq org-ql-ask-unsafe-queries nil)
 
 ;;;; Customization
 
@@ -27,7 +39,7 @@
   :group 'org
   :prefix "gco-pkm-")
 
-(defcustom gco-pkm-directory (or (bound-and-true-p org-directory) 
+(defcustom gco-pkm-directory (or (bound-and-true-p org-directory)
                                   (expand-file-name "~/Documents/org-agenda"))
   "Directory for PKM notes and files."
   :type 'directory
@@ -67,7 +79,7 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
       ;; Ensure ID (creates drawer immediately under the heading if missing)
       (goto-char pos)
       (org-id-get-create)
-      
+
       ;; Jump to end of this headline's contents (after drawer & any existing items)
       (org-back-to-heading t)
       (let* ((el (org-element-at-point))
@@ -86,20 +98,30 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
   (find-file (gco-pkm-journal-file))
   (goto-char (point-min))
   (let ((today (format-time-string "<%Y-%m-%d %a>")))
-    (if (search-forward today nil t)
-        (org-show-subtree)
-      (org-datetree-find-date-create (calendar-current-date) 'subtree-at-point)
-      (org-edit-headline today)
-      (org-id-get-create)
-      (org-show-subtree))))
+    (cond ((search-forward today nil t)
+           (org-fold-show-subtree)
+           (org-end-of-subtree)
+           (or (bolp) (insert "\n"))
+           (unless (looking-at-p "^$")
+             (insert "\n"))
+           )
+          (t
+           (org-datetree-find-date-create (calendar-current-date) nil)
+           (org-edit-headline today)
+           (org-id-get-create)
+           (org-end-of-subtree)
+           (or (bolp) (insert "\n"))
+           (unless (looking-at-p "^$")
+             (insert "\n"))
+           (org-fold-show-subtree)))))
 
 ;;;###autoload
 (defun gco-pkm-journal-yesterday ()
   "Jump to yesterday's journal entry."
   (interactive)
   (find-file (gco-pkm-journal-file))
-  (org-datetree-find-date-create 
-   (calendar-gregorian-from-absolute 
+  (org-datetree-find-date-create
+   (calendar-gregorian-from-absolute
     (1- (calendar-absolute-from-gregorian (calendar-current-date))))))
 
 ;;;###autoload
@@ -166,16 +188,16 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
      ;; First: Check if file exists
      ((file-exists-p filename)
       (find-file filename))
-     
+
      ;; Second: Try to find org-roam node with this title
      ((and (fboundp 'org-roam-node-from-title-or-alias)
            (org-roam-node-from-title-or-alias name))
       (org-roam-node-visit (org-roam-node-from-title-or-alias name)))
-     
+
      ;; Third: Search for partial matches in org-roam
      ((fboundp 'org-roam-node-find)
       (org-roam-node-find nil name))
-     
+
      ;; Last resort: Offer to create new file
      (t
       (if (y-or-n-p (format "Create new page '%s'? " name))
@@ -185,7 +207,7 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
 (defun gco-pkm-wiki-complete ()
   "Completion for wiki links - combines files and org-roam nodes."
   (let* ((files (mapcar (lambda (f)
-                         (file-name-sans-extension 
+                         (file-name-sans-extension
                           (file-name-nondirectory f)))
                        (directory-files gco-pkm-directory nil "\\.org$")))
          (nodes (when (fboundp 'org-roam-node-list)
@@ -233,11 +255,11 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
   "Search pages by title."
   (interactive)
   (cond
-   ((fboundp 'org-roam-node-find) 
+   ((fboundp 'org-roam-node-find)
     (org-roam-node-find))
-   ((fboundp 'consult-find) 
+   ((fboundp 'consult-find)
     (consult-find gco-pkm-directory))
-   (t 
+   (t
     (find-file (read-file-name "Find file: " gco-pkm-directory)))))
 
 ;;;###autoload
@@ -245,11 +267,11 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
   "Full-text search across all notes."
   (interactive)
   (cond
-   ((fboundp 'consult-ripgrep) 
+   ((fboundp 'consult-ripgrep)
     (consult-ripgrep gco-pkm-directory))
-   ((fboundp 'org-ql-search) 
+   ((fboundp 'org-ql-search)
     (org-ql-search gco-pkm-directory))
-   (t 
+   (t
     (grep (read-string "Search for: ") gco-pkm-directory))))
 
 ;;;###autoload
@@ -271,8 +293,8 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
                                (nth 5 (file-attributes b))
                                (nth 5 (file-attributes a))))))
          (recent (seq-take sorted num))
-         (choice (completing-read "Recent file: " 
-                                 (mapcar (lambda (f) 
+         (choice (completing-read "Recent file: "
+                                 (mapcar (lambda (f)
                                           (file-relative-name f gco-pkm-directory))
                                         recent))))
     (find-file (expand-file-name choice gco-pkm-directory))))
@@ -284,7 +306,7 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
   "Auto-commit org files after save."
   (when (and gco-pkm-auto-commit
              (buffer-file-name)
-             (string-prefix-p (expand-file-name gco-pkm-directory) 
+             (string-prefix-p (expand-file-name gco-pkm-directory)
                              (buffer-file-name)))
     (shell-command-to-string
      (format "cd %s && git add -A && git commit -m 'Auto-commit: %s'"
@@ -296,12 +318,144 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
   "Show backlinks for current node."
   (interactive)
   (cond
-   ((fboundp 'org-roam-buffer-toggle) 
+   ((fboundp 'org-roam-buffer-toggle)
     (org-roam-buffer-toggle))
-   ((fboundp 'consult-org-roam-backlinks) 
+   ((fboundp 'consult-org-roam-backlinks)
     (consult-org-roam-backlinks))
-   (t 
+   (t
     (message "Backlinks not configured"))))
+
+(defun org-dblock-write:gco-pkm-query (params)
+  "Dynamic block for querying across all org files in gco-pkm-directory.
+FORMAT is a function that takes (marker title file query) and returns a string to insert."
+  (let* ((query (plist-get params :query))
+         (format-fn (or (plist-get params :format) 'gco-pkm-query-format-default))
+         (files (directory-files-recursively gco-pkm-directory "\\.org$"))
+         (results (org-ql-select files query :action 'element-with-markers))
+         (lines '()))
+    (dolist (result results)
+      (when result
+        (let* ((marker (org-element-property :org-marker result))
+               (title (org-element-property :raw-value result))
+               (file (when marker (buffer-file-name (marker-buffer marker)))))
+          (when file
+            (let ((line (funcall format-fn marker title file query)))
+              (when line
+                (push line lines)))))))
+    ;; Insert all lines
+    (dolist (line (nreverse lines))
+      (insert line))))
+
+(defun gco-pkm-query-format-default (marker title file query)
+  "Default formatter: show file and outline path."
+  (with-current-buffer (marker-buffer marker)
+    (save-excursion
+      (goto-char marker)
+      (let* ((outline-path (org-get-outline-path))
+             (file-base (file-name-sans-extension
+                        (file-name-nondirectory file)))
+             (context (if outline-path
+                         (format "%s > %s"
+                                (mapconcat 'identity outline-path " > ")
+                                title)
+                       title)))
+        (format "- [[file:%s::*%s][%s: %s]]\n"
+               file title file-base context)))))
+
+(defun gco-pkm-query-format-with-preview (marker title file query)
+  "Formatter with content preview, showing match context for regexp queries."
+  (with-current-buffer (marker-buffer marker)
+    (save-excursion
+      (goto-char marker)
+      (let* ((file-base (file-name-sans-extension
+                        (file-name-nondirectory file)))
+             (element (org-element-at-point))
+             ;; Get headline's content boundaries (before parsing section)
+             (contents-begin (org-element-property :contents-begin element))
+             (contents-end (org-element-property :contents-end element))
+             (preview
+              (when (and contents-begin contents-end)
+                (let ((content (buffer-substring-no-properties
+                               contents-begin contents-end)))
+                  ;; If it's a regexp query, find and show context around the match
+                  (if (and (listp query) (eq (car query) 'regexp))
+                      (let ((pattern (cadr query)))
+                        (when (string-match pattern content)
+                          (let* ((match-pos (match-beginning 0))
+                                 (context-start (max 0 (- match-pos 40)))
+                                 (context-end (min (length content) (+ match-pos 60)))
+                                 (excerpt (substring content context-start context-end))
+                                 ;; Clean up whitespace
+                                 (cleaned (replace-regexp-in-string "[\n\r]+" " " excerpt)))
+                            (concat
+                             (if (> context-start 0) "…" "")
+                             (string-trim cleaned)
+                             (if (< context-end (length content)) "…" "")))))
+                    ;; Not a regexp, just show beginning
+                    (let ((preview-text (substring content 0 (min 100 (length content)))))
+                      (string-trim
+                       (replace-regexp-in-string "[\n\r]+" " " preview-text))))))))
+        (if (or (null preview) (string-empty-p preview))
+            (format "- [[file:%s::*%s][%s: %s]]\n"
+                   file title file-base title)
+          (format "- [[file:%s::*%s][%s: %s]] — %s\n"
+                 file title file-base title preview))))))
+
+(defun gco-pkm-query-format-org-transclusion (marker title file query)
+  "Formatter that creates an org-transclusion link for the heading."
+  (with-current-buffer (marker-buffer marker)
+    (save-excursion
+      (goto-char marker)
+      (let* ((id (org-id-get-create))  ; Ensure heading has an ID
+             (file-base (file-name-sans-extension
+                        (file-name-nondirectory file)))
+             (outline-path (org-get-outline-path))
+             (context (if outline-path
+                         (format "%s > %s"
+                                (mapconcat 'identity outline-path " > ")
+                                title)
+                       title)))
+        ;; Return an org-transclusion link
+        (format "- [[file:%s::*%s][%s: %s]]\n  #+transclude: [[id:%s]] :only-contents\n"
+               file title file-base context id)))))
+
+
+(defun gco-pkm-query-format-simple (marker title file query)
+  "Simple formatter: just title and filename."
+  (format "- [[file:%s::*%s][%s]]\n" file title title))
+
+(defun my/insert-title-query-block ()
+  "Insert query block for references to this file's title."
+  (when (and (eq major-mode 'org-mode)
+             (buffer-file-name)
+             (string-match-p (regexp-quote gco-pkm-directory)
+                           (buffer-file-name))
+             (= (buffer-size) 0))  ; Only in new files
+    (let* ((title (file-name-base (buffer-file-name)))
+           (query (format "(regexp \"#%s\")" title)))
+      (insert (format "#+TITLE: %s\n\n" title))
+      (insert (format "#+BEGIN: gco-pkm-query :query %s\n" query))
+      (insert "#+END:\n\n"))))
+
+;; (add-hook 'org-mode-hook #'my/insert-title-query-block)
+
+(defun gco-pkm-query-link-follow (tag)
+  "Open org-ql-view for TAG."
+  (org-ql-search (directory-files-recursively gco-pkm-directory "\\.org$")
+    `(regexp ,(format "#%s" tag))
+    :title (format "References to #%s" tag)))
+
+(defun gco-pkm-query-link-export (tag desc format)
+  "Export the query link."
+  (pcase format
+    ('html (format "<a href='#'>%s</a>" (or desc tag)))
+    (_ (or desc tag))))
+
+(org-link-set-parameters "query"
+                         :follow #'gco-pkm-query-link-follow
+                         :export #'gco-pkm-query-link-export
+                         :face '(:foreground "purple" :underline t))
+
 
 ;;;; Setup
 
@@ -312,16 +466,16 @@ Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID
   ;; Ensure directory exists
   (unless (file-exists-p gco-pkm-directory)
     (make-directory gco-pkm-directory t))
-  
+
   ;; Register wiki link type
   (org-link-set-parameters "wiki"
                           :follow #'gco-pkm-wiki-follow
                           :complete #'gco-pkm-wiki-complete)
-  
+
   ;; Set up auto-commit hook if enabled
   (when gco-pkm-auto-commit
     (add-hook 'after-save-hook #'gco-pkm-auto-commit))
-  
+
   (message "GCO PKM system initialized in %s" gco-pkm-directory))
 
 (provide 'gco-pkm)
