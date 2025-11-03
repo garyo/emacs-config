@@ -45,10 +45,16 @@
   :type 'directory
   :group 'gco-pkm)
 
-(defcustom gco-pkm-journal-file "journal.org"
-  "Filename for the journal file (relative to `gco-pkm-directory')."
+(defcustom gco-pkm-journal-subdir "journals"
+  "Subdirectory, relative to `gco-pkm-directory`, for daily journal files."
   :type 'string
   :group 'gco-pkm)
+
+(defun gco-pkm-journal-dir ()
+  "Effective journal directory (absolute), ensured to exist."
+  (let ((dir (expand-file-name gco-pkm-journal-subdir gco-pkm-directory)))
+    (unless (file-directory-p dir) (make-directory dir t))
+    dir))
 
 (defcustom gco-pkm-auto-commit nil
   "Whether to auto-commit changes to git."
@@ -57,81 +63,105 @@
 
 ;;;; Journal Functions
 
-(defun gco-pkm-journal-file ()
-  "Return the full path to the journal file."
-  (expand-file-name gco-pkm-journal-file gco-pkm-directory))
-
-(defun gco-pkm-journal-timestamp-target ()
-  "Return position at the end of today's journal entry body, creating it if needed.
-Suitable for use in `org-capture-templates'. Uses org-datetree and ensures an ID."
-  (let* ((ts (format-time-string "<%Y-%m-%d %a>"))
-         (date (calendar-current-date))
-         pos)
-    (with-current-buffer (find-file-noselect (gco-pkm-journal-file))
-      (org-with-wide-buffer
-        (widen)
-        ;; Find/create the day headline
-        (setq pos (or (org-find-exact-headline-in-buffer ts)
-                      (save-excursion
-                        (org-datetree-find-date-create date)
-                        (org-edit-headline ts)
-                        (point)))))
-      ;; Ensure ID (creates drawer immediately under the heading if missing)
-      (goto-char pos)
-      (org-id-get-create)
-
-      ;; Jump to end of this headline's contents (after drawer & any existing items)
-      (org-back-to-heading t)
-      (let* ((el (org-element-at-point))
-             (append-pos (or (- (org-element-property :contents-end el) 1)
-                             (org-element-property :contents-begin el)
-                             (save-excursion (org-end-of-subtree t t) (point)))))
-        (goto-char append-pos)
-        ;; Ensure exactly one line for the new item
-        (unless (bolp) (insert "\n"))
-        (point)))))
+(defun gco-pkm-journal--path-for-date (&optional date)
+  "Return full path for journal file for DATE (default today).
+DATE is a list (month day year) as used by calendar functions."
+  (let* ((date (or date (calendar-current-date)))
+         (time (encode-time 0 0 0 (nth 1 date) (nth 0 date) (nth 2 date)))
+         (fname (format-time-string "%Y-%m-%d.org" time))) ; YYYY-MM-DD
+    (expand-file-name fname (gco-pkm-journal-dir))))
 
 ;;;###autoload
 (defun gco-pkm-journal-today ()
-  "Jump to today's journal entry, creating if needed."
+  "Open today's daily journal file, creating it if necessary."
   (interactive)
-  (find-file (gco-pkm-journal-file))
-  (goto-char (point-min))
-  (let ((today (format-time-string "<%Y-%m-%d %a>")))
-    (cond ((search-forward today nil t)
-           (org-fold-show-subtree)
-           (org-end-of-subtree)
-           (or (bolp) (insert "\n"))
-           (unless (looking-at-p "^$")
-             (insert "\n"))
-           )
-          (t
-           (org-datetree-find-date-create (calendar-current-date) nil)
-           (org-edit-headline today)
-           (org-id-get-create)
-           (org-end-of-subtree)
-           (or (bolp) (insert "\n"))
-           (unless (looking-at-p "^$")
-             (insert "\n"))
-           (org-fold-show-subtree)))))
+  (let ((file (gco-pkm-journal--path-for-date)))
+    (find-file file)
+    (when (= (buffer-size) 0)
+      (insert (format "#+title: %s\n\n* <%s>\n"
+                      (format-time-string "%Y-%m-%d")
+                      (format-time-string "%Y-%m-%d %a")))
+      (org-id-get-create)
+      (save-buffer))
+    (goto-char (point-max))
+    (unless (bolp) (insert "\n"))
+    (message "Opened journal: %s" file)))
+
+(defun gco-pkm-journal--shift-day (n)
+  "Return calendar date N days from today."
+  (calendar-gregorian-from-absolute
+   (+ n (calendar-absolute-from-gregorian (calendar-current-date)))))
 
 ;;;###autoload
 (defun gco-pkm-journal-yesterday ()
-  "Jump to yesterday's journal entry."
+  "Open yesterday’s journal file."
   (interactive)
-  (find-file (gco-pkm-journal-file))
-  (org-datetree-find-date-create
-   (calendar-gregorian-from-absolute
-    (1- (calendar-absolute-from-gregorian (calendar-current-date))))))
+  (find-file (gco-pkm-journal--path-for-date (gco-pkm-journal--shift-day -1))))
 
 ;;;###autoload
 (defun gco-pkm-journal-tomorrow ()
-  "Jump to tomorrow's journal entry."
+  "Open tomorrow’s journal file."
   (interactive)
-  (find-file (gco-pkm-journal-file))
-  (org-datetree-find-date-create
-   (calendar-gregorian-from-absolute
-    (1+ (calendar-absolute-from-gregorian (calendar-current-date))))))
+  (find-file (gco-pkm-journal--path-for-date (gco-pkm-journal--shift-day 1))))
+
+(defun gco-pkm-open-recent-journal ()
+  "Quickly open a recent journal file."
+  (interactive)
+  (let* ((files (directory-files (gco-pkm-journal-dir) nil "\\.org$"))
+         (vertico-sort-function nil)    ; display in provided order (most recent first)
+         (choice (completing-read "Recent journal: "
+                                  (sort files #'string>))))
+    (find-file (expand-file-name choice (gco-pkm-journal-dir)))))
+
+(defun gco-pkm-show-recent-journals (&optional n)
+  "Show recent journal entries in a single buffer.
+N defaults to 7. Each file may contribute multiple top-level entries."
+  (interactive "P")
+  (require 'org-ml)
+  (let* ((n (or n 7))
+         (journal-dir (gco-pkm-journal-dir))
+         (files (sort (directory-files journal-dir t "\\.org$") #'string>))
+         (recent-files (seq-take files n))
+         (buffer (get-buffer-create "*Recent Journals*")))
+    (with-current-buffer buffer
+      (setq default-directory gco-pkm-directory)
+      (read-only-mode -1)
+      (erase-buffer)
+      (org-mode)
+      (insert (format "#+title: Recent Journal Entries (%d)\n\n" n))
+      (dolist (file recent-files)
+        (let* ((tree (with-temp-buffer
+                       (insert-file-contents file)
+                       (org-ml-parse-this-buffer)))
+               (headlines (org-ml-match '(headline) tree))
+               (base (file-name-base file))
+               (start (point))
+               )
+            (insert (format "* Journal for %s (click to open)" base))
+            (make-text-button
+             start (point)
+             'help-echo "RET or click to open this journal"
+             'mouse-face 'highlight
+             'follow-link t ;; allow single-click
+             'action (lambda (_btn) (find-file file)))
+            (insert "\n")
+            (dolist (hl headlines)
+              (when (= (org-ml-get-property :level hl) 1)
+                (insert (org-ml-to-trimmed-string hl) "\n\n")))))
+      ;; "More" button
+      (let* ((start (point)))
+        (insert (format "\nShow %d more..." 7 (+ n 7)))
+        (make-text-button
+         start (point)
+         'help-echo "RET or click to show more history"
+         'mouse-face 'highlight
+         'follow-link t ;; allow single-click
+         'action (lambda (_btn) (gco-pkm-show-recent-journals (+ n 7)))))
+      (goto-char (point-min))
+      (org-hide-drawer-all)
+      (view-mode 1))
+    (switch-to-buffer buffer)))
+
 
 ;;;; Page Creation and Management
 

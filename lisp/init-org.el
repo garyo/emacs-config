@@ -123,7 +123,6 @@
   :demand t  ; force loading when org is ready
   :config
   (setopt gco-pkm-directory my/notes-dir)
-  (setopt gco-pkm-journal-file "journal.org")
   (gco-pkm-setup)
   :bind (("C-c j" . gco-pkm-journal-today)))
 
@@ -141,6 +140,7 @@
 ;; Ensure transient is loaded first (only if not already in elpaca's queue, for me anyway)
 ;(use-package transient :ensure t :demand t)
 
+;; XXX when elpaca supports loading single files, fix this to use elpaca with :type file
 (use-package gco-pkm-transient
   :ensure nil
   :load-path "lisp/"
@@ -222,20 +222,21 @@
 
 ;; C-c c j/n/t/f
 (setq org-capture-templates
-  '(("j" "Journal Note" item
-     (file+function org-default-notes-file gco-pkm-journal-timestamp-target)
-     "- %?\n")
-    ("n" "Note" entry
-     (file org-default-notes-file)
-     "* %U - %?\n")
-    ("t" "TODO" entry
-     (file+headline org-default-notes-file "Tasks")
-     "* TODO %?\n  SCHEDULED: %t\n")
-    ("f" "New File Note" plain
-     (file (lambda () (read-file-name "Note file: " org-directory nil nil ".org")))
-     "#+title: %^{Title}\n\n%?\n")
-    )
-)
+      '(("j" "Journal"
+         entry
+         (file (gco-pkm-journal--path-for-date))
+         "* %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n")
+        ("n" "Note" entry
+         (file org-default-notes-file)
+         "* %U - %?\n")
+        ("t" "TODO" entry
+         (file+headline org-default-notes-file "Tasks")
+         "* TODO %?\n  SCHEDULED: %t\n")
+        ("f" "New File Note" plain
+         (file (lambda () (read-file-name "Note file: " org-directory nil nil ".org")))
+         "#+title: %^{Title}\n\n%?\n")
+        )
+      )
 
 (setq org-agenda-custom-commands        ; C-a a <cmd>
       '(("w" "At work"
@@ -392,14 +393,36 @@
 (use-package epc
       :ensure t)
 
-;; ;;; org-supertag: inline tags, transclusion and db-based searching
-;; (use-package org-supertag
-;;   :ensure (:host github :repo "yibie/org-supertag")
-;;   :after org deferred epc
-;;   :config
-;;   (setq org-supertag-bridge-enable-ai nil) ; keep nil til I get uv python working
-;;   (setq org-supertag-sync-directories (list org-directory)) ;; Configure sync folders
-;;   (org-supertag-setup))
+;;; org-supertag: inline tags, transclusion and db-based searching
+(use-package org-supertag
+  :ensure (:host github :repo "yibie/org-supertag")
+  :after org deferred epc
+  :config
+  (org-supertag-compat-mode -1) ; turn off, otherwise it rebinds C-c s as a prefix
+  (setq org-supertag-sync-directories (list my/notes-dir))
+)
+
+;;; Consult-notes: consult-style note search
+(use-package consult-notes
+  :commands (consult-notes
+             consult-notes-search-in-all-notes
+             ;; if using org-roam
+             consult-notes-org-roam-find-node
+             consult-notes-org-roam-find-node-relation)
+  :config
+  (setq consult-notes-file-dir-sources `(("Org" ?O ,my/notes-dir)
+                                         ("Org-Journals" ?J ,(expand-file-name "journals" my/notes-dir))
+                                         )) ;; Set notes dir(s), see below
+  ;; Set org-roam integration, denote integration, or org-heading integration e.g.:
+  ;; (setq consult-notes-org-headings-files '("~/path/to/file1.org"
+  ;;                                          "~/path/to/file2.org"))
+  (consult-notes-org-headings-mode)
+  (when (locate-library "denote")
+    (consult-notes-denote-mode))
+  ;; search only for text files in denote dir
+  (setq consult-notes-denote-files-function (lambda () (denote-directory-files nil t t))))
+
+
 
 ;;; Helper functions for workflows
 
