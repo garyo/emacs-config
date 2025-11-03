@@ -79,6 +79,30 @@
   ;; Enable persistent filtering across Dired buffers
   (setq dired-filter-persistent t))
 
+;; From https://oremacs.com/2017/03/18/dired-ediff/
+(defun ora-ediff-files ()
+  "Ediff marked files in Dired."
+  (interactive)
+  (let ((files (dired-get-marked-files))
+        (wnd (current-window-configuration)))
+    (if (<= (length files) 2)
+        (let ((file1 (car files))
+              (file2 (if (cdr files)
+                         (cadr files)
+                       (read-file-name
+                        "file: "
+                        (dired-dwim-target-directory)))))
+          (if (file-newer-than-file-p file1 file2)
+              (ediff-files file2 file1)
+            (ediff-files file1 file2))
+          (add-hook 'ediff-after-quit-hook-internal
+                    (lambda ()
+                      (setq ediff-after-quit-hook-internal nil)
+                      (set-window-configuration wnd))))
+      (error "No more than 2 files should be marked"))))
+(define-key dired-mode-map "e" 'ora-ediff-files)
+
+
 ;; Transient-based menu for dired mode on "C-o"
 ;;; Not working as of 2024-06-24
 ;; (use-package casual-dired

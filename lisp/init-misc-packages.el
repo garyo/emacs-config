@@ -163,4 +163,24 @@
 
 (use-package package-lint)
 
+(use-package csv-mode)
+
+(use-package popper
+  :ensure t
+  ;; XXX better key bindings?
+  :bind (("C-`"   . popper-toggle)
+         ("M-`"   . popper-cycle)
+         ("C-M-`" . popper-toggle-type))
+  :init
+  (setq popper-reference-buffers
+        '("\\*Messages\\*"
+          "Output\\*$"
+          "\\*Async Shell Command\\*"
+          "\\*Org QL View\\*"
+          help-mode
+          compilation-mode))
+  (popper-mode +1)
+  (popper-echo-mode +1))                ; For echo area hints
+
+
 (provide 'init-misc-packages)
