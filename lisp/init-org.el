@@ -24,6 +24,7 @@
                 ;; I don't use ispell, no need for this
                 (setq completion-at-point-functions
                       (delete #'ispell-completion-at-point completion-at-point-functions))
+                (electric-indent-local-mode -1) ; no auto-indent on newline
                 ))
   :bind
   (("C-c c" . org-capture)
@@ -96,6 +97,7 @@
    '((emacs-lisp . t)
      (C . t)
      (python . t)
+     (calc . t)
      (js . t)
      (dot . t)
      (ditaa . t)
