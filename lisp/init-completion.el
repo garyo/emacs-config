@@ -247,12 +247,14 @@
   (add-to-list 'savehist-additional-variables 'corfu-history)
 )
 
-(use-package corfu-terminal
-  :after corfu
-  :init
-  (defvar corfu-terminal-mode)
-  ;; TODO set this up, for use in non-GUI emacs
-  )
+(use-package tty-child-frames) ; new in Emacs 31 (Nov 2025), replaces corfu-terminal
+;; Deprecated as of Emacs 31
+;; (use-package corfu-terminal
+;;   :after corfu
+;;   :init
+;;   (defvar corfu-terminal-mode)
+;;   ;; TODO set this up, for use in non-GUI emacs
+;;   )
 
 ;; Additional capf completion sources
 (use-package cape
