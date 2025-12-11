@@ -1,0 +1,183 @@
+GCO-PKM CONSULT INTEGRATION - STATUS & TODO
+==========================================
+Date: 2025-10-22
+
+WHAT WE BUILT
+-------------
+Created a consult-based search interface for your PKM system with live preview.
+
+FILES CREATED:
+- /Users/garyo/.config/emacs/lisp/gco-pkm-consult.el
+
+FILES MODIFIED:
+- None (kept gco-pkm.el as-is, separate integration)
+
+KEY FEATURES
+------------
+1. gco-pkm-consult-search - Interactive search with live preview
+   - Search for tags/content across all PKM files
+   - As you navigate results (C-n/C-p), preview shows each location automatically
+   - Uses consult's :state (consult--jump-state) for automatic preview
+
+2. Query link integration
+   - [[query:emacs][🔍 View all #emacs]] links now use consult
+   - Override registered in (with-eval-after-load 'gco-pkm)
+   - Falls back gracefully with error handling
+
+3. Error handling for:
+   - No results found
+   - User cancels (C-g)
+   - Nil markers
+
+CURRENT STATUS
+--------------
+✓ File created: gco-pkm-consult.el
+✓ Consult integration working
+✓ Live preview functional (using consult--jump-state)
+✓ Error handling for nil/cancelled cases added
+✓ Query link override configured
+
+TO USE IT:
+Add to your init file (probably init-org.el):
+  (require 'gco-pkm-consult)
+
+RECENT BUG FIXED
+----------------
+Fixed: "wrong-type-argument markerp nil" error
+- Happened when cancelling or no results
+- Now properly checks for nil results and nil marker
+- Shows helpful messages instead of crashing
+
+INTEGRATION WITH EXISTING CODE
+------------------------------
+Your gco-pkm.el already has:
+- Dynamic blocks: org-dblock-write:gco-pkm-query
+- Multiple formatters:
+  * gco-pkm-query-format-default (file + outline path)
+  * gco-pkm-query-format-with-preview (shows matched content)
+  * gco-pkm-query-format-org-transclusion (transclusion links)
+  * gco-pkm-query-format-simple (just links)
+- Query link type registered
+- Wiki links
+- Journal functions
+- Block references
+
+The consult integration ADDS:
+- Live preview to query links (better than org-ql-view static buffer)
+- Consult UI with all its features (narrowing, preview, etc.)
+
+WORKFLOW NOW
+------------
+1. Create tag pages with: [[query:sometag][🔍 View all #sometag]]
+2. Click the link → consult interface opens
+3. Navigate with C-n/C-p → see live preview of each match
+4. Press RET to jump to selected item
+5. Or press C-g to cancel
+
+COMPARISON: org-ql-view vs consult
+-----------------------------------
+OLD (gco-pkm.el query link):
+- Opens org-ql-view buffer (static agenda-like view)
+- Navigate and press RET to jump
+- No preview while navigating
+
+NEW (gco-pkm-consult.el):
+- Opens consult completing-read
+- Live preview as you navigate
+- Cleaner interface
+- All consult features (narrowing, etc.)
+
+NEXT STEPS / TODO
+-----------------
+1. TEST the integration:
+   - Add (require 'gco-pkm-consult) to init
+   - Create a [[query:emacs]] link
+   - Click it and verify preview works
+   - Try C-n/C-p navigation
+   - Verify cancelling (C-g) works
+
+2. CONSIDER adding:
+   - Dynamic collection for incremental search?
+     (currently searches once on open)
+   - Custom preview formatting?
+   - Integration with embark for actions on results?
+   - Keybinding for gco-pkm-consult-search directly?
+
+3. OPTIONAL enhancements:
+   - consult-dynamic-collection for live search-as-you-type
+   - Add to transient menu (gco-pkm-transient.el)
+   - Create saved searches/views
+   - Add narrowing by file, date, tags, etc.
+
+4. DOCUMENTATION:
+   - Add docstrings to functions
+   - Create README for the PKM system
+   - Document keybindings
+
+TECHNICAL NOTES
+---------------
+Key consult features used:
+- consult--read: Main completion interface
+- consult--jump-state: Provides preview functionality
+- :lookup #'consult--lookup-candidate: Maps display to actual data
+- :category 'consult-org-heading: For marginalia annotations
+
+The preview works because:
+1. org-ql returns markers to each heading
+2. We attach markers as 'consult--candidate property
+3. consult--jump-state knows how to preview markers
+4. As you navigate, it jumps to marker position temporarily
+
+Error handling pattern:
+```elisp
+(let* ((results (get-results))
+       (marker (when results (consult--read results ...))))
+  (cond
+   ((null results) (message "No results"))
+   ((null marker) (message "Cancelled"))
+   (t (do-the-thing))))
+```
+
+CONTEXT FROM CONVERSATION
+--------------------------
+User Goals:
+- Replace Logseq with org-mode PKM system
+- Directory of files, some journal, some topic-based
+- Want unified, searchable, cross-referenceable system
+- Logseq-like feel in Emacs
+
+Challenges discussed:
+- Org-mode not designed for "directory full of files" model
+- Org-roam helps but still file-centric
+- Dynamic blocks work but no live navigation
+- Transclusion dumps content (no scrollable containers)
+
+Solution we built:
+- Keep dynamic blocks for static snapshots
+- Add consult for interactive navigation with preview
+- Best of both worlds
+
+Files in the system:
+- gco-pkm.el: Core PKM functionality
+- gco-pkm-consult.el: Consult integration (NEW)
+- gco-pkm-transient.el: Menu system (exists but minimal)
+- gco-inline-tags.el: Your custom tag handling
+
+QUESTIONS FOR NEXT SESSION
+---------------------------
+1. How's the preview working for you?
+2. Too slow with large result sets?
+3. Want search-as-you-type (dynamic collection)?
+4. Should we add embark actions?
+5. Other search patterns needed? (by date, by file, etc.)
+6. Integration with org-roam working well?
+
+USEFUL COMMANDS
+---------------
+M-x gco-pkm-consult-search - Direct search
+Click [[query:tag]] links - Opens consult search
+C-n/C-p in consult - Navigate with preview
+C-g - Cancel
+RET - Jump to selected
+
+END OF STATUS
