@@ -54,9 +54,9 @@
   wsl-version)
   "If running under WSL, the WSL version as wsl1 or wsl2, else nil")
 (defconst wsl-p (or (eq wsl-version 'wsl1) (eq wsl-version 'wsl2))
-  "Running under Windows WSL (any version)")
-(defconst wsl1-p (eq wsl-version 'wsl1) "Running under Windows WSL (1, not 2)")
-(defconst wsl2-p (eq wsl-version 'wsl2) "Running under Windows WSL2")
+  "Running under Windows WSL (any version).")
+(defconst wsl1-p (eq wsl-version 'wsl1) "Running under Windows WSL (1, not 2).")
+(defconst wsl2-p (eq wsl-version 'wsl2) "Running under Windows WSL2.")
 
 ;; Stupid workaround for WSLg (Windows/WSL2 GUI mode) 1.0.28 as of Nov 2021
 ;; see https://github.com/microsoft/wslg/issues/207

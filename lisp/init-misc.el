@@ -20,7 +20,7 @@
 ;; Should be available since emacs 21.
 (when (fboundp 'windmove-default-keybindings)
   (windmove-default-keybindings)
-  (setq windmove-wrap-around t))
+  (set-variable 'windmove-wrap-around t))
 
 ;; Turn off visual-line-mode
 (visual-line-mode nil) ; next-line go to real next line, see also line-move-visual
@@ -45,7 +45,7 @@
      (electric-pair-conservative-inhibit c))
    ))
 
-(setq electric-pair-inhibit-predicate 'gco-inhibit-electric-pair-predicate)
+(set-variable 'electric-pair-inhibit-predicate 'gco-inhibit-electric-pair-predicate)
 
 
 (blink-cursor-mode -1)	;this is annoying
@@ -64,7 +64,7 @@
 ;; Automatically revert files that change on disk
 ;; (but only when the buffer is unmodified, so it's safe)
 (global-auto-revert-mode t)
-(setq global-auto-revert-non-file-buffers t) ; dired
+(set-variable 'global-auto-revert-non-file-buffers t) ; dired
 
 ;; Save all backup(~) files and auto-save files in /tmp
 ;; This keeps clutter down.
@@ -76,12 +76,22 @@
       `((".*" ,emacs-tmp-dir t)))
 (set-variable 'create-lockfiles nil)     ; dangerous but useful for file-watching recompiles
 
+;; Auto-save Markdown and Org-mode files (default interval of 5 sec)
+;; This is "real" auto-save, to the visited file. I use org-mode for
+;; diary and notes, and those sync across machines, and I don't want
+;; to get conflicts.
+(setq auto-save-visited-predicate
+      (lambda ()
+        (memq major-mode '(org-mode markdown-mode))))
+(auto-save-visited-mode 1)
+
 (defun bf-pretty-print-xml-region (begin end)
-  "Pretty format XML markup in region. You need to have nxml-mode
-  http://www.emacswiki.org/cgi-bin/wiki/NxmlMode installed to do
-  this.  The function inserts linebreaks to separate tags that have
-  nothing but whitespace between them.  It then indents the markup
-  by using nxml's indentation rules."
+  "Pretty format XML markup in region between BEGIN and END.
+You need to have =nxml-mode=
+http://www.emacswiki.org/cgi-bin/wiki/NxmlMode installed to do
+this.  The function inserts linebreaks to separate tags that have
+nothing but whitespace between them.  It then indents the markup
+by using nxml's indentation rules."
   (interactive "r")
   (save-excursion
     (nxml-mode)

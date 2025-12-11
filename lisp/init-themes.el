@@ -12,7 +12,6 @@
           '(
             (bg-mode-line-active bg-blue-subtle)
             (border-mode-line-inactive bg-mode-line-inactive)
-            (line-height-heading-1 1.5)
             (fg-heading-1 fg-main)
             (fg-heading-2 red-warmer)
             (fg-heading-3 yellow)
@@ -23,7 +22,7 @@
   (setopt modus-themes-italic-constructs t) ; italic comments, doc strings
   ;; for org-mode headings
   (setopt modus-themes-headings
-        '((1 . (1.2 weight bold))
+        '((1 . (1.2 bold))
           (2 . (1.05))
           (3 . (1.01))
           (t . (semilight)))
@@ -39,6 +38,8 @@
                           :height 1.15 :underline t :background bg-active))
       (set-face-attribute 'modus-themes-heading-1 nil
                           :underline t)
+      ;; (set-face-attribute 'org-indent nil
+      ;;                     :foreground "#f8f8f8" :background "#f8f8f8")
     )
   (add-hook 'enable-theme-functions #'customize-theme-faces)
 

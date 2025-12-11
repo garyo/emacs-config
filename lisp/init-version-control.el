@@ -42,6 +42,7 @@
   (magit-log-format-unicode-graph-alist '((47 . 9585) (92 . 9586) (42 . 9642)))
   (magit-pull-arguments '("--rebase"))
   (magit-refresh-status-buffer nil)
+  (magit-diff-visit-prefer-worktree t)
   )
 
 ;; (use-package diff-hl

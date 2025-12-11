@@ -53,7 +53,7 @@
  '(js-indent-level 2)
  '(js2-strict-missing-semi-warning nil)
  '(llm-warn-on-nonfree nil)
- '(markdown-command "pandoc" t)
+ '(markdown-command "pandoc")
  '(mhtml-tag-relative-indent nil)
  '(mouse-wheel-tilt-scroll t)
  '(ns-command-modifier 'meta)

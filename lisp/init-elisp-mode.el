@@ -7,13 +7,13 @@
 ;;; Code:
 
 (defun my-emacs-lisp-mode-setup ()
+    "My Emacs Lisp mode setup function."
     (interactive)
-    "My emacs lisp mode setup function."
     ;; "-" is almost always part of a function- or variable-name
     (modify-syntax-entry ?- "w")
 
     ;; make sure we cannot save syntax errors
-    (add-hook 'local-write-file-hooks 'check-parens)
+    ;(add-hook 'write-file-functions 'check-parens)
 
     ;; Modify completions, elisp-completion-at-point wouldn't allow me to
     ;; complete elisp things in comments.
@@ -28,6 +28,7 @@
     (setq-local completion-at-point-functions '(my-elisp-capf t))
 )
 (add-hook 'emacs-lisp-mode-hook #'my-emacs-lisp-mode-setup)
+(customize-set-variable 'elisp-fontify-semantically t)
 
 
 (provide 'init-elisp-mode)
