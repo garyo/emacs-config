@@ -93,11 +93,12 @@ Return the errors parsed with the error patterns of CHECKER."
   ;; to read the text below an eldoc-box doc frame.
   (defun set-eldoc-frame-params (_main_frame)
     (let* ((frame (selected-frame))
-          (window (frame-selected-window frame)))
+           (window (frame-selected-window frame)))
       (set-window-margins window 0)
-      ;;(set-frame-parameter frame 'alpha 0.7)
-      ;; This is better for emacsen that support it (2025+)
-      (set-frame-parameter frame 'alpha-background 0.5)
+      ;; Alpha-background is better for emacsen that support it (2025+)
+      (if (assq 'alpha-background (frame-parameters))
+          (set-frame-parameter frame 'alpha-background 0.5)
+        (set-frame-parameter frame 'alpha 0.8))
       ))
 
   ;; This is what eglot (and any eldoc mode) uses to show popup doc
@@ -106,12 +107,20 @@ Return the errors parsed with the error patterns of CHECKER."
     ;; note: I've set 'variable-pitch to be quite large, too large for
     ;; doc boxes, so best to explicitly set height here.
     :custom-face (eldoc-box-body ((t (:inherit 'variable-pitch :height 110))))
+
+    ;; Which eldoc-box mode to use:
+    ;; - eldoc-box-hover-mode shows doc at point in the upper corner
+    ;; - eldoc-box-hover-at-point-mode shows doc at point, at point (slower)
+    ;; - eldoc-box-mouse-mode shows doc at mouse pointer"
     :hook (eglot-managed-mode . eldoc-box-hover-mode)
     :hook (prog-mode . eldoc-box-hover-mode)
     :hook (eldoc-box-frame . set-eldoc-frame-params)
     :config
     (setq-default eldoc-box-max-pixel-width 500)
-    ;; show both documentation and flymake errors (and anything else
+    (setq-default eldoc-box-max-pixel-height 300)
+    (setq-default eldoc-box-cleanup-interval 0.5)
+    (setq-default eldoc-box-only-multi-line t)
+ ;; show both documentation and flymake errors (and anything else
     ;; in eldoc-documentation-functions)
     (setq eldoc-documentation-strategy #'eldoc-documentation-compose)
     :diminish eldoc-box-hover-mode
