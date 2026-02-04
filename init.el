@@ -115,12 +115,6 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 
    ;; My local packages (in development)
 
-   ;; contextum:
-   (add-to-list 'trusted-content "~/src/contextum/")
-   ;; Note: requires elpaca of 2025-06-15 or later, with local repo support
-   (elpaca '(contextum :repo "/Users/garyo/src/contextum")
-     :after 'org-ml
-     )
   ))
 
 
