@@ -150,6 +150,12 @@
   :demand t
   :bind (("C-c C-/" . gco-pkm-menu)))
 
+(use-package gco-pkm-calendar
+  :ensure nil
+  :load-path "lisp/"
+  :after (gco-pkm calendar)
+  :commands (gco-pkm-calendar-browse))
+
 
 (defun my/org-refresh-faces ()
   "Refresh mixed-pitch after tweaking faces."

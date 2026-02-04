@@ -55,6 +55,7 @@
     ("jt" "Tomorrow" gco-pkm-journal-tomorrow)
     ("jr" "Recent" gco-pkm-open-recent-journal)
     ("jR" "Show Recent" gco-pkm-show-recent-journals)
+    ("jC" "Calendar" gco-pkm-calendar-browse)
     ("jc" "Capture to journal" (lambda () (interactive) (org-capture nil "j")))]
    
    ["Create"
