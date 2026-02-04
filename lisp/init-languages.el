@@ -253,7 +253,7 @@
     ;; (setq treesit-auto-langs
     ;;       (delete 'c
     ;;               (delete 'cpp treesit-auto-langs)))
-    (global-treesit-auto-mode))
+    (treesit-auto-add-to-auto-mode-alist))
   )
 ;; Also use tree-sitter minor mode (?)
 ;; Actually it doesn't play perfectly with treesit; ts-fold at least
