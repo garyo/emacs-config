@@ -13,7 +13,7 @@
  '(ag-reuse-buffers t)
  '(ag-reuse-window t)
  '(align-to-tab-stop nil)
- '(bmkp-last-as-first-bookmark-file "/Users/garyo/.config/emacs/var/bookmark-default.el")
+ '(bmkp-last-as-first-bookmark-file "~/.config/emacs/var/bookmark-default.el")
  '(custom-safe-themes t)
  '(ecb-layout-name "left1")
  '(ecb-layout-window-sizes
