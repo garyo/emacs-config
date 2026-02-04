@@ -142,16 +142,9 @@
 
   (consult-customize
    consult-theme                         :preview-key '(:debounce 0.4 any)
-   consult--source-buffer
-   consult--source-recent-file
-   consult--source-project-recent-file
-   consult--source-project-buffer-hidden
-   consult--source-project-root
-   consult--source-bookmark
-   consult--source-hidden-buffer
    )
 
-  (defvar consult--source-git-project-files
+  (defvar consult-source-git-project-files
     `(:name     "Git Project Files"
                 :narrow   ?g
                 :category file
@@ -168,13 +161,13 @@
                                files))))))
 
   (setq consult-buffer-sources
-        '(consult--source-buffer               ; open buffers (file and non-file)
-          consult--source-project-buffer       ; buffers of the current project
-          consult--source-modified-buffer      ; modified buffers
-          consult--source-git-project-files    ; all source files, current project
-          consult--source-recent-file          ; recentf files
-          consult--source-project-root         ; roots of all known projects
-          consult--source-bookmark))           ; hidden (special) buffers
+        '(consult-source-buffer               ; open buffers (file and non-file)
+          consult-source-project-buffer       ; buffers of the current project
+          consult-source-modified-buffer      ; modified buffers
+          consult-source-git-project-files    ; all source files, current project
+          consult-source-recent-file          ; recentf files
+          consult-source-project-root         ; roots of all known projects
+          consult-source-bookmark))           ; hidden (special) buffers
   )
 
 (use-package consult-dir
@@ -247,7 +240,7 @@
   (add-to-list 'savehist-additional-variables 'corfu-history)
 )
 
-(use-package tty-child-frames) ; new in Emacs 31 (Nov 2025), replaces corfu-terminal
+;(use-package tty-child-frames) ; new in Emacs 31 (Nov 2025), replaces corfu-terminal (where is it??)
 ;; Deprecated as of Emacs 31
 ;; (use-package corfu-terminal
 ;;   :after corfu
