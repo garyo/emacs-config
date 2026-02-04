@@ -101,30 +101,38 @@ Return the errors parsed with the error patterns of CHECKER."
         (set-frame-parameter frame 'alpha 0.8))
       ))
 
+  (defconst eldoc-style 'mouse "Style for eldoc: mouse or box")
+
+  (when (eq eldoc-style 'mouse)
+    (use-package eldoc-mouse
+      :hook eldoc-mode
+      ))
+
   ;; This is what eglot (and any eldoc mode) uses to show popup doc
   ;; windows on hover
-  (use-package eldoc-box
-    ;; note: I've set 'variable-pitch to be quite large, too large for
-    ;; doc boxes, so best to explicitly set height here.
-    :custom-face (eldoc-box-body ((t (:inherit 'variable-pitch :height 110))))
+  (when (eq eldoc-style 'box)
+    (use-package eldoc-box
+      ;; note: I've set 'variable-pitch to be quite large, too large for
+      ;; doc boxes, so best to explicitly set height here.
+      :custom-face (eldoc-box-body ((t (:inherit 'variable-pitch :height 110))))
 
-    ;; Which eldoc-box mode to use:
-    ;; - eldoc-box-hover-mode shows doc at point in the upper corner
-    ;; - eldoc-box-hover-at-point-mode shows doc at point, at point (slower)
-    ;; - eldoc-box-mouse-mode shows doc at mouse pointer"
-    :hook (eglot-managed-mode . eldoc-box-hover-mode)
-    :hook (prog-mode . eldoc-box-hover-mode)
-    :hook (eldoc-box-frame . set-eldoc-frame-params)
-    :config
-    (setq-default eldoc-box-max-pixel-width 500)
-    (setq-default eldoc-box-max-pixel-height 300)
-    (setq-default eldoc-box-cleanup-interval 0.5)
-    (setq-default eldoc-box-only-multi-line t)
- ;; show both documentation and flymake errors (and anything else
-    ;; in eldoc-documentation-functions)
-    (setq eldoc-documentation-strategy #'eldoc-documentation-compose)
-    :diminish eldoc-box-hover-mode
-    )
+      ;; Which eldoc-box mode to use:
+      ;; - eldoc-box-hover-mode shows doc at point in the upper corner
+      ;; - eldoc-box-hover-at-point-mode shows doc at point, at point (slower)
+      ;; - eldoc-box-mouse-mode shows doc at mouse pointer"
+      :hook (eglot-managed-mode . eldoc-box-hover-mode)
+      :hook (prog-mode . eldoc-box-hover-mode)
+      :hook (eldoc-box-frame . set-eldoc-frame-params)
+      :config
+      (setq-default eldoc-box-max-pixel-width 500)
+      (setq-default eldoc-box-max-pixel-height 300)
+      (setq-default eldoc-box-cleanup-interval 0.5)
+      (setq-default eldoc-box-only-multi-line t)
+      ;; show both documentation and flymake errors (and anything else
+      ;; in eldoc-documentation-functions)
+      (setq eldoc-documentation-strategy #'eldoc-documentation-compose)
+      :diminish eldoc-box-hover-mode
+      ))
 
   (add-to-list 'display-buffer-alist
                `(,(regexp-quote "*eldoc*")
