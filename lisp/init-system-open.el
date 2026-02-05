@@ -4,8 +4,8 @@
 
 
 (defun open-with-system-browser (url &optional _new-window)
+  "Open the given file (may be a file, dir or URL) in the system's file explorer/finder/browser."
   (interactive "sURL: ")
-  "Open the given file (may be a file, dir or URL) in the system's file explorer/finder/browser"
   (let ((path (cond ((string-match "^file:///[a-z]:/" url)
                      (substring url 8)) ; remove scheme, expose drive (Win32)
                     ((string-match "^file://" url)

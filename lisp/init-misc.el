@@ -23,11 +23,11 @@
   (set-variable 'windmove-wrap-around t))
 
 ;; Turn off visual-line-mode
-(visual-line-mode nil) ; next-line go to real next line, see also line-move-visual
+(visual-line-mode -1) ; next-line go to real next line, see also line-move-visual
 (global-visual-line-mode 0)
 (setq line-move-visual nil)			; C-n go to next real line
 
-(setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
+(setq-default cache-long-line-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
 
 ;; always enable electric-pair-mode to insert matching parens & braces
 (electric-pair-mode t)
@@ -96,7 +96,7 @@ by using nxml's indentation rules."
   (save-excursion
     (nxml-mode)
     (goto-char begin)
-    (while (search-forward-regexp "\>[ \\t]*\<" nil t)
+    (while (search-forward-regexp ">[ \t]*<" nil t)
       (backward-char) (insert "\n"))
     (indent-region begin end))
   (message "Ah, much better!"))
@@ -160,7 +160,7 @@ by using nxml's indentation rules."
 
 ;; This is very important to speed up display of long lines.
 ;; It's not perfect but it should help.
-(setq-default bidi-display-reordering nil)
+(setq-default bidi-paragraph-direction 'left-to-right)
 
 ;; Always use '(foo) rather than (quote (foo)) in customize
 ;; (custom-set-variables below)

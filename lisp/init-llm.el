@@ -36,7 +36,7 @@
   :ensure (:host github :repo "lizqwerscott/mcp.el")
   :config
   (setq mcp-hub-servers
-        '(("filesystem" . (:command "npx"
+        `(("filesystem" . (:command "npx"
                                     :args ("-y" "@modelcontextprotocol/server-filesystem"
                                            "/Users/garyo/")))
           ("fetch" . (:command "uvx" :args ("mcp-server-fetch")))
@@ -47,10 +47,9 @@
           ("shell" . (:command "/Users/garyo/.cargo/bin/uvx"
                                :args ("mcp-shell-server")
                                :env (:ALLOW_COMMANDS
-                                     (concat "ls,cat,pwd,grep,wc,touch,find,cp,mv,echo,"
-                                             "emacs,emacsclient,bun,npx,node" ))
-                               )))
-        )
+                                     ,(concat "ls,cat,pwd,grep,wc,touch,find,cp,mv,echo,"
+                                              "emacs,emacsclient,bun,npx,node"))))
+          ))
   )
 
 (provide 'init-llm)

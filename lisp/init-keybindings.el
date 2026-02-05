@@ -13,11 +13,11 @@
 (global-set-key (kbd "M-n") #'(lambda ()
                                "Move down 10 lines"
                                (interactive)
-                               (next-line 10)))
+                               (forward-line 10)))
 (global-set-key (kbd "M-p") #'(lambda ()
                                "Move up 10 lines"
                                (interactive)
-                               (previous-line 10)))
+                               (forward-line -10)))
 (global-set-key [f5] 'project-compile)
 (global-set-key [remap count-words-region] #'count-words) ; better: uses region when active
 

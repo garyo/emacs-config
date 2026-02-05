@@ -23,8 +23,8 @@
                            #'cape-dabbrev
                            #'cape-file
                            #'cape-dict
-                           #'cape-elisp-symbol))
-      )
+                           #'cape-elisp-symbol)
+        #'elisp-completion-at-point))
     (setq-local completion-at-point-functions '(my-elisp-capf t))
 )
 (add-hook 'emacs-lisp-mode-hook #'my-emacs-lisp-mode-setup)

@@ -130,7 +130,8 @@
 (autoload 'visual-basic-mode "visual-basic-mode" "Visual Basic mode." t)
 (setq-default visual-basic-mode-indent 4)
 (setq auto-mode-alist (cons '("\\(\\.vb\\|\\.bas\\)\\'" . visual-basic-mode) auto-mode-alist))
-(setq auto-mode-alist (cons '("\\.cu$" . c++-mode) auto-mode-alist))
+;; cuda-mode is set up above via use-package
+;; (setq auto-mode-alist (cons '("\\.cu$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.cp$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.tjp$" . taskjuggler-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.lua$" . lua-mode) auto-mode-alist))
@@ -258,7 +259,7 @@
 ;; Also use tree-sitter minor mode (?)
 ;; Actually it doesn't play perfectly with treesit; ts-fold at least
 ;; doesn't work properly and that's the point of using this mode.
-(when (and (functionp 'module-load) (not using-treesit)
+(when (and (functionp 'module-load) (not using-treesit))
   (use-package tree-sitter
     :diminish tree-sitter-mode
     :config
@@ -268,7 +269,7 @@
   (use-package tree-sitter-langs)
   (global-tree-sitter-mode)
   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
-  ))
+  )
 
 ;;; Tree-sitter based code folding
 

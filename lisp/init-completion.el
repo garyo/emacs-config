@@ -263,7 +263,7 @@
   (add-hook 'completion-at-point-functions #'cape-file)
   (add-hook 'completion-at-point-functions #'cape-keyword)
   (add-hook 'completion-at-point-functions #'cape-dabbrev)
-  (message (format "Loading my capf extensions: %s" completion-at-point-functions))
+  (message "Loading my capf extensions: %s" completion-at-point-functions)
   )
 
 ;; Nice icons for corfu popups

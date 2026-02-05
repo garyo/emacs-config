@@ -71,13 +71,13 @@
   :group 'shell)
   ;; Hilight compiler and linker output filenames so I can see them more easily
 (defvar my-shell-extra-keywords
-  '(("/OUT:[^ ]+" 1 shell-hilight-face)
-    ("/Fo[^ ]+" 1 shell-hilight-face)
+  '(("/OUT:[^ ]+" 0 shell-hilight-face)
+    ("/Fo[^ ]+" 0 shell-hilight-face)
     ))
 (add-hook 'shell-mode-hook
           (lambda ()
             (font-lock-add-keywords nil my-shell-extra-keywords)))
-(add-hook 'shell-mode-hook 'ansi-color-for-comint-mode-on)
+(add-hook 'comint-output-filter-functions 'ansi-color-process-output)
 (ignore-errors
   (pcomplete-shell-setup)	; set up emacs24 programmable completion for shell mode; not that great but OK
   )

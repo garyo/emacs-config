@@ -35,7 +35,7 @@
   "Search all of Logseq Notes with ripgrep"
   (interactive "sQuery: ")
   (let ((rg-command-line-flags '("--glob=!version-files/" "--glob=!bak/")))
-    (rg query "*.md" (or root logseq-root))))
+    (deadgrep query (or root logseq-root))))
 
 (defun logseq-search-personal (query)
   "Search personal Logseq Notes with ripgrep"

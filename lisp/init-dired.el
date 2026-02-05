@@ -49,7 +49,7 @@
         ("I" . dired-kill-subdir)
         )
   :config
-  (add-to-list 'mode-line-misc-info '(:eval dired-rsync-modeline-status 'append)))
+  (add-to-list 'mode-line-misc-info '(:eval dired-rsync-modeline-status) 'append))
 
 ;; Expand subtrees inline using TAB
 (use-package dired-subtree

@@ -60,7 +60,7 @@
 ;;; Useful for folding, manipulating and navigating indented languages like yaml
 ;;; (or even python)
 (use-package indent-tools
-  :bind (("C-c >" . 'indent-tools-hydra/body))
+  :bind (("C-c >" . indent-tools-hydra/body))
   )
 
 ;;; show keybindings following prefix in a popup
@@ -74,7 +74,7 @@
 (use-package phi-search)                ; to make Ctrl-S work with mc
 (use-package multiple-cursors
   :after phi-search
-  :bind (("C-S-<mouse-1>" . 'mc/add-cursor-on-click)) ; activate multiple cursors with Ctrl-shift-click
+  :bind (("C-S-<mouse-1>" . mc/add-cursor-on-click)) ; activate multiple cursors with Ctrl-shift-click
   )
 
 ;;; Useful when switching git branches
@@ -179,6 +179,7 @@
           "\\*Org QL View\\*"
           help-mode
           compilation-mode))
+  :config
   (popper-mode +1)
   (popper-echo-mode +1))                ; For echo area hints
 

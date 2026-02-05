@@ -17,10 +17,10 @@
  )
 (tab-bar-mode t) ; enable tab bar (won't show unless there's more than one tab)
 (add-to-list 'display-buffer-alist
-             '("\\*Calendar*"
+             '("\\*Calendar\\*"
                (display-buffer-at-bottom)))
 (add-to-list 'display-buffer-alist
-             '("\\*Warnings*"
+             '("\\*Warnings\\*"
                (display-buffer-at-bottom)
                (window-height . 8)))
 (add-to-list 'display-buffer-alist
@@ -32,7 +32,7 @@
                (display-buffer-at-bottom)
                (window-height . 30)))
 (add-to-list 'display-buffer-alist
-             '("\\magit:"
+             '("magit:"
                (display-buffer-same-window)))
 (add-to-list 'display-buffer-alist
              '("\\*Man"
@@ -152,7 +152,7 @@ of the right-hand column. Otherwise, open a bottom side window."
 ;; Make window commands auto-repeat
 (dolist (cmd '(rotate-windows rotate-windows-back
                flip-window-layout-horizontally flip-window-layout-vertically
-               rotate-window-layout-clockwise rotate-window-layout-counterclockwise))
+               rotate-window-layout-clockwise rotate-window-layout-anticlockwise))
   (put cmd 'repeat-map 'window-manipulation-command-map))
 
 (provide 'init-window-management)

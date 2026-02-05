@@ -49,7 +49,7 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 ;; For Android, we only load a few things.
 
 (pcase system-type
-  ("android"
+  ('android
    (require 'init-android)
    )
   (_
@@ -137,13 +137,15 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
 (defun my/bmkp-list-all (&rest args)
   "Open a bookmark list that has no filter applied (i.e., show all bookmarks)."
   (interactive)
-  ;; Clear any existing filter/pattern.
-  (setq bmkp-bmenu-filter-function  nil
-        bmkp-bmenu-filter-pattern   nil
-        bmkp-bmenu-title            "All Bookmarks")
-  ;; Rebuild and display the bookmark list buffer.
   (condition-case err
-      (bookmark-bmenu-list 'NO-MSG-P)
+      (progn
+        ;; Clear any existing filter/pattern (bookmark+ variables).
+        (setq bmkp-bmenu-filter-function  nil
+              bmkp-bmenu-filter-pattern   nil
+              bmkp-bmenu-title            "All Bookmarks")
+        (bookmark-bmenu-list 'NO-MSG-P))
+    (void-variable
+     (bookmark-bmenu-list))
     (wrong-number-of-arguments
      (bookmark-bmenu-list)))
   (switch-to-buffer "*Bookmark List*"))

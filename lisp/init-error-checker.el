@@ -78,7 +78,7 @@ Return the errors parsed with the error patterns of CHECKER."
     ;; in the eldoc-box (see below).
     (defun flymake-posframe-mode-if-not-eglot (&rest args)
       (unless (and (boundp 'eglot-current-server)
-                   (not (eglot-current-server)))
+                   (eglot-current-server))
         (apply 'flymake-posframe-mode args)))
 
     (use-package flymake-posframe
@@ -163,7 +163,7 @@ Return the errors parsed with the error patterns of CHECKER."
       filenames are absolute, so need to remove surgically."
 
   (let ((case-fold-search t)
-        (topdir (car (project-roots (project-current))))
+        (topdir (project-root (project-current)))
         )
     ;; prepend dir
     (if (and spec-directory
@@ -216,7 +216,7 @@ Return the errors parsed with the error patterns of CHECKER."
 
 ;; For emacs23, long lines in buffers make emacs really slow.
 ;; This seems to ameliorate it a little.
-(add-hook 'compilation-mode-hook (lambda () (line-number-mode nil)))
+(add-hook 'compilation-mode-hook (lambda () (line-number-mode -1)))
 
 
 (provide 'init-error-checker)

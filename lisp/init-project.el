@@ -5,8 +5,8 @@
 ;;; A "homedir" project back-end for dotfiles managed by yadm
 
 (defun project-try-home (dir)
-  """Returns a special project type if the project *is* the user's home dir.
-  This is used for managing dotfiles."""
+  "Return a special project type if the project *is* the user's home dir.
+This is used for managing dotfiles."
   (let ((dir1 (directory-file-name (expand-file-name dir)))
         (home (directory-file-name (expand-file-name "~"))))
     (cond ((string-equal dir1 home)
@@ -31,7 +31,7 @@
     (cadr project))
 
   (cl-defmethod project-files ((project (head homedir)) &optional dirs)
-    """Ignore dirs for now, just list all homedir project files."""
+    "Ignore dirs for now, just list all homedir project files."
     (cond ((executable-find "yadm")
            (yadm-list-files))
           (t nil))

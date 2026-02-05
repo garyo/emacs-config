@@ -31,7 +31,7 @@
 
 ;; for Vue VLS with eglot
 (defvar vls-vetur-configuration
-  `(:useWorkspaceDependencies: t
+  `(:useWorkspaceDependencies t
                                :completion
                                (:autoImport t :useScaffoldSnippets t :tagCasing "kebab")
                                :grammar
@@ -58,7 +58,7 @@
                                      '(:trace
                                        (:server "verbose")))
                                :dev
-                               (:vlsPath "" :logLevel: "DEBUG")
+                               (:vlsPath "" :logLevel "DEBUG")
                                :html
                                (:suggest nil)
                                :prettier :json-false
@@ -77,7 +77,7 @@
 
 ;; Run this before loading eglot
 (defun my-eglot-vue-init ()
-  """Initialize Vue Language Server for eglot."""
+  "Initialize Vue Language Server for eglot."
 
   ;; Find the location of "typescript.js"
   ;; On my M1 Mac, it's in $(yarn global dir)/node_modules/typescript/lib
@@ -131,7 +131,6 @@
            (javascript-mode . lsp)
            (javascript-ts-mode . lsp)
            (js2-mode . lsp)
-           (js2-ts-mode . lsp)
            ;; python LSP; it hangs sometimes?
            (python-mode . lsp)
            (python-ts-mode . lsp)

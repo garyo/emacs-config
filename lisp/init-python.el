@@ -5,9 +5,6 @@
 ;;; Ruff is a new 2024 much-faster code linter/formatter
 (use-package ruff-format)
 
-;;;; Format Python buffers with ~black~
-(use-package python-black)
-
 (use-package pytest)
 
 (use-package python-isort)
@@ -33,10 +30,6 @@
               (when-let ((ruff-executable (pet-executable-find "ruff")))
                 (setq-local ruff-format-command ruff-executable)
                 (ruff-format-on-save-mode))
-
-              (when-let ((black-executable (pet-executable-find "black")))
-                (setq-local python-black-command black-executable)
-                (python-black-on-save-mode))
 
               (when-let ((isort-executable (pet-executable-find "isort")))
                 (setq-local python-isort-command isort-executable)

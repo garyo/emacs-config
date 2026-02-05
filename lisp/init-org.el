@@ -6,7 +6,7 @@
 ;; XXX don't call it org-agenda, maybe org-pkm
 (defcustom my/notes-dir (file-truename "~/Documents/org-agenda")
   "Top-level org-mode notes dir, used for unified agenda, org-roam and PKM."
-  :type '(string)
+  :type 'string
   :group 'pkm)
 (unless (file-exists-p my/notes-dir)
   (make-directory my/notes-dir))
@@ -342,7 +342,7 @@
 (defface org-tilde-face
   '((t :inherit default :height 0.5))
   "Face for highlighting tildes in org-mode")
-(font-lock-add-keywords 'org-mode '(("~" . ''org-tilde-face)))
+(font-lock-add-keywords 'org-mode '(("~" . 'org-tilde-face)))
 
 ;; Make property drawers less obtrusive
 (custom-set-faces
@@ -356,8 +356,6 @@
 ;; Org-roam adds nice backlinks and IDs everywhere.
 ;; It can be used with a file-per-day journal setup, but I don't use that.
 (use-package org-roam
-  :init
-  (setq org-roam-v2-ack t)
   :custom
   (org-roam-directory my/notes-dir)
   (org-roam-completion-everywhere t)
@@ -395,21 +393,6 @@
          ("C-c n i" . org-roam-node-insert)      ;; insert ID link for heading
          ("C-c n s" . consult-org-roam-search))) ; search & open node; uses ripgrep
 
-;;; org-supertag: logseq-like org management
-(use-package deferred
-      :ensure t)
-(use-package epc
-      :ensure t)
-
-;;; org-supertag: inline tags, transclusion and db-based searching
-(use-package org-supertag
-  :ensure (:host github :repo "yibie/org-supertag")
-  :after org deferred epc
-  :config
-  (org-supertag-compat-mode -1) ; turn off, otherwise it rebinds C-c s as a prefix
-  (setq org-supertag-sync-directories (list my/notes-dir))
-)
-
 ;;; Consult-notes: consult-style note search
 (use-package consult-notes
   :commands (consult-notes
@@ -426,9 +409,9 @@
   ;;                                          "~/path/to/file2.org"))
   (consult-notes-org-headings-mode)
   (when (locate-library "denote")
-    (consult-notes-denote-mode))
-  ;; search only for text files in denote dir
-  (setq consult-notes-denote-files-function (lambda () (denote-directory-files nil t t))))
+    (consult-notes-denote-mode)
+    ;; search only for text files in denote dir
+    (setq consult-notes-denote-files-function (lambda () (denote-directory-files nil t t)))))
 
 
 
