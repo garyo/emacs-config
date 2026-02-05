@@ -12,11 +12,8 @@
 ;; - Aug 2020: lsp-mode is now faster and more reliable than eglot. Time to switch.
 ;; - Jun 2023: maybe switch back to eglot since it's built in and has come a long way
 
-;; Note: use ~pylsp~ for Python, rather than ~pyright~. The latter is
-;; just a type checker; pylsp is a full configurable LSP server.
-;; Install like this: ~pip install python-lsp-server~. Also good to
-;; install ~pyflakes~ for linting, ~pylsp-mypy~ for type checking,
-;; ~pylsp-rope~ for refactoring, ~python-lsp-black~ for formatting.
+;; Note: Python uses eglot-python-preset which handles uv environment
+;; detection and LSP setup with ty (type checker). See init-python.el.
 
 ;; For C++, use ~clangd~.
 
@@ -228,6 +225,9 @@
                  `(astro-mode . ("astro-ls" "--stdio"
                                    :initializationOptions
                                    (:typescript (:tsdk "./node_modules/typescript/lib")))))
+
+    ;; Python: see init-python.el (uses uvx ty server via eglot-python-preset)
+
     (define-key eglot-mode-map (kbd "C-c h") 'display-local-help)
 
     )

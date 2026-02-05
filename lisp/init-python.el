@@ -2,38 +2,40 @@
 ;;; Commentary:
 ;;; Code:
 
-;;; Ruff is a new 2024 much-faster code linter/formatter
-(use-package ruff-format)
+;;; Python setup using the Astral toolchain (uv, ruff, ty).
+;;; Uses uv directly for running tools - no slow virtualenv detection needed.
 
 (use-package pytest)
 
-(use-package python-isort)
-
-
-;;; Pet is Python Executable Tracker.
-;;; Supports all kinds of virtualenvs, especially "uv"
-(use-package pet
+;;; Ruff formatting via uvx (no installation needed)
+(use-package reformatter
   :config
-  ;;; Master python hook
-  (add-hook 'python-base-mode-hook
-            (lambda ()
-              (setq-local python-shell-interpreter (pet-executable-find "python")
-                          python-shell-virtualenv-root (pet-virtualenv-root))
+  (reformatter-define ruff-format
+    :program "uvx"
+    :args `("ruff" "format" "--stdin-filename" ,buffer-file-name "-")))
 
-              (pet-eglot-setup)
-              (eglot-ensure)
+;;; eglot-python-preset: bridges uv environments with LSP servers
+;;; Automatically detects uv environments and configures ty
+(use-package eglot-python-preset
+  :ensure (:host github :repo "mwolson/eglot-python-preset")
+  :after eglot
+  :custom
+  (eglot-python-preset-lsp-server 'ty)
+  :config
+  (eglot-python-preset-setup)
+  ;; Override to use uvx (runs ty without needing it installed)
+  (add-to-list 'eglot-server-programs
+               '((python-mode python-ts-mode) . ("uvx" "ty" "server"))))
 
-              (setq-local dap-python-executable python-shell-interpreter)
-
-              (setq-local python-pytest-executable (pet-executable-find "pytest"))
-
-              (when-let ((ruff-executable (pet-executable-find "ruff")))
-                (setq-local ruff-format-command ruff-executable)
-                (ruff-format-on-save-mode))
-
-              (when-let ((isort-executable (pet-executable-find "isort")))
-                (setq-local python-isort-command isort-executable)
-                (python-isort-on-save-mode)))))
+;;; Simple uv-based Python setup (no slow pet virtualenv detection)
+(add-hook 'python-base-mode-hook
+          (lambda ()
+            ;; Use uv to run python/pytest in the correct environment
+            (setq-local python-shell-interpreter "uv")
+            (setq-local python-shell-interpreter-args "run python")
+            (setq-local python-pytest-executable "uv run pytest")
+            ;; ruff formatting on save
+            (ruff-format-on-save-mode)))
 
 
 (provide 'init-python)
