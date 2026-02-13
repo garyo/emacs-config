@@ -88,6 +88,19 @@
                           :branch "master")
   :hook ((prog-mode . breadcrumb-mode)
          (org-mode . breadcrumb-mode))
+  :config
+  ;; Workaround for breadcrumb crash (args-out-of-range "" 0 1):
+  ;; When project-current returns "~/Documents/org-agenda/" but
+  ;; buffer-file-name is "/Users/garyo/Documents/org-agenda/...",
+  ;; breadcrumb--project-crumbs-1 computes a relative path that
+  ;; starts with "/" (the full absolute path treated as relative).
+  ;; Splitting on "/" produces an empty string "" component, and
+  ;; breadcrumb--summarize crashes calling (aref "" 0) on it.
+  (advice-add 'breadcrumb--project-crumbs-1 :filter-return
+              (lambda (crumbs)
+                (cl-remove-if (lambda (c) (and (stringp c) (string-empty-p c)))
+                              crumbs))
+              '((name . breadcrumb--filter-empty-crumbs)))
   )
 
 ;; Transient-based menu for calc mode on "C-o"
