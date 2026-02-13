@@ -65,6 +65,8 @@
     ("cb" "Block reference" gco-pkm-create-block-reference
      :if-derived org-mode)
     ("ce" "Embed block" gco-pkm-embed-block
+     :if-derived org-mode)
+    ("ca" "Attach file" org-attach
      :if-derived org-mode)]]
   
   [:description ""

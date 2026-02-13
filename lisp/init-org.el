@@ -13,6 +13,28 @@
 
 ;; Org mode
 
+;; Image attachment optimization settings
+(defcustom my/org-attach-image-convert-formats '("png" "heic" "tiff" "bmp")
+  "Image file extensions to convert to JPG when attaching.
+Set to nil to disable conversion."
+  :type '(repeat string)
+  :group 'pkm)
+
+(defcustom my/org-attach-image-max-width 2000
+  "Maximum width in pixels for attached images."
+  :type 'integer
+  :group 'pkm)
+
+(defcustom my/org-attach-image-max-height 1000
+  "Maximum height in pixels for attached images."
+  :type 'integer
+  :group 'pkm)
+
+(defcustom my/org-attach-image-quality 85
+  "JPEG quality (1-100) for converted attached images."
+  :type 'integer
+  :group 'pkm)
+
 ;; Basic org-mode config
 (use-package org
   :ensure t          ; use latest even though org is included in emacs
@@ -31,6 +53,105 @@
    ("C-c a" . org-agenda))
   :config
   (require 'org-tempo)
+  (require 'org-attach)  ; register attachment: link type for inline image display
+
+  ;; org-link-preview with arg (16) (startup, C-u C-u) skips links that
+  ;; have descriptions.  Attachment links often get descriptions (e.g.
+  ;; from yank-media), so change (16) → 11 which previews the whole
+  ;; buffer *including* described links.
+  (advice-add 'org-link-preview :around
+              (lambda (orig-fn &optional arg &rest args)
+                (apply orig-fn (if (equal arg '(16)) 11 arg) args)))
+
+  ;; Auto-optimize and preview images after paste/drop.
+  ;; - Formats in `my/org-attach-image-convert-formats' are converted to JPG
+  ;; - ALL images (including JPG) are resized to fit max-width x max-height
+  (defun my/sips-resize-to-fit (path max-w max-h)
+    "Resize image at PATH to fit MAX-W x MAX-H using sips.
+Only shrinks, never enlarges."
+    (let* ((info (with-output-to-string
+                   (call-process "sips" nil standard-output nil
+                                 "-g" "pixelWidth" "-g" "pixelHeight" path)))
+           (w (and (string-match "pixelWidth: \\([0-9]+\\)" info)
+                   (string-to-number (match-string 1 info))))
+           (h (and (string-match "pixelHeight: \\([0-9]+\\)" info)
+                   (string-to-number (match-string 1 info)))))
+      (when (and w h (or (> w max-w) (> h max-h)))
+        (let ((new-w (max 1 (floor (* w (min (/ (float max-w) w)
+                                              (/ (float max-h) h)))))))
+          (call-process "sips" nil nil nil
+                        "--resampleWidth" (number-to-string new-w) path)))))
+
+  (defun my/optimize-image (path)
+    "Optimize image at PATH: convert to JPG if needed, resize to fit.
+Converts formats in `my/org-attach-image-convert-formats' to JPG.
+Resizes all images to fit `my/org-attach-image-max-width' x
+`my/org-attach-image-max-height'.  Uses magick or sips.
+Returns final path (may differ from input if format changed)."
+    (let* ((ext (downcase (file-name-extension path)))
+           (convert-p (member ext my/org-attach-image-convert-formats))
+           (max-w my/org-attach-image-max-width)
+           (max-h my/org-attach-image-max-height)
+           (size (format "%dx%d>" max-w max-h))
+           (quality (number-to-string my/org-attach-image-quality))
+           (jpg (concat (file-name-sans-extension path) ".jpg")))
+      (cond
+       ((executable-find "magick")
+        (if convert-p
+            ;; Convert format + resize
+            (when (zerop (call-process "magick" nil nil nil
+                                       path "-resize" size
+                                       "-quality" quality jpg))
+              (delete-file path) jpg)
+          ;; Already JPG: resize in place
+          (call-process "magick" nil nil nil
+                        path "-resize" size "-quality" quality path)
+          path))
+       ((executable-find "sips")
+        (if convert-p
+            ;; Convert format, then resize
+            (when (zerop (call-process "sips" nil nil nil
+                                       "-s" "format" "jpeg"
+                                       "-s" "formatOptions" quality
+                                       path "--out" jpg))
+              (my/sips-resize-to-fit jpg max-w max-h)
+              (delete-file path) jpg)
+          ;; Already JPG: resize in place, recompress
+          (call-process "sips" nil nil nil
+                        "-s" "formatOptions" quality path)
+          (my/sips-resize-to-fit path max-w max-h)
+          path))
+       (t path))))
+
+  (defun my/org-after-image-attach (&rest _)
+    "Optimize attached image on current line, then preview."
+    (save-excursion
+      (goto-char (line-beginning-position))
+      ;; Match any image attachment link
+      (when (re-search-forward
+             "\\[\\[attachment:\\([^]]+\\.\\([a-zA-Z]+\\)\\)"
+             (line-end-position) t)
+        (let* ((old-name (match-string 1))
+               (ext (downcase (match-string 2)))
+               (attach-dir (org-attach-dir))
+               (old-path (and attach-dir (expand-file-name old-name attach-dir)))
+               (image-ext-re (image-file-name-regexp)))
+          ;; Only process image files
+          (when (and old-path (file-exists-p old-path)
+                     (string-match-p image-ext-re old-name))
+            (let* ((new-path (my/optimize-image old-path))
+                   (new-name (file-name-nondirectory new-path)))
+              ;; Update link if filename changed (format conversion)
+              (unless (equal old-name new-name)
+                (goto-char (line-beginning-position))
+                (while (search-forward old-name (line-end-position) t)
+                  (replace-match new-name t t))))))))
+    (org-link-preview-region t nil (line-beginning-position) (line-end-position)))
+
+  (dolist (fn '(org--image-yank-media-handler
+                org--dnd-attach-file
+                org--copied-files-yank-media-handler))
+    (advice-add fn :after #'my/org-after-image-attach))
 
   (setopt
    ;; Directories and files
@@ -68,6 +189,9 @@
    org-indent-mode-turns-on-hiding-stars nil
    org-startup-with-inline-images t
    org-image-actual-width nil
+   org-yank-image-save-method 'attach
+   org-yank-dnd-method 'attach
+   org-yank-dnd-default-attach-method 'cp
 
    ;; Babel
    org-confirm-babel-evaluate nil
