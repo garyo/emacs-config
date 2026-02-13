@@ -5,7 +5,7 @@
 ;; XXX Windows dir
 ;; XXX don't call it org-agenda, maybe org-pkm
 (defcustom my/notes-dir (file-truename "~/Documents/org-agenda")
-  "Top-level org-mode notes dir, used for unified agenda, org-roam and PKM."
+  "Top-level org-mode notes dir, used for unified agenda, org-node and PKM."
   :type 'string
   :group 'pkm)
 (unless (file-exists-p my/notes-dir)
@@ -192,9 +192,6 @@
                      :sort (date reverse)))))
   )
 
-;; Modern functional API for org-mode
-(use-package org-ml)
-
 ;; Images
 (use-package org-remoteimg
   :ensure (:host github :repo "gaoDean/org-remoteimg")
@@ -243,6 +240,10 @@
         ("f" "New File Note" plain
          (file (lambda () (read-file-name "Note file: " org-directory nil nil ".org")))
          "#+title: %^{Title}\n\n%?\n")
+        ("i" "ID Node" plain
+         (function org-node-capture-target)
+         "#+title: %^{Title}\n\n%?\n"
+         :empty-lines-before 1)
         )
       )
 
@@ -351,67 +352,51 @@
 
 
 
-;;; Org-roam
+;;; org-node -- fast node-based PKM (replaces org-roam)
 
-;; Org-roam adds nice backlinks and IDs everywhere.
-;; It can be used with a file-per-day journal setup, but I don't use that.
-(use-package org-roam
+;; org-mem: indexing backend for org-node
+(use-package org-mem
   :custom
-  (org-roam-directory my/notes-dir)
-  (org-roam-completion-everywhere t)
-  (org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id) ; auto-create IDs
-  ;; Nice completion UI: show title + (short path)
-  (org-roam-node-display-template
-   (concat "${title:*}  "
-           (propertize "${tags:10}" 'face 'org-tag)
-           (propertize "  ·  ${file-title}" 'face 'shadow)))
-  :bind (("C-c n l" . org-roam-buffer-toggle)
-         ("C-c n f" . org-roam-node-find)
-         ("C-c n i" . org-roam-node-insert)
-         :map org-mode-map
-         ("C-M-i" . completion-at-point)
-         :map org-roam-dailies-map
-         ("Y" . org-roam-dailies-capture-yesterday)
-         ("T" . org-roam-dailies-capture-tomorrow))
-  :bind-keymap
-  ("C-c n d" . org-roam-dailies-map)
+  (org-mem-watch-dirs (list my/notes-dir))
+  (org-mem-do-sync-with-org-id t)
   :config
-  (message "Set up org-roam in %s" org-roam-directory)
-  (require 'org-roam-dailies) ;; Ensure the keymap is available
-  (org-roam-db-autosync-mode)
+  (org-mem-updater-mode))
+
+;; org-node: core node navigation, linking, backlinks, completion
+(use-package org-node
+  :after org-mem
+  :custom
+  (org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
+  (org-node-creation-fn #'org-capture)
+  (org-node-slug-fn #'org-node-slugify-for-web)
+  (org-node-datestamp-format "")
+  :bind (("C-c n f" . org-node-find)
+         ("C-c n i" . org-node-insert-link)
+         ("C-c n l" . org-node-insert-link*)
+         ("C-c n s" . org-node-grep)
+         ("C-c n b" . org-node-context-dwim)
+         :map org-mode-map
+         ("C-M-i" . completion-at-point))
+  :config
+  (org-node-cache-mode)
+  (org-node-backlink-mode)
+  (org-node-context-follow-mode)
+  (org-node-complete-at-point-mode)
+  (message "Set up org-node in %s" (car org-mem-watch-dirs))
   (add-to-list 'display-buffer-alist
-               '("\\*org-roam\\*"
+               '("\\*org-node context\\*"
                  (display-buffer-in-direction)
                  (direction . bottom)
-                 (window-height . 0.25)))
-  )
+                 (window-height . 0.25))))
 
-(use-package consult-org-roam
-  :after (org-roam consult)
-  :custom (consult-org-roam-grep-func #'consult-ripgrep)
-  :bind (("C-c n f" . org-roam-node-find) ;; find nodes by heading
-         ("C-c n i" . org-roam-node-insert)      ;; insert ID link for heading
-         ("C-c n s" . consult-org-roam-search))) ; search & open node; uses ripgrep
-
-;;; Consult-notes: consult-style note search
-(use-package consult-notes
-  :commands (consult-notes
-             consult-notes-search-in-all-notes
-             ;; if using org-roam
-             consult-notes-org-roam-find-node
-             consult-notes-org-roam-find-node-relation)
-  :config
-  (setq consult-notes-file-dir-sources `(("Org" ?O ,my/notes-dir)
-                                         ("Org-Journals" ?J ,(expand-file-name "journals" my/notes-dir))
-                                         )) ;; Set notes dir(s), see below
-  ;; Set org-roam integration, denote integration, or org-heading integration e.g.:
-  ;; (setq consult-notes-org-headings-files '("~/path/to/file1.org"
-  ;;                                          "~/path/to/file2.org"))
-  (consult-notes-org-headings-mode)
-  (when (locate-library "denote")
-    (consult-notes-denote-mode)
-    ;; search only for text files in denote dir
-    (setq consult-notes-denote-files-function (lambda () (denote-directory-files nil t t)))))
+;; org-node-seq: sequences (daily journal navigation, calendar marks)
+;; org-node-seq is bundled inside the org-node package
+(with-eval-after-load 'org-node
+  (require 'org-node-seq)
+  (org-node-seq-def-on-filepath-sort-by-basename
+   "d" "Daily journals" (expand-file-name "journals" my/notes-dir))
+  (setopt org-node-seq-that-marks-calendar "d")
+  (org-node-seq-mode))
 
 
 

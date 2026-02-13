@@ -8,8 +8,8 @@
 
 ;;; Commentary:
 ;; Core PKM functionality for org-mode based knowledge management.
-;; Provides journal, page creation, wiki links, and search functions.
-;; Designed to work with org-roam when available but doesn't require it.
+;; Provides journal, page creation, and search functions.
+;; Uses org-node for node finding, linking, and backlinks.
 
 ;; Main menu is on C-c C-/ (see init-org)
 
@@ -117,7 +117,6 @@ DATE is a list (month day year) as used by calendar functions."
   "Show recent journal entries in a single buffer.
 N defaults to 7. Each file may contribute multiple top-level entries."
   (interactive "P")
-  (require 'org-ml)
   (let* ((n (or n 7))
          (journal-dir (gco-pkm-journal-dir))
          (files (sort (directory-files journal-dir t "\\.org$") #'string>))
@@ -130,32 +129,40 @@ N defaults to 7. Each file may contribute multiple top-level entries."
       (org-mode)
       (insert (format "#+title: Recent Journal Entries (%d)\n\n" n))
       (dolist (file recent-files)
-        (let* ((tree (with-temp-buffer
-                       (insert-file-contents file)
-                       (org-ml-parse-this-buffer)))
-               (headlines (org-ml-match '(headline) tree))
-               (base (file-name-base file))
+        (let* ((base (file-name-base file))
                (start (point))
-               )
-            (insert (format "* Journal for %s (click to open)" base))
-            (make-text-button
-             start (point)
-             'help-echo "RET or click to open this journal"
-             'mouse-face 'highlight
-             'follow-link t ;; allow single-click
-             'action (lambda (_btn) (find-file file)))
-            (insert "\n")
-            (dolist (hl headlines)
-              (when (= (org-ml-get-property :level hl) 1)
-                (insert (org-ml-to-trimmed-string hl) "\n\n")))))
+               (content (with-temp-buffer
+                          (insert-file-contents file)
+                          (buffer-string))))
+          (insert (format "* Journal for %s (click to open)" base))
+          (make-text-button
+           start (point)
+           'help-echo "RET or click to open this journal"
+           'mouse-face 'highlight
+           'follow-link t
+           'action (lambda (_btn) (find-file file)))
+          (insert "\n")
+          ;; Insert top-level headings from the file
+          (with-temp-buffer
+            (insert content)
+            (org-mode)
+            (goto-char (point-min))
+            (while (re-search-forward "^\\* " nil t)
+              (let ((hl-start (line-beginning-position))
+                    (hl-end (or (save-excursion
+                                  (and (re-search-forward "^\\* " nil t)
+                                       (line-beginning-position)))
+                                (point-max))))
+                (insert-into-buffer buffer hl-start hl-end)
+                (with-current-buffer buffer (insert "\n")))))))
       ;; "More" button
-      (let* ((start (point)))
-        (insert (format "\nShow %d more..." 7 (+ n 7)))
+      (let ((start (point)))
+        (insert (format "\nShow %d more..." (+ n 7)))
         (make-text-button
          start (point)
          'help-echo "RET or click to show more history"
          'mouse-face 'highlight
-         'follow-link t ;; allow single-click
+         'follow-link t
          'action (lambda (_btn) (gco-pkm-show-recent-journals (+ n 7)))))
       (goto-char (point-min))
       (org-hide-drawer-all)
@@ -189,10 +196,7 @@ N defaults to 7. Each file may contribute multiple top-level entries."
         (when (= (buffer-size) 0)
           (insert (format "#+title: %s\n" title))
           (org-id-get-create)
-          ;; Update org-roam if available
-          (when (fboundp 'org-roam-db-update-file)
-            (save-buffer)
-            (org-roam-db-update-file)))))
+          (save-buffer))))
     filename))
 
 ;;;###autoload
@@ -208,49 +212,6 @@ N defaults to 7. Each file may contribute multiple top-level entries."
         (insert "Press C-c C-c on the block above to refresh.\n"))
       (org-id-get-create)
       (save-buffer))))
-
-;;;; Wiki Links
-
-(defun gco-pkm-wiki-follow (name)
-  "Follow a wiki link NAME - tries file first, then org-roam node, then creates new."
-  (let ((filename (expand-file-name (concat name ".org") gco-pkm-directory)))
-    (cond
-     ;; First: Check if file exists
-     ((file-exists-p filename)
-      (find-file filename))
-
-     ;; Second: Try to find org-roam node with this title
-     ((and (fboundp 'org-roam-node-from-title-or-alias)
-           (org-roam-node-from-title-or-alias name))
-      (org-roam-node-visit (org-roam-node-from-title-or-alias name)))
-
-     ;; Third: Search for partial matches in org-roam
-     ((fboundp 'org-roam-node-find)
-      (org-roam-node-find nil name))
-
-     ;; Last resort: Offer to create new file
-     (t
-      (if (y-or-n-p (format "Create new page '%s'? " name))
-          (gco-pkm-create-page name t)
-        (user-error "Page not found: %s" name))))))
-
-(defun gco-pkm-wiki-complete ()
-  "Completion for wiki links - combines files and org-roam nodes."
-  (let* ((files (mapcar (lambda (f)
-                         (file-name-sans-extension
-                          (file-name-nondirectory f)))
-                       (directory-files gco-pkm-directory nil "\\.org$")))
-         (nodes (when (fboundp 'org-roam-node-list)
-                  (mapcar #'org-roam-node-title (org-roam-node-list))))
-         (all (delete-dups (append files nodes))))
-    (completing-read "Wiki page: " all)))
-
-;;;###autoload
-(defun gco-pkm-insert-wiki-link ()
-  "Insert a [[wiki:page]] link with completion."
-  (interactive)
-  (let ((page-name (gco-pkm-wiki-complete)))
-    (insert (format "[[wiki:%s]]" page-name))))
 
 ;;;; Block References
 
@@ -284,25 +245,17 @@ N defaults to 7. Each file may contribute multiple top-level entries."
 (defun gco-pkm-search-pages ()
   "Search pages by title."
   (interactive)
-  (cond
-   ((fboundp 'org-roam-node-find)
-    (org-roam-node-find))
-   ((fboundp 'consult-find)
-    (consult-find gco-pkm-directory))
-   (t
-    (find-file (read-file-name "Find file: " gco-pkm-directory)))))
+  (if (fboundp 'org-node-find)
+      (org-node-find)
+    (find-file (read-file-name "Find file: " gco-pkm-directory))))
 
 ;;;###autoload
 (defun gco-pkm-search-content ()
   "Full-text search across all notes."
   (interactive)
-  (cond
-   ((fboundp 'consult-ripgrep)
-    (consult-ripgrep gco-pkm-directory))
-   ((fboundp 'org-ql-search)
-    (org-ql-search gco-pkm-directory))
-   (t
-    (grep (read-string "Search for: ") gco-pkm-directory))))
+  (if (fboundp 'org-node-grep)
+      (org-node-grep)
+    (consult-ripgrep gco-pkm-directory)))
 
 ;;;###autoload
 (defun gco-pkm-search-todos ()
@@ -347,13 +300,9 @@ N defaults to 7. Each file may contribute multiple top-level entries."
 (defun gco-pkm-show-backlinks ()
   "Show backlinks for current node."
   (interactive)
-  (cond
-   ((fboundp 'org-roam-buffer-toggle)
-    (org-roam-buffer-toggle))
-   ((fboundp 'consult-org-roam-backlinks)
-    (consult-org-roam-backlinks))
-   (t
-    (message "Backlinks not configured"))))
+  (if (fboundp 'org-node-context-dwim)
+      (org-node-context-dwim)
+    (message "Backlinks not configured")))
 
 (defun org-dblock-write:gco-pkm-query (params)
   "Dynamic block for querying across all org files in gco-pkm-directory.
@@ -496,11 +445,6 @@ FORMAT is a function that takes (marker title file query) and returns a string t
   ;; Ensure directory exists
   (unless (file-exists-p gco-pkm-directory)
     (make-directory gco-pkm-directory t))
-
-  ;; Register wiki link type
-  (org-link-set-parameters "wiki"
-                          :follow #'gco-pkm-wiki-follow
-                          :complete #'gco-pkm-wiki-complete)
 
   ;; Set up auto-commit hook if enabled
   (when gco-pkm-auto-commit

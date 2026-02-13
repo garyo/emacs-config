@@ -60,13 +60,13 @@
    
    ["Create"
     ("cP" "New page (jump)" (lambda () (interactive) (gco-pkm-create-page (read-string "Page title: ") t)))
-    ("cp" "Wiki link" gco-pkm-insert-wiki-link 
+    ("cp" "Insert node link" org-node-insert-link*
      :if-derived org-mode)
     ("cn" "Note (capture)" org-capture)
     ("ct" "TODO" (lambda () (interactive) (org-capture nil "t")))
-    ("cb" "Block reference" gco-pkm-create-block-reference 
+    ("cb" "Block reference" gco-pkm-create-block-reference
      :if-derived org-mode)
-    ("ce" "Embed block" gco-pkm-embed-block 
+    ("ce" "Embed block" gco-pkm-embed-block
      :if-derived org-mode)]]
   
   [:description ""
@@ -96,16 +96,14 @@
   
   [:description ""
    ["Navigate"
-    ("nf" "Find node" (lambda () (interactive)
-                       (if (fboundp 'org-roam-node-find)
-                           (org-roam-node-find)
-                         (gco-pkm-search-pages))))
-    ("ni" "Insert link" (lambda () (interactive)
-                         (if (fboundp 'org-roam-node-insert)
-                             (org-roam-node-insert)
-                           (org-insert-link)))
+    ("nf" "Find node" org-node-find)
+    ("ni" "Insert link" org-node-insert-link*
      :if-derived org-mode)
-    ("nb" "Backlinks" gco-pkm-show-backlinks 
+    ("nb" "Backlinks" org-node-context-dwim
+     :if-derived org-mode)
+    ("ng" "Grep notes" org-node-grep)
+    ("ns" "Sequence nav" org-node-seq-dispatch)
+    ("nr" "Refile to node" org-node-refile
      :if-derived org-mode)
     ("na" "Agenda" org-agenda)]
    
@@ -139,7 +137,7 @@
     ("b" "Block ref" gco-pkm-create-block-reference)
     ("e" "Embed" gco-pkm-embed-block)
     ("l" "Link" org-insert-link)
-    ("p" "Wiki link" gco-pkm-insert-wiki-link)]
+    ("p" "Node link" org-node-insert-link*)]
    
    ["Meta"
     ("#" "Tag" (lambda () (interactive)
