@@ -172,33 +172,6 @@ N defaults to 7. Each file may contribute multiple top-level entries."
 
 ;;;; Page Creation and Management
 
-(defun gco-pkm--slugify (title)
-  "Convert TITLE to a filename-safe slug."
-  (let* ((slug (replace-regexp-in-string "[^a-z0-9]+" "-" (downcase title)))
-         (slug (replace-regexp-in-string "^-\\|-$" "" slug)))
-    slug))
-
-;;;###autoload
-(defun gco-pkm-create-page (title &optional jump)
-  "Create a new org page with TITLE. If JUMP is non-nil, visit the file."
-  (interactive (list (read-string "Page title: ") t))
-  (let* ((slug (gco-pkm--slugify title))
-         (filename (expand-file-name (concat slug ".org") gco-pkm-directory)))
-    (when (and (file-exists-p filename) jump)
-      (if (yes-or-no-p (format "File %s already exists. Open it? " slug))
-          (find-file filename)
-        (user-error "Cancelled")))
-    (unless (file-exists-p filename)
-      (if jump
-          (find-file filename)
-        (with-temp-file filename))
-      (with-current-buffer (find-file-noselect filename)
-        (when (= (buffer-size) 0)
-          (insert (format "#+title: %s\n" title))
-          (org-id-get-create)
-          (save-buffer))))
-    filename))
-
 ;;;###autoload
 (defun gco-pkm-create-tag-page (tag)
   "Create a dynamic tag page for TAG."
@@ -242,22 +215,6 @@ N defaults to 7. Each file may contribute multiple top-level entries."
 ;;;; Search Functions
 
 ;;;###autoload
-(defun gco-pkm-search-pages ()
-  "Search pages by title."
-  (interactive)
-  (if (fboundp 'org-node-find)
-      (org-node-find)
-    (find-file (read-file-name "Find file: " gco-pkm-directory))))
-
-;;;###autoload
-(defun gco-pkm-search-content ()
-  "Full-text search across all notes."
-  (interactive)
-  (if (fboundp 'org-node-grep)
-      (org-node-grep)
-    (consult-ripgrep gco-pkm-directory)))
-
-;;;###autoload
 (defun gco-pkm-search-todos ()
   "Search for TODO items."
   (interactive)
@@ -295,14 +252,6 @@ N defaults to 7. Each file may contribute multiple top-level entries."
      (format "cd %s && git add -A && git commit -m 'Auto-commit: %s'"
              (shell-quote-argument gco-pkm-directory)
              (format-time-string "%Y-%m-%d %H:%M")))))
-
-;;;###autoload
-(defun gco-pkm-show-backlinks ()
-  "Show backlinks for current node."
-  (interactive)
-  (if (fboundp 'org-node-context-dwim)
-      (org-node-context-dwim)
-    (message "Backlinks not configured")))
 
 (defun org-dblock-write:gco-pkm-query (params)
   "Dynamic block for querying across all org files in gco-pkm-directory.

@@ -59,9 +59,7 @@
     ("jc" "Capture to journal" (lambda () (interactive) (org-capture nil "j")))]
    
    ["Create"
-    ("cP" "New page (jump)" (lambda () (interactive) (gco-pkm-create-page (read-string "Page title: ") t)))
-    ("cp" "Insert node link" org-node-insert-link*
-     :if-derived org-mode)
+    ("cP" "New page" org-node-find)
     ("cn" "Note (capture)" org-capture)
     ("ct" "TODO" (lambda () (interactive) (org-capture nil "t")))
     ("cb" "Block reference" gco-pkm-create-block-reference
@@ -71,8 +69,8 @@
   
   [:description ""
    ["Search"
-    ("sp" "Pages (by title)" gco-pkm-search-pages)
-    ("sc" "Content (full-text)" gco-pkm-search-content)
+    ("sp" "Pages (by title)" org-node-find)
+    ("sc" "Content (full-text)" org-node-grep)
     ("st" "Tags" (lambda () (interactive) 
                   (if (fboundp 'gco-inline-tags-search)
                       (gco-inline-tags-search)

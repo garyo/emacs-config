@@ -242,7 +242,7 @@
          "#+title: %^{Title}\n\n%?\n")
         ("i" "ID Node" plain
          (function org-node-capture-target)
-         "#+title: %^{Title}\n\n%?\n"
+         "%?\n"
          :empty-lines-before 1)
         )
       )
@@ -363,13 +363,18 @@
   (org-mem-updater-mode))
 
 ;; org-node: core node navigation, linking, backlinks, completion
+;; org-node-seq setup is in :config (not with-eval-after-load) so it
+;; runs after org-node-cache-mode is enabled.
 (use-package org-node
   :after org-mem
+  :demand t
   :custom
   (org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
   (org-node-creation-fn #'org-capture)
   (org-node-slug-fn #'org-node-slugify-for-web)
   (org-node-datestamp-format "")
+  (org-node-file-directory-ask t)
+  (org-node-display-sort-fn #'org-node-sort-by-file-mtime)
   :bind (("C-c n f" . org-node-find)
          ("C-c n i" . org-node-insert-link)
          ("C-c n l" . org-node-insert-link*)
@@ -378,25 +383,26 @@
          :map org-mode-map
          ("C-M-i" . completion-at-point))
   :config
-  (org-node-cache-mode)
-  (org-node-backlink-mode)
-  (org-node-context-follow-mode)
-  (org-node-complete-at-point-mode)
+  (org-node-cache-mode 1)
+  (org-node-backlink-mode 1)
+  (org-node-context-follow-mode 1)
+  (org-node-complete-at-point-mode 1)
+  ;; org-node-seq: sequences (daily journal navigation, calendar marks)
+  ;; Bundled inside org-node package; must be set up after cache-mode
+  (require 'org-node-seq)
+  (setopt org-node-seq-defs
+          (list (org-node-seq-def-on-filepath-sort-by-basename
+                 "d" "Daily journals"
+                 (expand-file-name "journals" my/notes-dir)
+                 nil nil)))  ; no capture template, no date-picker (use completing-read)
+  (setopt org-node-seq-that-marks-calendar "d")
+  (org-node-seq-mode)
   (message "Set up org-node in %s" (car org-mem-watch-dirs))
   (add-to-list 'display-buffer-alist
                '("\\*org-node context\\*"
                  (display-buffer-in-direction)
                  (direction . bottom)
                  (window-height . 0.25))))
-
-;; org-node-seq: sequences (daily journal navigation, calendar marks)
-;; org-node-seq is bundled inside the org-node package
-(with-eval-after-load 'org-node
-  (require 'org-node-seq)
-  (org-node-seq-def-on-filepath-sort-by-basename
-   "d" "Daily journals" (expand-file-name "journals" my/notes-dir))
-  (setopt org-node-seq-that-marks-calendar "d")
-  (org-node-seq-mode))
 
 
 
