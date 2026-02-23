@@ -226,7 +226,19 @@
                                    :initializationOptions
                                    (:typescript (:tsdk "./node_modules/typescript/lib")))))
 
-    ;; Python: see init-python.el (uses uvx ty server via eglot-python-preset)
+    ;; Python: see init-python.el (uses rassumfrassum to multiplex ty + ruff)
+
+    ;; Clean up HTML entities (e.g. &nbsp;) that some LSP servers
+    ;; (notably ty) leave in documentation markup.
+    (advice-add 'eglot--format-markup :filter-return
+                (lambda (result)
+                  (if (stringp result)
+                      (thread-first result
+                        (replace-regexp-in-string "&nbsp;" " ")
+                        (replace-regexp-in-string "&lt;" "<")
+                        (replace-regexp-in-string "&gt;" ">")
+                        (replace-regexp-in-string "&amp;" "&"))
+                    result)))
 
     (define-key eglot-mode-map (kbd "C-c h") 'display-local-help)
 

@@ -14,18 +14,15 @@
     :program "uvx"
     :args `("ruff" "format" "--stdin-filename" ,buffer-file-name "-")))
 
-;;; eglot-python-preset: bridges uv environments with LSP servers
-;;; Automatically detects uv environments and configures ty
-(use-package eglot-python-preset
-  :ensure (:host github :repo "mwolson/eglot-python-preset")
-  :after eglot
-  :custom
-  (eglot-python-preset-lsp-server 'ty)
-  :config
-  (eglot-python-preset-setup)
-  ;; Override to use uvx (runs ty without needing it installed)
+;;; rassumfrassum: LSP multiplexer by eglot's author (João Távora).
+;;; Runs both ty (type checker) and ruff (linter) as a single
+;;; multiplexed LSP server for eglot.  Zero-install via uvx --with.
+(with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs
-               '((python-mode python-ts-mode) . ("uvx" "ty" "server"))))
+               '((python-mode python-ts-mode)
+                 . ("uvx" "--from" "rassumfrassum"
+                    "--with" "ty" "--with" "ruff"
+                    "rass" "python"))))
 
 ;;; Simple uv-based Python setup (no slow pet virtualenv detection)
 (add-hook 'python-base-mode-hook
