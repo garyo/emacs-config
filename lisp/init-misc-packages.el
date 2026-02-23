@@ -90,8 +90,8 @@
          (org-mode . breadcrumb-mode))
   :config
   ;; Workaround for breadcrumb crash (args-out-of-range "" 0 1):
-  ;; When project-current returns "~/Documents/org-agenda/" but
-  ;; buffer-file-name is "/Users/garyo/Documents/org-agenda/...",
+  ;; When project-current returns "~/Documents/org-notes/" (or org-agenda/) but
+  ;; buffer-file-name is "/Users/garyo/Documents/org-notes/..." (or org-agenda/),
   ;; breadcrumb--project-crumbs-1 computes a relative path that
   ;; starts with "/" (the full absolute path treated as relative).
   ;; Splitting on "/" produces an empty string "" component, and

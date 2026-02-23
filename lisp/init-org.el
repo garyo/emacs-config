@@ -3,8 +3,12 @@
 ;;; Code:
 
 ;; XXX Windows dir
-;; XXX don't call it org-agenda, maybe org-pkm
-(defcustom my/notes-dir (file-truename "~/Documents/org-agenda")
+;; XXX don't call it org-notes, maybe org-pkm
+(defcustom my/notes-dir
+  (file-truename
+   (if (file-directory-p "~/Documents/org-notes")
+       "~/Documents/org-notes"
+     "~/Documents/org-agenda"))
   "Top-level org-mode notes dir, used for unified agenda, org-node and PKM."
   :type 'string
   :group 'pkm)
@@ -187,7 +191,7 @@ Returns final path (may differ from input if format changed)."
    org-list-allow-alphabetical t
    org-use-sub-superscripts '{}
    org-indent-mode-turns-on-hiding-stars nil
-   org-startup-with-inline-images t
+   org-startup-with-link-previews t
    org-image-actual-width nil
    org-yank-image-save-method 'attach
    org-yank-dnd-method 'attach
@@ -499,6 +503,7 @@ Returns final path (may differ from input if format changed)."
   (org-node-datestamp-format "")
   (org-node-file-directory-ask t)
   (org-node-display-sort-fn #'org-node-sort-by-file-mtime)
+  (org-node-backlink-lazy nil)
   :bind (("C-c n f" . org-node-find)
          ("C-c n i" . org-node-insert-link)
          ("C-c n l" . org-node-insert-link*)

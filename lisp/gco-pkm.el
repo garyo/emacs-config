@@ -39,8 +39,7 @@
   :group 'org
   :prefix "gco-pkm-")
 
-(defcustom gco-pkm-directory (or (bound-and-true-p org-directory)
-                                  (expand-file-name "~/Documents/org-agenda"))
+(defcustom gco-pkm-directory my/notes-dir
   "Directory for PKM notes and files."
   :type 'directory
   :group 'gco-pkm)
