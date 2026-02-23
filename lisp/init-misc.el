@@ -30,22 +30,10 @@
 (setq-default cache-long-line-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
 
 ;; always enable electric-pair-mode to insert matching parens & braces
+;; but disable auto-pairing for double quotes (too unreliable)
 (electric-pair-mode t)
-(defun gco-inhibit-electric-pair-predicate (c)
-  (or
-   ;; if within a string started by the same char, inhibit pair insertion
-   (save-excursion
-     (let ((s (syntax-ppss (- (point) 1))))
-       (eq (nth 3 s) c)))
-   ;; inhibit when it helps balance
-   (save-excursion
-     (electric-pair-inhibit-if-helps-balance c))
-   ;; inhibit when same char is next, or 2nd "" or ((, or next to a word
-   (save-excursion
-     (electric-pair-conservative-inhibit c))
-   ))
-
-(set-variable 'electric-pair-inhibit-predicate 'gco-inhibit-electric-pair-predicate)
+(setq electric-pair-inhibit-predicate
+      (lambda (c) (eq c ?\")))
 
 
 (blink-cursor-mode -1)	;this is annoying
