@@ -220,13 +220,24 @@
   :demand t                      ; need this when using :bind or :hook
   :config
   (global-corfu-mode 1)
+  ;; Make completion non-intrusive: TAB accepts, everything else just
+  ;; keeps typing normally (dismissing the popup).
   :custom
   (corfu-auto t)
   (corfu-auto-delay 0.75)
-  (corfu-quit-no-match t) ; quit when the popup appears and I type anything else
+  (corfu-auto-prefix 3) ; need at least this many chars before auto-popup
+  (corfu-preview-current nil) ; don't insert current candidate as preview text
+  (corfu-quit-no-match t) ; quit popup when no match
+  (corfu-preselect 'prompt) ; don't preselect first candidate, stay on prompt
   ;; Might want to customize corfu-sort-function
   :bind
   (("M-RET" . completion-at-point)
+   :map corfu-map
+   ("TAB" . corfu-insert)     ; TAB accepts the selected completion
+   ("<tab>" . corfu-insert)
+   ("RET" . nil)              ; don't let RET accept completion
+   ("<return>" . nil)         ; (just insert newline as usual)
+   ("SPC" . corfu-quit)       ; space dismisses and inserts space
    )
   )
 

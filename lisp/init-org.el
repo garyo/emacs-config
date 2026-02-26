@@ -515,7 +515,14 @@ Returns final path (may differ from input if format changed)."
   (org-node-cache-mode 1)
   (org-node-backlink-mode 1)
   (org-node-context-follow-mode 1)
-  (org-node-complete-at-point-mode 1)
+  ;; Don't use the global mode -- it adds org-node capf at default
+  ;; priority, so it matches every word and floods corfu with node
+  ;; titles.  Instead, add it manually with depth 90 (very low
+  ;; priority) so dabbrev/keyword/etc. are tried first.
+  (add-hook 'org-mode-hook
+            (lambda ()
+              (add-hook 'completion-at-point-functions
+                        #'org-node-complete-at-point 90 t)))
   ;; org-node-seq: sequences (daily journal navigation, calendar marks)
   ;; Bundled inside org-node package; must be set up after cache-mode
   (require 'org-node-seq)

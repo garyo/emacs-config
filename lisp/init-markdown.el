@@ -20,6 +20,8 @@
   :bind (:map markdown-mode-map
               ("M-RET" . completion-at-point))
   :init (setq markdown-command "multimarkdown")
+  :config
+  (add-to-list 'mixed-pitch-fixed-pitch-faces 'markdown-table-face)
   :hook ((markdown-mode . my-markdown-mode-setup)
          (markdown-ts-mode . my-markdown-mode-setup))
   )
