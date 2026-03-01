@@ -26,7 +26,11 @@
 ;;;; Face
 
 (defface gco-pkm-calendar-journal-mark
-  '((t :inherit success :weight bold :underline t))
+  '((((class color) (background light))
+     :weight bold :underline t :foreground "dark green")
+    (((class color) (background dark))
+     :weight bold :underline t :foreground "lawn green")
+    (t :weight bold :underline t))
   "Face for calendar dates that have journal entries."
   :group 'gco-pkm)
 
@@ -70,10 +74,14 @@ Keys are \"YYYY-MM-DD\" strings, values are t."
 
 ;;;; Date Marking
 
+(defun gco-pkm-calendar--boost-overlay-priority (face priority)
+  "Set PRIORITY on all overlays in current buffer that have FACE."
+  (dolist (ov (overlays-in (point-min) (point-max)))
+    (when (eq (overlay-get ov 'face) face)
+      (overlay-put ov 'priority priority))))
+
 (defun gco-pkm-calendar--mark-journal-dates ()
-  "Mark visible calendar dates that have journal entries.
-Intended for `calendar-today-visible-hook' and
-`calendar-today-invisible-hook'."
+  "Mark visible calendar dates that have journal entries."
   (when gco-pkm-calendar--active
     (setq gco-pkm-calendar--journal-dates-cache
           (gco-pkm-calendar--scan-journal-dates))
@@ -84,9 +92,18 @@ Intended for `calendar-today-visible-hook' and
               (month (string-to-number (nth 1 parts)))
               (day (string-to-number (nth 2 parts)))
               (date (list month day year)))
-         (when (calendar-date-is-visible-p date)
+         (ignore-errors
            (calendar-mark-visible-date date 'gco-pkm-calendar-journal-mark))))
-     gco-pkm-calendar--journal-dates-cache)))
+     gco-pkm-calendar--journal-dates-cache)
+    ;; Boost priority so our face wins over the diary overlay
+    (gco-pkm-calendar--boost-overlay-priority
+     'gco-pkm-calendar-journal-mark 10)))
+
+(defun gco-pkm-calendar--after-generate-window (&rest _args)
+  "Advice for `calendar-generate-window' to mark journal dates last.
+Runs after calendar-generate, holiday marking, diary marking, and hooks."
+  (when gco-pkm-calendar--active
+    (gco-pkm-calendar--mark-journal-dates)))
 
 ;;;; Journal Display
 
@@ -246,20 +263,18 @@ If no journal exists, offer to create one."
   (setq gco-pkm-calendar--journal-window nil)
   (setq gco-pkm-calendar--journal-file nil)
   ;; Install hooks
-  (add-hook 'calendar-today-visible-hook #'gco-pkm-calendar--mark-journal-dates)
-  (add-hook 'calendar-today-invisible-hook #'gco-pkm-calendar--mark-journal-dates)
   (add-hook 'calendar-move-hook #'gco-pkm-calendar--update-journal)
-  ;; Keybindings installed after calendar buffer exists (deferred to entry point)
+  ;; Mark journal dates *after* everything (diary, holidays, hooks)
+  (advice-add 'calendar-generate-window :after #'gco-pkm-calendar--after-generate-window)
   ;; Advice calendar-exit for cleanup in case user exits via other means
   (advice-add 'calendar-exit :before #'gco-pkm-calendar--on-calendar-exit))
 
 (defun gco-pkm-calendar--teardown ()
   "Remove hooks, restore keybindings, close journal window, clear state."
   (setq gco-pkm-calendar--active nil)
-  ;; Remove hooks
-  (remove-hook 'calendar-today-visible-hook #'gco-pkm-calendar--mark-journal-dates)
-  (remove-hook 'calendar-today-invisible-hook #'gco-pkm-calendar--mark-journal-dates)
+  ;; Remove hooks and advice
   (remove-hook 'calendar-move-hook #'gco-pkm-calendar--update-journal)
+  (advice-remove 'calendar-generate-window #'gco-pkm-calendar--after-generate-window)
   ;; Restore keybindings
   (gco-pkm-calendar--restore-keybindings)
   ;; Remove advice
