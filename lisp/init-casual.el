@@ -18,7 +18,6 @@
   :defer t)
 
 (use-package casual
-  :after (ibuffer re-builder bookmark)
   :bind
   (:map calc-mode-map ("C-o" . casual-calc-tmenu))
   (:map Info-mode-map ("C-o" . casual-info-tmenu))

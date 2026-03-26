@@ -34,8 +34,7 @@
   (setq bmkp-desktop-jump-save-before-flag t ;; Auto-save before switching
         bmkp-propertize-bookmark-names-flag nil ; Avoid circular refs in bookmarks-default.el
         )
-  (add-hook 'emacs-startup-hook
-            (lambda () (my/bmkp-list-all)))
+  ;; Bookmark list display is triggered from init.el via elpaca-after-init-hook
   )
 
 (provide 'init-bookmark)

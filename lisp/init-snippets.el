@@ -57,7 +57,8 @@ move to the next field. Call `open-line' if nothing else applies."
   (when (and buffer-file-name
              (zerop (buffer-size))) ;; Ensure the buffer is empty (new file)
     (let* ((file-extension (file-name-extension buffer-file-name))
-           (snippet-name (assoc-default file-extension my-extension-snippet-alist 'string-match-p)))
+           (snippet-name (and file-extension
+                              (assoc-default file-extension my-extension-snippet-alist 'string-match-p))))
       (condition-case err
           (when snippet-name
             (yas-expand-snippet (yas-lookup-snippet snippet-name)))

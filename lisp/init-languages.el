@@ -207,8 +207,12 @@
 
 (add-hook 'c-mode-common-hook
           'my-c-mode-hook)
+;; c-ts-base-mode doesn't support cc-mode APIs (c-set-offset, etc.),
+;; so only apply the subset that works.
 (add-hook 'c-ts-base-mode-hook
-          'my-c-mode-hook)
+          (lambda ()
+            (setq-default c-basic-offset 2)
+            (setq fill-column 77)))
 
 (add-hook 'java-mode-hook
           (function

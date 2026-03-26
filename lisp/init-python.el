@@ -30,7 +30,7 @@
             ;; Use uv to run python/pytest in the correct environment
             (setq-local python-shell-interpreter "uv")
             (setq-local python-shell-interpreter-args "run python")
-            (setq-local python-pytest-executable "uv run pytest")
+            (setq-local pytest-global-name "uv run pytest")
             ;; ruff formatting on save
             (ruff-format-on-save-mode)))
 

@@ -18,11 +18,14 @@
            (fw (frame-width))
            (raw-strings (mapcar
                          (lambda (x)
-                           (format "%2s: %-19s"
-                                   (propertize
-                                    (char-to-string (car x))
-                                    'face 'aw-key-face)
-                                   (substring (symbol-name (cdr x)) len)))
+                           (let ((name (symbol-name (cdr x))))
+                             (format "%2s: %-19s"
+                                     (propertize
+                                      (char-to-string (car x))
+                                      'face 'aw-key-face)
+                                     (if (> (length name) len)
+                                         (substring name len)
+                                       name))))
                          avy-dispatch-alist))
            (max-len (1+ (apply #'max (mapcar #'length raw-strings))))
            (strings-len (length raw-strings))

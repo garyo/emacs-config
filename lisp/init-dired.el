@@ -25,13 +25,13 @@
           (sort-regexp-fields t "^.*$" "[ ]*." (point) (point-max)))
         (set-buffer-modified-p nil)))
 
-    (defadvice dired-readin
-        (after dired-after-updating-hook first () activate)
-      "Sort dired listings with directories first before adding marks."
-      (mydired-sort))))
+    (advice-add 'dired-readin :after
+                (lambda (&rest _)
+                  "Sort dired listings with directories first before adding marks."
+                  (mydired-sort)))))
 
-(use-package all-the-icons-dired
-  :hook (dired-mode . all-the-icons-dired-mode))
+(use-package nerd-icons-dired
+  :hook (dired-mode . nerd-icons-dired-mode))
 
 (use-package dired-hide-dotfiles
   ;; Uncomment this to hide by default
@@ -75,9 +75,7 @@
   :bind (:map dired-mode-map
               ("/" . dired-filter-map)      ;; Open filter menu
               ("C-/" . dired-filter-pop-all)) ;; Quickly clear filters ("/ /" also works)
-  :config
-  ;; Enable persistent filtering across Dired buffers
-  (setq dired-filter-persistent t))
+  )
 
 ;; From https://oremacs.com/2017/03/18/dired-ediff/
 (defun ora-ediff-files ()

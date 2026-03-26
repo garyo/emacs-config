@@ -47,7 +47,7 @@
             desktop-load-locked-desktop nil)
       (desktop-save-mode t)
       ;; Read the desktop now
-      (message (format "Reading desktop from %s, %s" desktop-base-file-name desktop-path))
+      (message "Reading desktop from %s, %s" desktop-base-file-name desktop-path)
       (desktop-read)
       )
     ))
@@ -98,7 +98,7 @@ This helps prevent the window being completely off-screen."
                       (insert-file-contents my-frame-geometry-file)
                       (read (current-buffer)))))
           (when (check-frame-position-sanity geom)
-            (message (format "Restoring frame geometry %s" geom))
+            (message "Restoring frame geometry %s" geom)
             (modify-frame-parameters nil geom)))
       (error
        (message "Error restoring frame geometry: %S" err)))))

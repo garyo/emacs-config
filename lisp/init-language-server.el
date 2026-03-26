@@ -233,7 +233,7 @@
     (advice-add 'eglot--format-markup :filter-return
                 (lambda (result)
                   (if (stringp result)
-                      (thread-first result
+                      (thread-last result
                         (replace-regexp-in-string "&nbsp;" " ")
                         (replace-regexp-in-string "&lt;" "<")
                         (replace-regexp-in-string "&gt;" ">")

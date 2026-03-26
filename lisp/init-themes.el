@@ -16,6 +16,7 @@
             (fg-heading-2 red-warmer)
             (fg-heading-3 yellow)
             (fg-heading-4 green-warmer)
+            (fg-heading-5 cyan-warmer)
             (fg-heading-6 blue)
             (fg-heading-7 white)
           ))
@@ -35,9 +36,9 @@
     (modus-themes-with-colors
       ;; Customize header line format
       (set-face-attribute 'header-line nil
-                          :height 1.15 :underline t :background bg-active))
+                          :height 1.15 :underline t :background bg-active)
       (set-face-attribute 'modus-themes-heading-1 nil
-                          :underline t)
+                          :underline t))
       ;; (set-face-attribute 'org-indent nil
       ;;                     :foreground "#f8f8f8" :background "#f8f8f8")
     )

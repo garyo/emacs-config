@@ -147,27 +147,30 @@
   (defvar consult-source-git-project-files
     `(:name     "Git Project Files"
                 :narrow   ?g
+                :hidden   t                   ; only show when narrowed with "g"
                 :category file
                 :face     consult-file
                 :history  file-name-history
                 :action   ,#'find-file
+                :enabled  ,(lambda ()
+                             (when-let* ((project (project-current))
+                                         (root (project-root project)))
+                               (vc-git-root root)))
                 :items
                 ,(lambda ()
-                   (when-let ((project (project-current)))
-                     (let* ((default-directory (project-root project))
-                            (files (split-string (shell-command-to-string "git ls-files") "\n" t)))
+                   (when-let* ((project (project-current))
+                               (default-directory (project-root project)))
+                     (let ((files (split-string (shell-command-to-string "git ls-files") "\n" t)))
                        (mapcar (lambda (file)
                                  (expand-file-name file default-directory))
                                files))))))
 
   (setq consult-buffer-sources
         '(consult-source-buffer               ; open buffers (file and non-file)
-          consult-source-project-buffer       ; buffers of the current project
-          consult-source-modified-buffer      ; modified buffers
-          consult-source-git-project-files    ; all source files, current project
+          consult-source-git-project-files    ; all source files, current project (narrowed: g)
           consult-source-recent-file          ; recentf files
           consult-source-project-root         ; roots of all known projects
-          consult-source-bookmark))           ; hidden (special) buffers
+          consult-source-bookmark))           ; bookmarks
   )
 
 (use-package consult-dir

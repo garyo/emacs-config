@@ -12,8 +12,8 @@
          (setq sml/shorten-directory t)
          (setq sml/shorten-modes t)
          ;; don't show these minor modes
-         (setq rm-blacklist '(" hl-p" " company" " ElDoc" " VHl" " Helm" " Fill"
-                              " Filladapt" " counsel" " ivy" " yas" " GitGutter"))
+         (setq rm-excluded-modes '(" hl-p" " company" " ElDoc" " VHl" " Helm" " Fill"
+                                  " Filladapt" " counsel" " ivy" " yas" " GitGutter"))
          (add-to-list 'sml/replacer-regexp-list
                       '("c:/dss/Product/Horizon/WebProjects/horizon-project/horizon" ":HZN:"))
          (sml/setup)

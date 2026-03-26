@@ -48,13 +48,15 @@ Set to nil to disable conversion."
                 (visual-line-mode 1)
                 (setq line-spacing 0.4) ; seems loose, but it looks good
                 ;; I don't use ispell, no need for this
-                (setq completion-at-point-functions
-                      (delete #'ispell-completion-at-point completion-at-point-functions))
+                (setq-local completion-at-point-functions
+                            (remq #'ispell-completion-at-point completion-at-point-functions))
                 (electric-indent-local-mode -1) ; no auto-indent on newline
                 ))
   :bind
   (("C-c c" . org-capture)
-   ("C-c a" . org-agenda))
+   ("C-c a" . org-agenda)
+   :map org-mode-map
+   ("C-c C-y" . yank-media))
   :config
   (require 'org-tempo)
   (require 'org-attach)  ; register attachment: link type for inline image display
@@ -207,7 +209,7 @@ Returns final path (may differ from input if format changed)."
    org-export-with-toc nil
 
    ;; LaTeX export
-   org-latex-listings t
+   org-latex-src-block-backend 'listings
    org-latex-packages-alist '(("cm" "fullpage" nil)
                               ("compact" "titlesec" nil)
                               ("" "paralist" nil)
@@ -427,14 +429,23 @@ Returns final path (may differ from input if format changed)."
     ))
 
 ;; Auto regenerate agenda when files change - use inotify
+;; Debounce to avoid repeated expensive rebuilds on rapid saves
+(defvar gco-org-agenda--notify-timer nil
+  "Timer for debouncing agenda file-notify events.")
+
 (defun gco-org-agenda-file-notify (_event)
-  "Rebuild all agenda buffers when _EVENT specifies any org agenda files change."
-  ;; XXX this causes a backtrace sometimes?
-  ;(org-agenda-to-appt t)
-  (dolist (buffer (buffer-list))
-    (with-current-buffer buffer
-      (when (derived-mode-p 'org-agenda-mode)
-        (org-agenda-redo t)))))
+  "Rebuild all agenda buffers after a debounce delay."
+  (when gco-org-agenda--notify-timer
+    (cancel-timer gco-org-agenda--notify-timer))
+  (setq gco-org-agenda--notify-timer
+        (run-with-idle-timer
+         2 nil
+         (lambda ()
+           (setq gco-org-agenda--notify-timer nil)
+           (dolist (buffer (buffer-list))
+             (with-current-buffer buffer
+               (when (derived-mode-p 'org-agenda-mode)
+                 (org-agenda-redo t))))))))
 
 ;; Add notifications for appointments
 (use-package appt
@@ -471,7 +482,7 @@ Returns final path (may differ from input if format changed)."
 (defface org-tilde-face
   '((t :inherit default :height 0.5))
   "Face for highlighting tildes in org-mode")
-(font-lock-add-keywords 'org-mode '(("~" . 'org-tilde-face)))
+(font-lock-add-keywords 'org-mode '(("~" . org-tilde-face)))
 
 ;; Make property drawers less obtrusive
 (custom-set-faces

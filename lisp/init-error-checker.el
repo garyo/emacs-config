@@ -163,7 +163,8 @@ Return the errors parsed with the error patterns of CHECKER."
       filenames are absolute, so need to remove surgically."
 
   (let ((case-fold-search t)
-        (topdir (project-root (project-current)))
+        (topdir (when-let* ((proj (project-current)))
+                  (project-root proj)))
         )
     ;; prepend dir
     (if (and spec-directory

@@ -14,7 +14,8 @@
       ((executable-find "bash")
        (setq explicit-shell-file-name "bash"))
       (t
-       (message "Can't find zsh!")))
+       (message "Can't find zsh or bash; using default shell: %s" shell-file-name)
+       (setq explicit-shell-file-name shell-file-name)))
 
 ;; Setting this will make emacs use this shell for subprocesses
 ;; (shell-command, start-file-process, compilations, etc.)

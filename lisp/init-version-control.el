@@ -16,7 +16,8 @@
   	 ("C-x v l" . magit-log-current))
   :config
   (add-hook 'magit-status-mode-hook 'delete-other-windows)
-  (add-hook 'after-save-hook 'magit-after-save-refresh-status)
+  ;; magit-after-save-refresh-status removed: expensive in large repos
+  ;; and contradicts magit-refresh-status-buffer nil
   ;; speed up on Windows
   (when-windows
    ;; Without this, magit-show-refs-popup ('y') is very slow, late 2014
@@ -40,7 +41,7 @@
   (magit-expand-staged-on-commit 'full)
   (magit-log-format-graph-function 'magit-log-format-unicode-graph)
   (magit-log-format-unicode-graph-alist '((47 . 9585) (92 . 9586) (42 . 9642)))
-  (magit-pull-arguments '("--rebase"))
+  ;; Use git config for pull.rebase instead of obsolete magit-pull-arguments
   (magit-refresh-status-buffer nil)
   (magit-diff-visit-prefer-worktree t)
   )
@@ -63,7 +64,7 @@
                (git-gutter:modified . "#df0")))
     (set-face-background (car p) (cdr p)))
   (global-git-gutter-mode +1)
-  (require 'tramp)                      ; for tramp-tramp-file-p
+  (autoload 'tramp-tramp-file-p "tramp") ; avoid eagerly loading tramp
   (add-hook 'find-file-hook 'my-disable-git-gutter-in-tramp-buffers)
   :diminish git-gutter-mode
   )
@@ -89,7 +90,7 @@
       ((equal current-prefix-arg '(16))
        (list (read-from-minibuffer "Run: " "git grep"
                                    nil nil 'grep-history)
-             nil))
+             default-directory))
       (t (let* ((regexp (grep-read-regexp))
                 (dir (read-directory-name "In directory: "
                                           (vc-git-root default-directory) nil t)))

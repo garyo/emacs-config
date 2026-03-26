@@ -62,7 +62,7 @@
   "Use font NAME at height SIZE (in points, float or int).
    FRAME of nil means all existing + new.
    Returns t if font exists and was set, else nil."
-  (when (font-exists-p name)
+  (when (font-exists-p name frame)
     (set-face-attribute 'default frame :family name :height (round (* size 10)))
     (face-all-attributes 'default)))
 
@@ -96,7 +96,7 @@
                                  preferred-fonts)))
       (when font-info
 	(message "Using font %s, at %.2f dpi" font-info (my-dpi))
-	(use-font (car font-info) (cdr font-info))
+	(use-font (car font-info) (cdr font-info) frame)
         (set-frame-width frame 100)
         (set-frame-height frame 48)
 	))))

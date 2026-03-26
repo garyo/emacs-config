@@ -52,7 +52,10 @@ which is a lot faster."
 
 ;; Set up some low-level settings to prevent garbage collection as frequently, allow for more undos, and improve performance especially when using LSP.
 
-;; don't GC after every 800k; only when idle.
+;; Restore gc-cons-threshold from most-positive-fixnum (set in early-init.el)
+;; to a reasonable value after startup. Also GC when idle.
+(add-hook 'elpaca-after-init-hook
+          (lambda () (setq gc-cons-threshold (* 100 1024 1024)))) ; 100MB
 (run-with-idle-timer 10 t (lambda () (garbage-collect)))
 ;; undo is pruned on GC; allow more undos (10x default)
 (setopt undo-limit 1600000)

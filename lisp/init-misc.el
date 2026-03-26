@@ -27,13 +27,15 @@
 (global-visual-line-mode 0)
 (setq line-move-visual nil)			; C-n go to next real line
 
-(setq-default cache-long-line-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
+(setq-default cache-long-scans t) ; speed up redisplay with very long lines, e.g. compilation buffers
 
 ;; always enable electric-pair-mode to insert matching parens & braces
 ;; but disable auto-pairing for double quotes (too unreliable)
 (electric-pair-mode t)
 (setq electric-pair-inhibit-predicate
-      (lambda (c) (eq c ?\")))
+      (lambda (c)
+        (or (eq c ?\")
+            (and (eq c ?<) (derived-mode-p 'org-mode)))))
 
 
 (blink-cursor-mode -1)	;this is annoying

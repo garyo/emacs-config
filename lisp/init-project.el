@@ -14,11 +14,11 @@ This is used for managing dotfiles."
         (t nil))))
 
 (defun yadm-list-files ()
-  "Run 'yadm ls-files' and return the result as a list of filenames."
+  "Run 'yadm ls-files' and return the result as a list of absolute filenames."
   (let* ((default-directory (expand-file-name "~"))
          (output (shell-command-to-string "yadm ls-files"))
          (file-list (split-string output "\n" t)))
-    file-list))
+    (mapcar (lambda (f) (expand-file-name f default-directory)) file-list)))
 
 
 (with-eval-after-load 'project
@@ -38,7 +38,13 @@ This is used for managing dotfiles."
     )
 
   (cl-defmethod project-buffers ((project (head homedir)))
-    nil)
+    "Return buffers visiting files tracked by yadm."
+    (let ((root (expand-file-name (project-root project))))
+      (cl-remove-if-not
+       (lambda (buf)
+         (when-let* ((file (buffer-file-name buf)))
+           (string-prefix-p root (expand-file-name file))))
+       (buffer-list))))
   )
 
 (provide 'init-project)
