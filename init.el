@@ -150,7 +150,8 @@ Always uses eglot if this Emacs doesn't have fast JSON.")
      (bookmark-bmenu-list)))
   (switch-to-buffer "*Bookmark List*"))
 
-(add-hook 'emacs-startup-hook
+;; Use elpaca-after-init-hook so bookmark+ is fully loaded before we display the list
+(add-hook 'elpaca-after-init-hook
           #'my/bmkp-list-all)
 (provide 'emacs)
 

@@ -141,10 +141,9 @@ N defaults to 7. Each file may contribute multiple top-level entries."
            'follow-link t
            'action (lambda (_btn) (find-file file)))
           (insert "\n")
-          ;; Insert top-level headings from the file
+          ;; Insert top-level headings from the file (plain text search, no org-mode needed)
           (with-temp-buffer
             (insert content)
-            (org-mode)
             (goto-char (point-min))
             (while (re-search-forward "^\\* " nil t)
               (let ((hl-start (line-beginning-position))
@@ -378,10 +377,15 @@ FORMAT is a function that takes (marker title file query) and returns a string t
     ('html (format "<a href='#'>%s</a>" (or desc tag)))
     (_ (or desc tag))))
 
+;; Register query link type; gco-pkm-consult overrides :follow if loaded
 (org-link-set-parameters "query"
                          :follow #'gco-pkm-query-link-follow
                          :export #'gco-pkm-query-link-export
                          :face '(:foreground "purple" :underline t))
+;; If consult integration was loaded (require'd above), let it override the follow handler
+(when (fboundp 'gco-pkm-query-link-follow-consult)
+  (org-link-set-parameters "query"
+                           :follow #'gco-pkm-query-link-follow-consult))
 
 
 ;;;; Setup

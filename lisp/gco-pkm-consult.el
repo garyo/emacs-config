@@ -73,12 +73,8 @@ As you navigate results with C-n/C-p, preview automatically shows the location."
   "Open consult search for TAG with live preview."
   (gco-pkm-consult-search tag))
 
-;; Re-register query link to use consult version
-(with-eval-after-load 'gco-pkm
-  (org-link-set-parameters "query"
-                           :follow #'gco-pkm-query-link-follow-consult
-                           :export #'gco-pkm-query-link-export
-                           :face '(:foreground "purple" :underline t)))
+;; Note: gco-pkm.el handles the override after requiring this file,
+;; by checking if gco-pkm-query-link-follow-consult is defined.
 
 (provide 'gco-pkm-consult)
 ;;; gco-pkm-consult.el ends here

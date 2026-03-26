@@ -35,11 +35,16 @@
   :type 'string
   :group 'gco-inline-tags)
 
-(defcustom gco-inline-tags-roots
-  (list (or (bound-and-true-p org-directory) default-directory))
-  "Directories searched for inline tags."
+(defcustom gco-inline-tags-roots nil
+  "Directories searched for inline tags.
+When nil, defaults to `org-directory' or `default-directory' at first use."
   :type '(repeat directory)
   :group 'gco-inline-tags)
+
+(defun gco-inline-tags--roots ()
+  "Return effective roots, falling back to `org-directory' if not set."
+  (or gco-inline-tags-roots
+      (list (or (bound-and-true-p org-directory) default-directory))))
 
 (defcustom gco-inline-tags-collect-rg-args
   '("--only-matching" "--no-filename" "-N" "--glob" "*.org")
@@ -79,7 +84,7 @@ If FOR-COLLECT is non-nil, use collector args."
           (if for-collect
               gco-inline-tags-collect-rg-args
             gco-inline-tags-search-rg-args)
-          gco-inline-tags-roots))
+          (gco-inline-tags--roots)))
 
 ;;;; Fontification helpers
 
@@ -90,11 +95,13 @@ If FOR-COLLECT is non-nil, use collector args."
     (looking-at (rx "#+" (+ (any "A-Z_")) ":"))))
 
 (defun gco-inline-tags--in-ignored-block-p ()
-  "Return non-nil if point is inside a block we should ignore."
+  "Return non-nil if point is inside a block we should ignore.
+Uses text properties for speed (avoids expensive `org-element-at-point')."
   (when gco-inline-tags-ignore-in-src-and-example
-    (let ((el (org-element-at-point)))
-      (memq (org-element-type el)
-            '(src-block example-block verse-block code)))))
+    (let ((face (get-text-property (point) 'face)))
+      (or (memq 'org-block (if (listp face) face (list face)))
+          (memq 'org-block-begin-line (if (listp face) face (list face)))
+          (memq 'org-code (if (listp face) face (list face)))))))
 
 ;;;; Keymap + actions
 
@@ -175,7 +182,7 @@ If FOR-COLLECT is non-nil, use collector args."
   (let ((cmd `(,gco-inline-tags-rg-exe
                ,@gco-inline-tags-search-rg-args
                "-e" ,pattern
-               ,@gco-inline-tags-roots)))
+               ,@(gco-inline-tags--roots))))
     (gco-inline-tags--direct-ripgrep cmd title)))
 
 ;;; Example usage:
@@ -232,7 +239,34 @@ If FOR-COLLECT is non-nil, use collector args."
                          keymap ,gco-inline-tags--keymap))))
              nil))))
         (font-lock-flush) (font-lock-ensure))
-    (font-lock-remove-keywords nil `((,gco-inline-tags--re (0 nil))))
+    (font-lock-remove-keywords
+     nil
+     `((,gco-inline-tags--re
+        (0
+         (let* ((beg (match-beginning 1))
+                (end (match-end 1))
+                (tag (match-string-no-properties 2)))
+           (unless (or (gco-inline-tags--skip-directive-at beg)
+                       (save-excursion
+                         (goto-char beg)
+                         (gco-inline-tags--in-ignored-block-p)))
+             (add-text-properties
+              beg end
+              `(face gco-inline-tags-face
+                     mouse-face highlight
+                     gco-inline-tag ,tag
+                     help-echo ,(format "Inline tag: #%s (RET/click to search)" tag)
+                     keymap ,gco-inline-tags--keymap))))
+         nil))))
+    ;; Remove text properties added by the fontification
+    (save-excursion
+      (goto-char (point-min))
+      (while (< (point) (point-max))
+        (when (get-text-property (point) 'gco-inline-tag)
+          (remove-text-properties
+           (point) (or (next-single-property-change (point) 'gco-inline-tag) (point-max))
+           '(face nil mouse-face nil gco-inline-tag nil help-echo nil keymap nil)))
+        (goto-char (or (next-single-property-change (point) 'gco-inline-tag) (point-max)))))
     (font-lock-flush) (font-lock-ensure)))
 
 ;;;###autoload

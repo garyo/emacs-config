@@ -43,6 +43,15 @@
   (interactive)
   (insert (format-time-string "<%Y-%m-%d %a>")))
 
+(defun gco-pkm--insert-image-width ()
+  "Insert #+ATTR_ORG :width on the line before an image link.
+Prompts for the width in pixels."
+  (interactive)
+  (let ((width (read-string "Image width (pixels): " "400")))
+    (beginning-of-line)
+    (insert (format "#+ATTR_ORG: :width %s\n" width))
+    (forward-line -1)))
+
 ;;;; Transient Definitions
 
 ;;;###autoload
@@ -67,6 +76,8 @@
     ("ce" "Embed block" gco-pkm-embed-block
      :if-derived org-mode)
     ("ca" "Attach file" org-attach
+     :if-derived org-mode)
+    ("cy" "Paste image" yank-media
      :if-derived org-mode)]]
   
   [:description ""
@@ -92,7 +103,8 @@
     ("is" "Schedule" org-schedule)
     ("iD" "Deadline" org-deadline)
     ("iT" "Timestamp" gco-pkm--insert-timestamp)
-    ("ia" "Date" gco-pkm--insert-date)]]
+    ("ia" "Date" gco-pkm--insert-date)
+    ("ii" "Image width" gco-pkm--insert-image-width)]]
   
   [:description ""
    ["Navigate"
