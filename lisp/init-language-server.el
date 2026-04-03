@@ -192,6 +192,7 @@
     :ensure nil
     :commands eglot-ensure eglot
     :hook ((vue-mode . eglot-ensure)
+           (astro-ts-mode . eglot-ensure)
            (c-mode-common . eglot-ensure)
            (c-ts-base-mode . eglot-ensure)
            (cmake-base-mode . eglot-ensure)   ; cmake-language-server
@@ -220,11 +221,8 @@
                                )))
     (put 'web-mode 'eglot-language-id "html") ; superhtml needs to get proper languageId
 
-    ;; Astro web framework -- install @astrojs/language-server
-    (add-to-list 'eglot-server-programs
-                 `(astro-mode . ("astro-ls" "--stdio"
-                                   :initializationOptions
-                                   (:typescript (:tsdk "./node_modules/typescript/lib")))))
+    ;; Astro web framework: now handled by eglot-typescript-preset (below)
+    ;; which uses rassumfrassum to multiplex astro-ls + eslint + tailwindcss etc.
 
     ;; Python: see init-python.el (uses rassumfrassum to multiplex ty + ruff)
 
@@ -250,5 +248,12 @@
 (if (and use-lsp-mode (has-fast-json))
   (setup-lsp-mode)
   (setup-eglot-mode))
+
+;; eglot-typescript-preset: multi-LSP support for Astro (and other web
+;; frameworks) via rassumfrassum (rass), an LSP multiplexer.
+;; Provides out-of-the-box Astro + ESLint + Tailwind support.
+(use-package eglot-typescript-preset
+  :ensure t
+  :after eglot)
 
 (provide 'init-language-server)

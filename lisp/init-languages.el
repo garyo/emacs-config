@@ -57,9 +57,10 @@
     "A major mode derived from web-mode, for editing .vue files with LSP support.")
 (add-to-list 'auto-mode-alist '("\\.vue\\'" . vue-mode))
 
-(define-derived-mode astro-mode web-mode "astro"
-    "A major mode derived from web-mode, for editing .astro files with LSP support.")
-(add-to-list 'auto-mode-alist '("\\.astro\\'" . astro-mode))
+;; astro-ts-mode: tree-sitter based major mode for .astro files (from MELPA)
+;; LSP support via eglot-typescript-preset (see init-language-server.el)
+(use-package astro-ts-mode
+  :mode "\\.astro\\'")
 
 (use-package php-mode
   :mode "\\.php$"
@@ -255,6 +256,14 @@
     :custom
     (treesit-auto-install 'prompt)
     :config
+    ;; Add astro treesit grammar recipe
+    (add-to-list 'treesit-auto-recipe-list
+                 (make-treesit-auto-recipe
+                  :lang 'astro
+                  :ts-mode 'astro-ts-mode
+                  :url "https://github.com/virchau13/tree-sitter-astro"
+                  :revision "master"
+                  :source-dir "src"))
     ;; (setq treesit-auto-langs
     ;;       (delete 'c
     ;;               (delete 'cpp treesit-auto-langs)))
