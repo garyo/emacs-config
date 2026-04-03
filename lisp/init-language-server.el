@@ -254,6 +254,10 @@
 ;; Provides out-of-the-box Astro + ESLint + Tailwind support.
 (use-package eglot-typescript-preset
   :ensure t
-  :after eglot)
+  :after eglot
+  :config
+  (defun eglot-typescript-preset--rass-generated-dir ()
+    "Store generated rass presets in var/ (no-littering convention)."
+    (expand-file-name "eglot-typescript-preset/" (expand-file-name "var/" user-emacs-directory))))
 
 (provide 'init-language-server)
