@@ -13,7 +13,7 @@
  '(ag-reuse-buffers t)
  '(ag-reuse-window t)
  '(align-to-tab-stop nil)
- '(bmkp-last-as-first-bookmark-file "~/.config/emacs/var/bookmark-default.el")
+ '(bmkp-last-as-first-bookmark-file "/Users/garyo/.config/emacs/var/bookmark-default.el")
  '(custom-safe-themes t)
  '(ecb-layout-name "left1")
  '(ecb-layout-window-sizes
@@ -56,6 +56,8 @@
  '(mhtml-tag-relative-indent nil)
  '(mouse-wheel-tilt-scroll t)
  '(ns-command-modifier 'meta)
+ '(org-node-file-slug-fn #'org-node-slugify-for-web nil nil "Customized with use-package org-node")
+ '(org-node-file-timestamp-format "" nil nil "Customized with use-package org-node")
  '(ps-font-size '(7 . 10))
  '(ps-paper-type 'letter)
  '(py-python-command "c:/python27/python")
