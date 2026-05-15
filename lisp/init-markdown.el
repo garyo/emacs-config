@@ -61,4 +61,17 @@ opaque exit code."
         markdown-xwidget-code-block-theme "default"
         markdown-xwidget-mermaid-theme "default"))
 
+;; Live preview in the system browser via grip (good for dual monitors).
+;; `grip-command' = 'auto picks whichever backend is on PATH:
+;;   - mdopen (cargo install mdopen): offline, no token
+;;   - grip (pip install grip): GitHub API, needs PAT to avoid rate limits
+;; Toggle with C-c C-c g in markdown-mode.
+(use-package grip-mode
+  :after markdown-mode
+  :bind (:map markdown-mode-command-map
+              ("g" . grip-mode))
+  :config
+  (setq grip-command 'auto
+        grip-preview-in-webkit nil))
+
 (provide 'init-markdown)
