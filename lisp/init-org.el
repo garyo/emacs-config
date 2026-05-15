@@ -286,6 +286,14 @@ Returns final path (may differ from input if format changed)."
   :after (gco-pkm calendar)
   :commands (gco-pkm-calendar-browse))
 
+(use-package gco-pkm-context
+  :ensure nil
+  :load-path "lisp/"
+  :after (gco-pkm gco-inline-tags)
+  :demand t
+  :hook (org-mode . gco-pkm-context-maybe-enable)
+  :bind (("C-c t c" . gco-pkm-context-toggle)))
+
 
 (defun my/org-refresh-faces ()
   "Refresh mixed-pitch after tweaking faces."

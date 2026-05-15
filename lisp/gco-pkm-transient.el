@@ -113,6 +113,7 @@ Prompts for the width in pixels."
      :if-derived org-mode)
     ("nb" "Backlinks" org-node-context-dwim
      :if-derived org-mode)
+    ("nc" "Context panel" gco-pkm-context-toggle)
     ("ng" "Grep notes" org-node-grep)
     ("ns" "Sequence nav" org-node-seq-dispatch)
     ("nr" "Refile to node" org-node-refile
