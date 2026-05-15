@@ -61,17 +61,19 @@ opaque exit code."
         markdown-xwidget-code-block-theme "default"
         markdown-xwidget-mermaid-theme "default"))
 
-;; Live preview in the system browser via grip (good for dual monitors).
-;; `grip-command' = 'auto picks whichever backend is on PATH:
-;;   - mdopen (cargo install mdopen): offline, no token
-;;   - grip (pip install grip): GitHub API, needs PAT to avoid rate limits
+;; Live preview in the system browser via grip (good for dual monitors,
+;; scroll-locked side-by-side review). Uses the Python `grip' backend,
+;; which goes through GitHub's API: handles YAML frontmatter correctly
+;; and renders exactly like github.com. Unauthenticated rate limit is
+;; 60 req/hr; set `grip-github-user' / `grip-github-password' (a PAT)
+;; to lift it. Install: `uv tool install grip'.
 ;; Toggle with C-c C-c g in markdown-mode.
 (use-package grip-mode
   :after markdown-mode
   :bind (:map markdown-mode-command-map
               ("g" . grip-mode))
   :config
-  (setq grip-command 'auto
-        grip-preview-in-webkit nil))
+  (setq grip-command 'grip
+        grip-preview-use-webkit nil))
 
 (provide 'init-markdown)
