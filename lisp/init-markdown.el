@@ -64,16 +64,28 @@ opaque exit code."
 ;; Live preview in the system browser via grip (good for dual monitors,
 ;; scroll-locked side-by-side review). Uses the Python `grip' backend,
 ;; which goes through GitHub's API: handles YAML frontmatter correctly
-;; and renders exactly like github.com. Unauthenticated rate limit is
-;; 60 req/hr; set `grip-github-user' / `grip-github-password' (a PAT)
-;; to lift it. Install: `uv tool install grip'.
+;; and renders exactly like github.com. Install: `uv tool install grip'.
+;;
+;; Credentials are read from ~/.authinfo. Without an entry grip still
+;; works at the 60 req/hr unauthenticated limit; to lift it, add:
+;;   machine api.github.com login YOUR_GH_USER password ghp_YOUR_PAT
+;; (a token with no scopes is sufficient for rate-limit purposes).
+;;
 ;; Toggle with C-c C-c g in markdown-mode.
 (use-package grip-mode
   :after markdown-mode
   :bind (:map markdown-mode-command-map
               ("g" . grip-mode))
   :config
+  (require 'auth-source)
   (setq grip-command 'grip
-        grip-preview-use-webkit nil))
+        grip-preview-use-webkit nil)
+  (when-let* ((entry (car (auth-source-search :host "api.github.com"
+                                              :require '(:user :secret))))
+              (user (plist-get entry :user))
+              (secret (plist-get entry :secret))
+              (pass (if (functionp secret) (funcall secret) secret)))
+    (setq grip-github-user user
+          grip-github-password pass)))
 
 (provide 'init-markdown)
