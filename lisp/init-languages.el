@@ -81,12 +81,6 @@
   :mode ("\\.cl$" . opencl-c-mode)
 )
 
-;; instant live github markdown preview in markdown mode, C-c C-c g
-;; Requires 'grip', a python package (pip install grip) installed in system python
-(use-package grip-mode
-  :bind (:map markdown-mode-command-map
-         ("g" . grip-mode)))
-
 (use-package dumb-jump
   :config (add-hook 'xref-backend-functions #'dumb-jump-xref-activate)
   )
