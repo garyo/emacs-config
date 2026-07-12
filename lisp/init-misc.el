@@ -37,6 +37,13 @@
         (or (eq c ?\")
             (and (eq c ?<) (derived-mode-p 'org-mode)))))
 
+;; ...but electric anything is annoying when writing prose. Turn it all off
+;; in text-based modes (text, markdown, org all derive from text-mode).
+(add-hook 'text-mode-hook
+          (lambda ()
+            (electric-pair-local-mode -1)
+            (electric-indent-local-mode -1)))
+
 
 (blink-cursor-mode -1)	;this is annoying
 ;;(mouse-avoidance-mode 'animate)

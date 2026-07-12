@@ -50,7 +50,6 @@ Set to nil to disable conversion."
                 ;; I don't use ispell, no need for this
                 (setq-local completion-at-point-functions
                             (remq #'ispell-completion-at-point completion-at-point-functions))
-                (electric-indent-local-mode -1) ; no auto-indent on newline
                 ))
   :bind
   (("C-c c" . org-capture)
