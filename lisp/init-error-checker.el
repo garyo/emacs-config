@@ -104,9 +104,18 @@ Return the errors parsed with the error patterns of CHECKER."
   (defconst eldoc-style 'mouse "Style for eldoc: mouse or box")
 
   (when (eq eldoc-style 'mouse)
+    ;; eldoc-mouse.el hard-`require's eglot at load time. With global-eldoc
+    ;; active, `eldoc-mode' turns on in buffers opened during startup (e.g.
+    ;; the bookmark list shown at init), which would drag eglot in during the
+    ;; fragile after-init window -- there eglot's load-time `char-displayable-p'
+    ;; probe can segfault in the font code on this macOS build. Defer wiring
+    ;; eldoc-mouse into eldoc until after startup, so the autoloaded
+    ;; `eldoc-mouse-mode' (and the eglot it pulls in) loads only on first real
+    ;; use, when the display is fully initialized.
     (use-package eldoc-mouse
-      :hook eldoc-mode
-      ))
+      :defer t)
+    (add-hook 'emacs-startup-hook
+              (lambda () (add-hook 'eldoc-mode-hook #'eldoc-mouse-mode))))
 
   ;; This is what eglot (and any eldoc mode) uses to show popup doc
   ;; windows on hover

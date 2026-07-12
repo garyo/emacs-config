@@ -257,9 +257,25 @@
 ;; eglot-typescript-preset: multi-LSP support for Astro (and other web
 ;; frameworks) via rassumfrassum (rass), an LSP multiplexer.
 ;; Provides out-of-the-box Astro + ESLint + Tailwind support.
+;; eglot-typescript-preset normally auto-loads eglot from `after-init-hook'
+;; to configure itself. With elpaca that load lands in the async startup
+;; window, where eglot's load-time `char-displayable-p' (in the dynamically
+;; built :type of its `eglot-code-action-indicator' defcustom) can segfault
+;; in the font code (fontset_find_font) on this macOS build.
+;;
+;; So keep eglot fully lazy: disable the package's eager after-init setup, and
+;; run setup via `with-eval-after-load' (which never loads eglot itself, only
+;; reacts once something else does). Eglot then loads only when a managed mode
+;; opens a file (via the eglot-ensure hooks above) -- by which point the frame
+;; and fonts are fully initialized, so the load-time probe is safe.
+(setq eglot-typescript-preset-auto-setup nil)
 (use-package eglot-typescript-preset
   :ensure t
-  :after eglot
+  :defer t
+  :init
+  (with-eval-after-load 'eglot
+    (require 'eglot-typescript-preset)
+    (eglot-typescript-preset-setup))
   :config
   (defun eglot-typescript-preset--rass-generated-dir ()
     "Store generated rass presets in var/ (no-littering convention)."
