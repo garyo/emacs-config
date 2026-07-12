@@ -135,24 +135,40 @@ of the right-hand column. Otherwise, open a bottom side window."
   (winum-mode)
   )
 
-;; Window manipulation keymap
+;; Window manipulation keymap.
+;; Emacs 31 (window-x.el) renamed several layout commands and added a new
+;; `window-layout-transpose'. Resolve to whichever names this Emacs provides
+;; so the bindings work on both pre-31 and 31+:
+;;   flip-window-layout-horizontally    -> window-layout-flip-leftright
+;;   flip-window-layout-vertically      -> window-layout-flip-topdown
+;;   rotate-window-layout-clockwise     -> window-layout-rotate-clockwise
+;;   rotate-window-layout-anticlockwise -> window-layout-rotate-counterclockwise
+;;   (new in 31)                           window-layout-transpose
+(defun gco-resolve-command (&rest names)
+  "Return the first bound command among NAMES, or nil."
+  (seq-find #'fboundp names))
+
 (defvar-keymap window-manipulation-command-map
-  :doc "Keymap for window manipulation commands."
-  "r" 'rotate-windows
-  "R" 'rotate-windows-back
-  "f" 'flip-window-layout-horizontally
-  "F" 'flip-window-layout-vertically
-  "w" 'rotate-window-layout-clockwise
-  "W" 'rotate-window-layout-anticlockwise
-)
+  :doc "Keymap for window manipulation commands.")
+
+(let ((bindings
+       `(("r" . ,(gco-resolve-command 'rotate-windows))
+         ("R" . ,(gco-resolve-command 'rotate-windows-back))
+         ("f" . ,(gco-resolve-command 'window-layout-flip-leftright
+                                      'flip-window-layout-horizontally))
+         ("F" . ,(gco-resolve-command 'window-layout-flip-topdown
+                                      'flip-window-layout-vertically))
+         ("w" . ,(gco-resolve-command 'window-layout-rotate-clockwise
+                                      'rotate-window-layout-clockwise))
+         ("W" . ,(gco-resolve-command 'window-layout-rotate-counterclockwise
+                                      'rotate-window-layout-anticlockwise))
+         ("t" . ,(gco-resolve-command 'window-layout-transpose)))))
+  (pcase-dolist (`(,key . ,cmd) bindings)
+    (when cmd
+      (keymap-set window-manipulation-command-map key cmd)
+      (put cmd 'repeat-map 'window-manipulation-command-map))))
 
 ;; Bind the window-manipulation keymap to C-c w
 (keymap-set global-map "C-c w" window-manipulation-command-map)
-
-;; Make window commands auto-repeat
-(dolist (cmd '(rotate-windows rotate-windows-back
-               flip-window-layout-horizontally flip-window-layout-vertically
-               rotate-window-layout-clockwise rotate-window-layout-anticlockwise))
-  (put cmd 'repeat-map 'window-manipulation-command-map))
 
 (provide 'init-window-management)
