@@ -45,6 +45,16 @@ opaque exit code."
          (markdown-ts-mode . my-markdown-mode-setup))
   )
 
+;; Emacs 31 ships an experimental tree-sitter markdown mode with colored
+;; embedded code blocks, inline image viewing, and org-like navigation.
+;; markdown-mode (above) still owns `.md' files; this just makes
+;; `markdown-ts-mode' available to switch into, and lets eglot render LSP
+;; docs via `markdown-ts-view-mode' (see init-language-server.el).
+(when (fboundp 'markdown-ts-mode)
+  (use-package markdown-ts-mode
+    :ensure nil
+    :defer t))
+
 ;; Live preview in an xwidget-webkit buffer with GitHub styling, MathJax,
 ;; Mermaid, and highlight.js. Toggle with C-c C-c x in markdown-mode.
 ;; Forces a string `markdown-xwidget-command' because `markdown-command'

@@ -246,6 +246,20 @@
   (setq using-treesit t)
   (message "★Built-in treesit is available!")
 
+  ;; Emacs 31+: native grammar auto-install and major-mode remapping.
+  ;; `treesit-auto-install-grammar' = `always' fetches & builds a missing
+  ;; grammar on demand instead of erroring (other values: never / ask /
+  ;; ask-dir); `treesit-enabled-modes' = t remaps all supported major modes
+  ;; to their tree-sitter variants (broader than treesit-auto's
+  ;; auto-mode-alist remapping below). These defcustoms live in treesit.el,
+  ;; which loads lazily, so set them once it's loaded; on older Emacs lacking
+  ;; them the guards skip and treesit-auto handles it.
+  (with-eval-after-load 'treesit
+    (when (boundp 'treesit-auto-install-grammar)
+      (setopt treesit-auto-install-grammar 'always))
+    (when (boundp 'treesit-enabled-modes)
+      (setopt treesit-enabled-modes t)))
+
   (use-package treesit-auto
     :custom
     (treesit-auto-install 'prompt)

@@ -240,6 +240,11 @@
 
     (define-key eglot-mode-map (kbd "C-c h") 'display-local-help)
 
+    ;; Emacs 31: render LSP hover/documentation through the built-in
+    ;; tree-sitter markdown viewer (colored code blocks, no external deps).
+    (when (boundp 'eglot-documentation-renderer)
+      (setopt eglot-documentation-renderer 'markdown-ts-view-mode))
+
     )
   )
 
