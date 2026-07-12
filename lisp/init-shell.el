@@ -114,18 +114,20 @@
              (setq cursor-type '(bar . 10))
              )))
 
-;;; EAT: Emulate A Terminal. Nice new (2024) terminal emulator.
-;; See my bug report: https://codeberg.org/akib/emacs-eat/issues/167#issuecomment-2078670
-(use-package eat
-  :ensure (:host codeberg
-                 :repo "akib/emacs-eat"
-                 :files ("*.el" ("term" "term/*.el") "*.texi"
-                         "*.ti" ("terminfo/e" "terminfo/e/*")
-                         ("terminfo/65" "terminfo/65/*")
-                         ("integration" "integration/*")
-                         (:exclude ".dir-locals.el" "*-tests.el")))
+;;; Ghostel: terminal emulator powered by libghostty.  M-x ghostel.
+;; Native module is a prebuilt binary that auto-downloads on first use.
+;; Defaults to TERM=xterm-ghostty; ghostel-ssh-install-terminfo ('auto)
+;; provisions that terminfo on remote hosts over SSH/TRAMP automatically,
+;; so unlike eat there's no manual terminfo setup.  Set ghostel-term to
+;; "xterm-256color" instead if you'd rather advertise a universal TERM
+;; and skip remote terminfo entirely (at the cost of ghostel's extras).
+(use-package ghostel
+  :ensure t
   :config
-  (setq eat-tic-path "/usr/bin/tic") ; Needed on MacOS with homebrew, to use system terminfo compiler
-  )
+  ;; Auto-install ghostel's xterm-ghostty terminfo on remote hosts on
+  ;; first outbound ssh (cached per host).  Off by default because it's
+  ;; gated behind ghostel-tramp-shell-integration (nil); set to t to
+  ;; force it on so `ssh other-mac' doesn't arrive with an unknown TERM.
+  (setq ghostel-ssh-install-terminfo t))
 
 (provide 'init-shell)
