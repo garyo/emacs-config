@@ -119,4 +119,21 @@
             (setq default-directory dir))))))
 
 
+;;; Emacs 31 VC niceties
+
+;; `vc-allow-rewriting-published-history' accommodates force-push workflows;
+;; `vc-dir-hide-up-to-date-on-revert' hides up-to-date files when a vc-dir
+;; buffer is refreshed; `vc-auto-revert-mode' auto-reverts VC-controlled
+;; buffers (complements the global-auto-revert-mode set in init-misc).
+;; These vc/vc-dir defcustoms load lazily; set them when their library loads
+;; (vc-dir-hide-up-to-date-on-revert may not exist yet on every build).
+(with-eval-after-load 'vc
+  (when (boundp 'vc-allow-rewriting-published-history)
+    (setopt vc-allow-rewriting-published-history t)))
+(with-eval-after-load 'vc-dir
+  (when (boundp 'vc-dir-hide-up-to-date-on-revert)
+    (setopt vc-dir-hide-up-to-date-on-revert t)))
+(when (fboundp 'vc-auto-revert-mode)
+  (vc-auto-revert-mode 1))
+
 (provide 'init-version-control)

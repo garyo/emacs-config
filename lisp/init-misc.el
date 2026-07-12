@@ -57,6 +57,9 @@
 
 (require 'uniquify)
 (setq uniquify-buffer-name-style 'post-forward-angle-brackets)
+;; Emacs 31: re-uniquify remaining buffer names after one is killed.
+(when (boundp 'uniquify-after-kill-buffer-flag)
+  (setopt uniquify-after-kill-buffer-flag t))
 
 ;; Automatically revert files that change on disk
 ;; (but only when the buffer is unmodified, so it's safe)
@@ -109,6 +112,9 @@ by using nxml's indentation rules."
       ibuffer-elide-long-columns t
       ibuffer-eliding-string "&")
 (require 'ibuffer)
+;; Emacs 31: human-readable (e.g. "1.2k") sizes in the ibuffer size column.
+(when (boundp 'ibuffer-human-readable-size)
+  (setopt ibuffer-human-readable-size t))
 
 ;; Trying this out; not sure if I'll ever use it.
 (require 'misc) ; has forward-to-word

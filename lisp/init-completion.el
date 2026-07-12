@@ -320,4 +320,20 @@
   (embark-collect-mode . consult-preview-at-point-mode)
   )
 
+;;; Emacs 31 completion niceties
+
+;; These refine Emacs' built-in completion UI. `completion-eager-update'
+;; refreshes the *Completions* display as you type; `completion-eager-display'
+;; shows it automatically; `minibuffer-visible-completions' lets the arrow
+;; keys move through the *Completions* buffer. They're harmless alongside
+;; vertico/corfu and only take effect where the built-in UI is used. (The
+;; icomplete-vertical options from the same Emacs 31 notes are intentionally
+;; skipped, since I use vertico rather than icomplete.)
+(when (boundp 'completion-eager-update)
+  (setopt completion-eager-update t))
+(when (boundp 'completion-eager-display)
+  (setopt completion-eager-display 'auto))
+(when (boundp 'minibuffer-visible-completions)
+  (setopt minibuffer-visible-completions 'up-down))
+
 (provide 'init-completion)

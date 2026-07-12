@@ -122,4 +122,26 @@
  '(whitespace-style
    '(face trailing tabs spaces newline empty indentation space-after-tab space-before-tab space-mark tab-mark newline-mark)))
 
+;;; Emacs 31 quality-of-life options
+;; Each is guarded by `boundp' so this file still loads cleanly on older
+;; Emacs. (eldoc-help-at-pt, also new-ish, is set above.)
+(when (boundp 'kill-region-dwim)
+  ;; C-w with no active region kills the previous word instead of erroring.
+  (setopt kill-region-dwim 'emacs-word))
+(when (boundp 'delete-pair-push-mark)
+  ;; `delete-pair' leaves a mark at the position of the removed delimiter.
+  (setopt delete-pair-push-mark t))
+(when (boundp 'view-lossage-auto-refresh)
+  ;; Make `view-lossage' (C-h l) live-update its keystroke display.
+  (setopt view-lossage-auto-refresh t))
+;; native-comp-async-on-battery-power lives in comp-run, which loads lazily
+;; when native compilation first runs; set it then.
+(with-eval-after-load 'comp-run
+  (when (boundp 'native-comp-async-on-battery-power)
+    ;; Don't run async native compilation while on battery power.
+    (setopt native-comp-async-on-battery-power nil)))
+(with-eval-after-load 'display-fill-column-indicator
+  (when (boundp 'display-fill-column-indicator-warning)
+    (setopt display-fill-column-indicator-warning nil)))
+
 (provide 'init-settings)

@@ -16,6 +16,10 @@
   (wdired-allow-to-change-permissions t)
   (dired-mouse-drag-files t "Enable mouse dragging to another apps")
   :config
+  ;; Emacs 31: when details are hidden (`dired-hide-details-mode'), also
+  ;; hide the absolute directory path in the header line.
+  (when (boundp 'dired-hide-details-hide-absolute-location)
+    (setopt dired-hide-details-hide-absolute-location t))
   (progn
     (defun mydired-sort ()
       "Sort dired listings with directories first."
