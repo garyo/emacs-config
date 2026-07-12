@@ -521,6 +521,23 @@ Prefers a YYYY-MM-DD prefix in the basename, falls back to mtime."
   (let ((buf (get-buffer gco-pkm-context--buffer-name)))
     (and buf (get-buffer-window buf))))
 
+(defun gco-pkm-context--pkm-visible-p ()
+  "Non-nil if any visible window shows a PKM file buffer."
+  (catch 'found
+    (walk-windows
+     (lambda (w)
+       (when (gco-pkm-context--in-pkm-buffer-p (window-buffer w))
+         (throw 'found t)))
+     nil 'visible)
+    nil))
+
+(defun gco-pkm-context--auto-hide ()
+  "Close the side window; force a fresh render when a PKM buffer returns."
+  (let ((win (gco-pkm-context--side-window)))
+    (when (window-live-p win)
+      (delete-window win)))
+  (setq gco-pkm-context--last-key nil))
+
 ;;;; Follow-mode preview
 
 (defun gco-pkm-context--reveal ()
@@ -672,9 +689,16 @@ window."
 (defvar gco-pkm-context--last-source-line nil)
 
 (defun gco-pkm-context--maybe-refresh ()
-  "Idle-timer entry point: refresh if the heading or nearby tags changed."
-  (when (and (bound-and-true-p gco-pkm-context-track-mode)
-             (gco-pkm-context--in-pkm-buffer-p)
+  "Idle-timer entry point: refresh if the heading or nearby tags changed.
+Closes the side window when no PKM buffer is visible anywhere."
+  (when (bound-and-true-p gco-pkm-context-track-mode)
+    (if (not (gco-pkm-context--pkm-visible-p))
+        (gco-pkm-context--auto-hide)
+      (gco-pkm-context--refresh-current))))
+
+(defun gco-pkm-context--refresh-current ()
+  "Refresh from the current buffer if it is an editable PKM buffer."
+  (when (and (gco-pkm-context--in-pkm-buffer-p)
              (not (eq (current-buffer)
                       (get-buffer gco-pkm-context--buffer-name))))
     (let* ((file (buffer-file-name))
