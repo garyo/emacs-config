@@ -173,6 +173,12 @@ Returns nil if no usable text is available."
         "\\`<[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\(?: [A-Za-z]\\{3\\}\\)?\\(?: [0-9:]+\\)?>\\'"
         heading)))
 
+(defun gco-pkm-context--heading-date (heading)
+  "Return the `YYYY-MM-DD' date string in HEADING, or nil."
+  (when (and heading
+             (string-match "\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\)" heading))
+    (match-string 1 heading)))
+
 (defun gco-pkm-context--significant-words (heading)
   "Return list of significant lowercased words in HEADING."
   (when heading
@@ -251,14 +257,27 @@ first one whose REGEX matches the hit text wins, so order = priority
   (let* ((pieces '())
          (classifiers '())
          (stop-headings (mapcar #'downcase gco-pkm-context-stop-headings)))
-    (when (and heading
-               (not (gco-pkm-context--timestamp-only-p heading))
-               (not (member (downcase heading) stop-headings)))
+    (cond
+     ;; A pure date/timestamp heading has no content words worth matching
+     ;; (its tokens are calendar artifacts).  Instead, look for the literal
+     ;; date anywhere in the PKM: other notes that mention this day are real
+     ;; references back to it.
+     ((gco-pkm-context--timestamp-only-p heading)
+      (when-let ((date (gco-pkm-context--heading-date heading)))
+        (push (format "(?:(?<![0-9])%s(?![0-9]))"
+                      (gco-pkm-context--pcre-quote date))
+              pieces)
+        (push (cons (concat "\\(?:^\\|[^0-9]\\)" (regexp-quote date)
+                            "\\(?:[^0-9]\\|$\\)")
+                    'date)
+              classifiers)))
+     ((and heading
+           (not (member (downcase heading) stop-headings)))
       (push (gco-pkm-context--exact-pattern heading) pieces)
       (push (cons (concat "^\\*+\\s-+\\(?:TODO\\s-+\\|DONE\\s-+\\|WAITING\\s-+\\|NOTE\\s-+\\)?"
                           (regexp-quote heading) "\\s-*$")
                   'exact)
-            classifiers))
+            classifiers)))
     (dolist (tag tags)
       (push (gco-pkm-context--tag-pattern tag) pieces)
       (push (gco-pkm-context--word-pattern tag) pieces)
@@ -357,6 +376,12 @@ Prefers a YYYY-MM-DD prefix in the basename, falls back to mtime."
                     (string-to-number (nth 0 parts)))))
     (`(:mtime . ,time) time)))
 
+(defun gco-pkm-context--drawer-line-p (text)
+  "Non-nil if TEXT is an Org drawer or property line, e.g. `:PROPERTIES:'.
+Matches drawer delimiters (`:PROPERTIES:', `:END:', `:LOGBOOK:') and
+property rows (`:ID: ...') so they can be dropped from context snippets."
+  (string-match-p "\\`[ \t]*:[[:alnum:]_@#%-]+:" text))
+
 (defun gco-pkm-context--parse-rg-output (output classifiers)
   "Parse OUTPUT from rg into a list of plists."
   (let ((lines (split-string output "\n"))
@@ -382,7 +407,8 @@ Prefers a YYYY-MM-DD prefix in the basename, falls back to mtime."
        ((and current
              (string-match "\\`\\(.+\\)-\\([0-9]+\\)-\\(.*\\)\\'" raw))
         (let ((ctx (match-string 3 raw)))
-          (setq current (plist-put current :context ctx))))))
+          (unless (gco-pkm-context--drawer-line-p ctx)
+            (setq current (plist-put current :context ctx)))))))
     (when current (push current entries))
     (nreverse entries)))
 
@@ -398,10 +424,24 @@ Prefers a YYYY-MM-DD prefix in the basename, falls back to mtime."
           (= (plist-get e :line) source-line)))
    entries))
 
+(defun gco-pkm-context--filter-same-file-dates (entries source-file)
+  "Drop `date'-kind ENTRIES that live in SOURCE-FILE.
+A note's own title/heading trivially contains its date; only date
+references from *other* notes are meaningful backlinks."
+  (if (not source-file)
+      entries
+    (let ((self (expand-file-name source-file)))
+      (cl-remove-if
+       (lambda (e)
+         (and (eq (plist-get e :kind) 'date)
+              (equal (expand-file-name (plist-get e :file)) self)))
+       entries))))
+
 (defun gco-pkm-context--kind-priority (kind)
   "Lower number = higher priority."
   (cond
    ((eq kind 'exact) 0)
+   ((eq kind 'date) 0)
    ((and (symbolp kind) (string-prefix-p "tag:" (symbol-name kind))) 1)
    (t 2)))
 
@@ -438,6 +478,8 @@ Prefers a YYYY-MM-DD prefix in the basename, falls back to mtime."
   (cond
    ((eq kind 'exact)
     (propertize "≡" 'face 'gco-pkm-context-exact-face))
+   ((eq kind 'date)
+    (propertize "◆" 'face 'gco-pkm-context-exact-face))
    ((and (symbolp kind) (string-prefix-p "tag:" (symbol-name kind)))
     (propertize (format "#%s" (substring (symbol-name kind) 4))
                 'face 'gco-pkm-context-tag-face))
@@ -703,7 +745,8 @@ Closes the side window when no PKM buffer is visible anywhere."
                       (get-buffer gco-pkm-context--buffer-name))))
     (let* ((file (buffer-file-name))
            (heading (gco-pkm-context--current-heading-text))
-           (words (gco-pkm-context--significant-words heading))
+           (words (unless (gco-pkm-context--timestamp-only-p heading)
+                    (gco-pkm-context--significant-words heading)))
            (tags (gco-pkm-context--nearby-tags))
            (key (gco-pkm-context--key file heading words tags)))
       (setq gco-pkm-context--source-window (selected-window)
@@ -745,8 +788,10 @@ Closes the side window when no PKM buffer is visible anywhere."
                    (gco-pkm-context--truncate
                     (gco-pkm-context--sort
                      (gco-pkm-context--dedup
-                      (gco-pkm-context--filter-self
-                       entries source-file src-line)))
+                      (gco-pkm-context--filter-same-file-dates
+                       (gco-pkm-context--filter-self
+                        entries source-file src-line)
+                       source-file)))
                     gco-pkm-context-max-results)))
              (gco-pkm-context--render buf cleaned root header))))))))
 
