@@ -82,7 +82,7 @@ Prompts for the width in pixels."
   
   [:description ""
    ["Search"
-    ("sp" "Pages (by title)" org-node-find)
+    ("sp" "Pages (by title)" gco-pkm-find-page)
     ("sc" "Content (full-text)" org-node-grep)
     ("st" "Tags" (lambda () (interactive) 
                   (if (fboundp 'gco-inline-tags-search)

@@ -17,6 +17,7 @@
 
 (require 'org)
 (require 'org-id)
+(require 'org-mem)
 (require 'org-element)
 (require 'org-datetree)
 (require 'org-capture)
@@ -25,6 +26,8 @@
 (require 'org-ql-search)
 
 (require 'gco-pkm-consult)
+
+(declare-function org-node-create "org-node")
 
 (use-package org-transclusion)
 
@@ -213,6 +216,35 @@ N defaults to 7. Each file may contribute multiple top-level entries."
 ;;;; Search Functions
 
 ;;;###autoload
+(defun gco-pkm-find-page ()
+  "Find any note file by title, with or without an org-id.
+Unlike `org-node-find', this lists every file org-mem has indexed,
+by its #+title (or file basename), so pages created outside the
+org-node capture flow are still visible.  If the input matches no
+existing page, create one via `org-node-create'."
+  (interactive)
+  (let ((by-title (make-hash-table :test #'equal))
+        titles)
+    (dolist (file (org-mem-all-files))
+      (puthash (org-mem-file-title-or-basename file) file by-title))
+    (maphash (lambda (title _) (push title titles)) by-title)
+    (setq titles (sort titles
+                       (lambda (a b)
+                         (> (org-mem-file-mtime-floor (gethash a by-title))
+                            (org-mem-file-mtime-floor (gethash b by-title))))))
+    (let* ((choice (completing-read
+                    "Page: "
+                    (lambda (str pred action)
+                      (if (eq action 'metadata)
+                          '(metadata (display-sort-function . identity)
+                                     (cycle-sort-function . identity))
+                        (complete-with-action action titles str pred)))))
+           (file (gethash choice by-title)))
+      (if file
+          (find-file file)
+        (org-node-create choice (org-id-new))))))
+
+;;;###autoload
 (defun gco-pkm-search-todos ()
   "Search for TODO items."
   (interactive)
@@ -238,6 +270,20 @@ N defaults to 7. Each file may contribute multiple top-level entries."
     (find-file (expand-file-name choice gco-pkm-directory))))
 
 ;;;; Utility Functions
+
+(defun gco-pkm-ensure-file-id ()
+  "Give the current note file a file-level ID if it has none.
+For `before-save-hook': makes every note saved under
+`gco-pkm-directory' a full org-node citizen (findable, linkable,
+backlink-capable).  Journal files are skipped since their IDs
+belong on day headings."
+  (when (and (derived-mode-p 'org-mode)
+             buffer-file-name
+             (file-in-directory-p buffer-file-name gco-pkm-directory)
+             (not (file-in-directory-p buffer-file-name (gco-pkm-journal-dir))))
+    (org-with-wide-buffer
+     (goto-char (point-min))
+     (org-id-get-create))))
 
 ;;;###autoload
 (defun gco-pkm-auto-commit ()
@@ -401,6 +447,9 @@ FORMAT is a function that takes (marker title file query) and returns a string t
   ;; Set up auto-commit hook if enabled
   (when gco-pkm-auto-commit
     (add-hook 'after-save-hook #'gco-pkm-auto-commit))
+
+  ;; Every saved note gets an ID, so org-node can always find and link it
+  (add-hook 'before-save-hook #'gco-pkm-ensure-file-id)
 
   (message "GCO PKM system initialized in %s" gco-pkm-directory))
 
