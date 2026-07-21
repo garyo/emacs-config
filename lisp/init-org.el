@@ -484,12 +484,14 @@ Returns final path (may differ from input if format changed)."
                         '(("^ *\\([+]\\) "
                            (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "◦"))))))
 
-;; De-emphasize the tildes org-mode uses for source snippets by making them small
-;; This doesn't work with modus-themes, which seems to override it.
+;; De-emphasize the tildes org-mode uses for source snippets by making them
+;; small.  Match only paired ~code~ delimiters, not lone tildes in prose.
 (defface org-tilde-face
   '((t :inherit default :height 0.5))
   "Face for highlighting tildes in org-mode")
-(font-lock-add-keywords 'org-mode '(("~" . org-tilde-face)))
+(font-lock-add-keywords 'org-mode
+                        '(("\\(~\\)[^~ \n]\\(?:[^~\n]*[^~ \n]\\)?\\(~\\)"
+                           (1 'org-tilde-face) (2 'org-tilde-face))))
 
 ;; Make property drawers less obtrusive
 (custom-set-faces
