@@ -10,6 +10,16 @@
      epg-gpg-program (concat epg-gpg-home-directory "/bin/gpg.exe")
      epg-gpgconf-program  (concat epg-gpg-home-directory "/bin/gpgconf.exe")))
 
+;;; Load treesit early.
+;; Some tree-sitter package autoloads (e.g. astro-ts-mode) call
+;; `treesit-ready-p' at the top level of their generated autoloads file,
+;; which elpaca evaluates during package activation at startup. That
+;; function lives in treesit.el and is not itself autoloaded, so it must
+;; be available before packages are activated, else activation fails with
+;; "void-function treesit-ready-p". treesit.el is cheap to load (it does
+;; not load any grammars) and exists on any Emacs 29+ build.
+(require 'treesit nil t)
+
 (defun emacs-build-description-string ()
   "Run `emacs-build-description' in a temp buffer, return result as string."
   (with-temp-buffer
