@@ -43,7 +43,7 @@
   :type 'number)
 
 (defcustom gco-pkm-context-max-results 30
-  "Maximum number of entries to display."
+  "Maximum number of entries (grouped by file and heading) to display."
   :type 'integer)
 
 (defcustom gco-pkm-context-tag-window-lines 5
@@ -458,7 +458,7 @@ references from *other* notes are meaningful backlinks."
     (hash-table-values table)))
 
 (defun gco-pkm-context--sort (entries)
-  "Sort ENTRIES by date descending, then by file."
+  "Sort ENTRIES by date descending, then by file, then by line descending."
   (sort entries
         (lambda (a b)
           (let ((ta (gco-pkm-context--date-key (plist-get a :date)))
@@ -466,7 +466,32 @@ references from *other* notes are meaningful backlinks."
             (cond
              ((time-less-p tb ta) t)
              ((time-less-p ta tb) nil)
-             (t (string< (plist-get a :file) (plist-get b :file))))))))
+             ((string< (plist-get a :file) (plist-get b :file)) t)
+             ((string< (plist-get b :file) (plist-get a :file)) nil)
+             (t (> (plist-get a :line) (plist-get b :line))))))))
+
+(defun gco-pkm-context--group (entries)
+  "Merge ENTRIES that share a file and matched heading text.
+Returns a list of groups in first-seen order.  A group is an entry
+plist extended with `:hits', a list of (LINE . CONTEXT) cells for every
+merged hit; its `:kind' is the highest-priority kind among them."
+  (let ((table (make-hash-table :test 'equal))
+        (groups '()))
+    (dolist (e entries)
+      (let* ((key (list (plist-get e :file)
+                        (string-trim (plist-get e :match))))
+             (g (gethash key table))
+             (hit (cons (plist-get e :line) (plist-get e :context))))
+        (if g
+            (progn
+              (plist-put g :hits (nconc (plist-get g :hits) (list hit)))
+              (when (< (gco-pkm-context--kind-priority (plist-get e :kind))
+                       (gco-pkm-context--kind-priority (plist-get g :kind)))
+                (plist-put g :kind (plist-get e :kind))))
+          (setq g (append (list :hits (list hit)) (copy-sequence e)))
+          (puthash key g table)
+          (push g groups))))
+    (nreverse groups)))
 
 (defun gco-pkm-context--truncate (entries n)
   (if (> (length entries) n) (seq-take entries n) entries))
@@ -492,46 +517,71 @@ references from *other* notes are meaningful backlinks."
     (`(:date . ,s) s)
     (`(:mtime . ,time) (format-time-string "%Y-%m-%d" time))))
 
-(defun gco-pkm-context--render (buffer entries root header)
-  "Render ENTRIES into BUFFER, with HEADER at top."
+(defun gco-pkm-context--render (buffer groups root header)
+  "Render GROUPS (from `gco-pkm-context--group') into BUFFER.
+HEADER goes at the top.  A single-hit group renders as a heading plus
+its context line; a multi-hit group shows the heading once, then one
+`LINE: CONTEXT' row per hit, each previewing/jumping to its own line."
   (with-current-buffer buffer
     (setq gco-pkm-context--last-preview-pos nil)
     (let ((inhibit-read-only t))
       (erase-buffer)
       (insert (propertize header 'face 'mode-line-emphasis) "\n")
       (insert (make-string (length header) ?-) "\n\n")
-      (if (null entries)
+      (if (null groups)
           (insert (propertize "  (no related entries)\n"
                               'face 'gco-pkm-context-snippet-face))
         (let ((idx 0))
-          (dolist (e entries)
+          (dolist (g groups)
             (cl-incf idx)
-            (let* ((file (plist-get e :file))
-                   (line (plist-get e :line))
-                   (kind (plist-get e :kind))
-                   (match (string-trim-right (plist-get e :match)))
-                   (ctx (string-trim-right (or (plist-get e :context) "")))
-                   (date (gco-pkm-context--format-date (plist-get e :date)))
+            (let* ((file (plist-get g :file))
+                   (kind (plist-get g :kind))
+                   (hits (plist-get g :hits))
+                   (match (string-trim-right (plist-get g :match)))
+                   (date (gco-pkm-context--format-date (plist-get g :date)))
                    (rel (file-relative-name file root))
                    (begin (point)))
               (insert (gco-pkm-context--badge kind) " "
                       (propertize date 'face 'gco-pkm-context-date-face) " "
-                      (propertize (format "%s:%d" rel line)
+                      (propertize (if (cdr hits)
+                                      (format "%s (%d)" rel (length hits))
+                                    (format "%s:%d" rel (caar hits)))
                                   'face 'gco-pkm-context-path-face)
                       "\n")
               (insert "    "
                       (propertize match 'face 'gco-pkm-context-heading-face)
                       "\n")
-              (when (and ctx (not (string-empty-p ctx)))
-                (insert "    "
-                        (propertize ctx 'face 'gco-pkm-context-snippet-face)
-                        "\n"))
+              ;; Header + heading preview the first hit's line.
+              (put-text-property begin (point)
+                                 'gco-pkm-context-line (caar hits))
+              (if (cdr hits)
+                  (dolist (hit hits)
+                    (let ((hb (point))
+                          (ctx (string-trim-right (or (cdr hit) ""))))
+                      (insert "    "
+                              (propertize (format "%d:" (car hit))
+                                          'face 'gco-pkm-context-path-face)
+                              (if (string-empty-p ctx)
+                                  ""
+                                (concat " "
+                                        (propertize
+                                         ctx 'face 'gco-pkm-context-snippet-face)))
+                              "\n")
+                      (put-text-property hb (point)
+                                         'gco-pkm-context-line (car hit))))
+                (let ((ctx (string-trim-right (or (cdar hits) ""))))
+                  (unless (string-empty-p ctx)
+                    (let ((hb (point)))
+                      (insert "    "
+                              (propertize ctx 'face 'gco-pkm-context-snippet-face)
+                              "\n")
+                      (put-text-property hb (point)
+                                         'gco-pkm-context-line (caar hits))))))
               (insert "\n")
               (add-text-properties
                begin (point)
                `(gco-pkm-context-entry ,idx
                                        gco-pkm-context-file ,file
-                                       gco-pkm-context-line ,line
                                        gco-pkm-context-kind ,kind))))))
       (goto-char (point-min)))))
 
@@ -786,12 +836,13 @@ Closes the side window when no PKM buffer is visible anywhere."
          (lambda (entries)
            (let* ((cleaned
                    (gco-pkm-context--truncate
-                    (gco-pkm-context--sort
-                     (gco-pkm-context--dedup
-                      (gco-pkm-context--filter-same-file-dates
-                       (gco-pkm-context--filter-self
-                        entries source-file src-line)
-                       source-file)))
+                    (gco-pkm-context--group
+                     (gco-pkm-context--sort
+                      (gco-pkm-context--dedup
+                       (gco-pkm-context--filter-same-file-dates
+                        (gco-pkm-context--filter-self
+                         entries source-file src-line)
+                        source-file))))
                     gco-pkm-context-max-results)))
              (gco-pkm-context--render buf cleaned root header))))))))
 
