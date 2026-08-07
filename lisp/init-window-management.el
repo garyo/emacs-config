@@ -101,6 +101,74 @@ of the right-hand column. Otherwise, open a bottom side window."
 (add-to-list 'display-buffer-alist
              '("\\*compilation\\*" my/split-bottom-right))
 
+;; Speedbar: Emacs 31 can put it in a side window of the current frame
+;; instead of its own tiny frame.
+(when (>= emacs-major-version 31)
+  (setopt speedbar-prefer-window t
+          speedbar-window-side 'left
+          speedbar-window-default-width 36))
+
+;; Speedbar re-roots itself at the current file's directory as you move
+;; around, so in a deep tree it never shows the project. Root it at the
+;; project instead, and expand the tree down to whatever file is current.
+(eval-when-compile (require 'speedbar) (require 'project))
+(declare-function speedbar-update-contents "speedbar")
+(declare-function speedbar-find-selected-file "speedbar" (file))
+(declare-function speedbar-expand-line "speedbar" (&optional arg))
+
+(defun gco-project-root ()
+  "Root directory of the project containing `default-directory', or nil."
+  (when-let* ((proj (project-current nil)))
+    (expand-file-name (project-root proj))))
+
+(defun gco-speedbar-use-project-root (orig &rest args)
+  "Apply ORIG to ARGS with `default-directory' bound to the project root."
+  (let ((default-directory (or (gco-project-root) default-directory)))
+    (apply orig args)))
+
+(defun gco-speedbar-reveal-current-file ()
+  "Expand speedbar's tree down to the file visited in the current buffer."
+  (when-let* (((buffer-live-p speedbar-buffer))
+              (file (and buffer-file-name (expand-file-name buffer-file-name))))
+    (with-current-buffer speedbar-buffer
+      (when (and (string-prefix-p (expand-file-name default-directory) file)
+                 (not (save-excursion (speedbar-find-selected-file file))))
+        (goto-char (point-min))
+        (dolist (dir (split-string (file-relative-name (file-name-directory file)
+                                                       default-directory)
+                                   "/" t))
+          (when (re-search-forward
+                 (concat "<\\([-+]\\)> " (regexp-quote dir) "$") nil t)
+            ;; Expanding moves point (speedbar recenters), so search for the
+            ;; next component from this directory's line, not from wherever
+            ;; we were left.
+            (let ((line (line-beginning-position)))
+              (when (equal (match-string 1) "+")
+                (speedbar-expand-line))
+              (goto-char line))))
+        (when-let* (((speedbar-find-selected-file file))
+                    (win (get-buffer-window speedbar-buffer)))
+          (set-window-point win (point)))))))
+
+(with-eval-after-load 'speedbar
+  ;; Only the follow-the-current-buffer path is redirected;
+  ;; `speedbar-update-contents' is left alone so the directory buttons
+  ;; still navigate wherever you click them.
+  (advice-add 'speedbar-update-localized-contents :around
+              #'gco-speedbar-use-project-root)
+  (add-hook 'speedbar-timer-hook #'gco-speedbar-reveal-current-file))
+
+(defun gco-speedbar-project ()
+  "Open speedbar in a side window, rooted at the current project."
+  (interactive)
+  (require 'speedbar)
+  (let ((root (or (gco-project-root) default-directory)))
+    (speedbar 1)
+    (with-current-buffer speedbar-buffer
+      (setq default-directory root)
+      (speedbar-update-contents))
+    (gco-speedbar-reveal-current-file)))
+
 ;;; Window management
 
 ;; I have a hard time training myself to use anything more modern than
