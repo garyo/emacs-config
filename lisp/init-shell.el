@@ -130,4 +130,32 @@
   ;; force it on so `ssh other-mac' doesn't arrive with an unknown TERM.
   (setq ghostel-ssh-install-terminfo t))
 
+;; Trackpad scrolling inside a mouse-tracking TUI (Claude Code, htop, less)
+;; is far too fast: macOS emits a burst of wheel events per gesture and
+;; ghostel forwards every one to the terminal as a button-4/5 press.
+;; Forward only one in N.  (Scrollback scrolling, where the terminal isn't
+;; tracking the mouse, is unaffected -- that path falls through to
+;; `pixel-scroll-precision-mode'.)
+(defcustom gco-ghostel-scroll-divisor 4
+  "Forward only every Nth wheel event to a mouse-tracking terminal."
+  :type 'natnum
+  :group 'ghostel)
+
+(defvar-local gco--ghostel-scroll-count 0)
+(defvar-local gco--ghostel-scroll-sent nil)
+
+(defun gco-ghostel-throttle-scroll (orig event button)
+  "Forward one in `gco-ghostel-scroll-divisor' scroll events via ORIG.
+EVENT and BUTTON are as for `ghostel--forward-scroll-event'.  Swallowed
+events report the same result as the last forwarded one, so ghostel
+doesn't fall back to scrolling the Emacs buffer instead."
+  (prog1 (if (zerop (% gco--ghostel-scroll-count gco-ghostel-scroll-divisor))
+             (setq gco--ghostel-scroll-sent (funcall orig event button))
+           gco--ghostel-scroll-sent)
+    (setq gco--ghostel-scroll-count (1+ gco--ghostel-scroll-count))))
+
+(with-eval-after-load 'ghostel
+  (advice-add 'ghostel--forward-scroll-event :around
+              #'gco-ghostel-throttle-scroll))
+
 (provide 'init-shell)
