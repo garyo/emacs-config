@@ -69,7 +69,22 @@ opaque exit code."
   (setq markdown-xwidget-command "pandoc"
         markdown-xwidget-github-theme "light"
         markdown-xwidget-code-block-theme "default"
-        markdown-xwidget-mermaid-theme "default"))
+        markdown-xwidget-mermaid-theme "default")
+  ;; Pandoc emits <pre class="mermaid"><code>...</code></pre>, but mermaid
+  ;; reads the element's innerHTML, so the nested <code> tag breaks parsing
+  ;; ("no diagram type detected"). Unwrap it on DOMContentLoaded, which fires
+  ;; before the load event that triggers mermaid's startOnLoad render.
+  (advice-add 'markdown-xwidget-header-html :filter-return
+              (lambda (html)
+                (concat html "
+<script type=\"text/javascript\">
+  document.addEventListener(\"DOMContentLoaded\", () => {
+    document.querySelectorAll(\"pre.mermaid > code\").forEach((code) => {
+      code.parentElement.textContent = code.textContent;
+    });
+  });
+</script>
+"))))
 
 ;; Live preview in the system browser via grip (good for dual monitors,
 ;; scroll-locked side-by-side review). Uses the Python `grip' backend,
