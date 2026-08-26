@@ -6,10 +6,16 @@
 ;; XXX don't call it org-notes, maybe org-pkm
 (defcustom my/notes-dir
   (file-truename
-   (if (file-directory-p "~/Documents/org-notes")
-       "~/Documents/org-notes"
-     "~/Documents/org-agenda"))
-  "Top-level org-mode notes dir, used for unified agenda, org-node and PKM."
+   (or
+    ;; Lets a throwaway Emacs run against a copy of the notes -- the only
+    ;; way to exercise the markdown half of the PKM before the corpus is
+    ;; converted.  See pkm-sandbox.sh.
+    (getenv "GCO_PKM_DIR")
+    (if (file-directory-p "~/Documents/org-notes")
+        "~/Documents/org-notes"
+      "~/Documents/org-agenda")))
+  "Top-level notes dir, used for unified agenda, org-node and PKM.
+Notes may be org or markdown; see `gco-pkm-format'."
   :type 'string
   :group 'pkm)
 (unless (file-exists-p my/notes-dir)
@@ -311,6 +317,57 @@ Returns final path (may differ from input if format changed)."
          (markdown-mode . gco-pkm-context-maybe-enable))
   :bind (("C-c t c" . gco-pkm-context-toggle)))
 
+;;;; Markdown notes: the same image handling org notes get
+;;
+;; markdown-mode ships a yank-media handler, but it prompts for a filename
+;; on every paste, saves beside the buffer, and skips the optimization
+;; above.  Replace it so pasting into a markdown note behaves exactly like
+;; pasting into an org one: auto-named, into assets/, optimized, linked
+;; relatively.
+
+(defun my/pkm-md-asset-link (path)
+  "Return a markdown image link to PATH, relative to the current buffer."
+  (format "![](%s)"
+          (file-relative-name path (file-name-directory (buffer-file-name)))))
+
+(defun my/pkm-md-save-asset (data ext)
+  "Write DATA to a timestamped EXT file in `my/org-assets-dir'; return path.
+Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
+  (unless (file-directory-p my/org-assets-dir)
+    (make-directory my/org-assets-dir t))
+  (let ((path (expand-file-name
+               (format "clipboard-%s.%s" (format-time-string "%Y%m%dT%H%M%S") ext)
+               my/org-assets-dir)))
+    (let ((coding-system-for-write 'emacs-internal))
+      (with-temp-file path (insert data)))
+    path))
+
+(defun my/pkm-md-image-yank-handler (mimetype data)
+  "Save pasted image DATA of MIMETYPE into assets/ and link it."
+  (require 'mailcap)
+  (let* ((ext (symbol-name (mailcap-mime-type-to-extension mimetype)))
+         (path (my/pkm-md-save-asset data ext))
+         (final (my/optimize-image path)))
+    (insert (my/pkm-md-asset-link final))
+    (when (fboundp 'markdown-display-inline-images)
+      (ignore-errors (markdown-display-inline-images)))))
+
+(defun my/pkm-md-dnd-handler (url action)
+  "Copy a dropped image URL into assets/ and link it; else fall back."
+  (let ((file (dnd-get-local-file-name url t)))
+    (if (and file (string-match-p (image-file-name-regexp) file))
+        (progn
+          (unless (file-directory-p my/org-assets-dir)
+            (make-directory my/org-assets-dir t))
+          (let ((dest (expand-file-name (file-name-nondirectory file)
+                                        my/org-assets-dir)))
+            (copy-file file dest t)
+            (insert (my/pkm-md-asset-link (my/optimize-image dest)))
+            (when (fboundp 'markdown-display-inline-images)
+              (ignore-errors (markdown-display-inline-images)))
+            'private))
+      (dnd-insert-text (selected-window) action (or file url)))))
+
 ;; PKM setup that applies to markdown notes the way init-org's does to org.
 (defun my/pkm-markdown-setup ()
   "Enable PKM conveniences in markdown notes under `my/notes-dir'."
@@ -321,7 +378,15 @@ Returns final path (may differ from input if format changed)."
     (when (require 'org-table nil t) (orgtbl-mode 1))
     ;; Inline images, matching org's startup-with-link-previews behaviour.
     (when (fboundp 'markdown-display-inline-images)
-      (ignore-errors (markdown-display-inline-images)))))
+      (ignore-errors (markdown-display-inline-images)))
+    ;; Same key as markdown-mode's own registration, so this replaces it.
+    (when (fboundp 'yank-media-handler)
+      (yank-media-handler "image/.*" #'my/pkm-md-image-yank-handler))
+    (setq-local dnd-protocol-alist
+                (append (list (cons "^file:///" #'my/pkm-md-dnd-handler)
+                              (cons "^file:/[^/]" #'my/pkm-md-dnd-handler)
+                              (cons "^file:[^/]" #'my/pkm-md-dnd-handler))
+                        dnd-protocol-alist))))
 
 (add-hook 'markdown-mode-hook #'my/pkm-markdown-setup)
 
