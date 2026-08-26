@@ -439,11 +439,9 @@ each way."
 ;;;; C-c C-c
 ;;
 ;; markdown-mode uses C-c C-c as a *prefix* (preview, export, check refs),
-;; while org uses it to act on the thing at point. orgtbl-mode binds it too,
-;; and its binding wins over a major mode's -- which is why enabling
-;; orgtbl-mode here broke C-c C-c: orgtbl tried to run markdown's prefix
-;; keymap as a command. Dispatch on context instead, and hand off to
-;; markdown's prefix map when there is nothing at point to act on.
+;; while org uses it to act on the thing at point. Dispatch on context and
+;; hand off to markdown's prefix map when there is nothing at point to act
+;; on, so both habits work.
 
 (defun my/pkm-md-ctrl-c-ctrl-c ()
   "Act on the thing at point, or fall through to markdown's C-c C-c map."
@@ -453,21 +451,14 @@ each way."
       (beginning-of-line)
       (looking-at "[ \t]*[-+*][ \t]+\\[[ xX]\\]"))
     (markdown-toggle-gfm-checkbox))
-   ((and (fboundp 'org-at-table-p) (org-at-table-p))
-    (call-interactively #'orgtbl-ctrl-c-ctrl-c))
    ((and (fboundp 'markdown-table-at-point-p) (markdown-table-at-point-p))
     (call-interactively #'markdown-table-align))
    ((my/pkm-md-in-frontmatter-p) (my/pkm-md-toggle-frontmatter))
    (t (set-transient-map markdown-mode-command-map))))
 
 (defun my/pkm-md--delegate (key fallback)
-  "Run whatever KEY would otherwise do, preferring orgtbl then markdown.
-orgtbl-mode installs \"hijacker\" commands on TAB and RET that handle
-tables and defer otherwise, so table editing keeps working as long as
-they stay in the chain."
-  (let ((cmd (or (and (bound-and-true-p orgtbl-mode)
-                      (lookup-key orgtbl-mode-map key))
-                 (and (boundp 'markdown-mode-map)
+  "Run whatever KEY would otherwise do in markdown-mode."
+  (let ((cmd (or (and (boundp 'markdown-mode-map)
                       (lookup-key markdown-mode-map key))
                  fallback)))
     (if (commandp cmd)
@@ -504,17 +495,11 @@ file rather than just notes under `my/notes-dir'."
   "Enable PKM conveniences in markdown notes under `my/notes-dir'."
   (when (and buffer-file-name
              (file-in-directory-p buffer-file-name my/notes-dir))
-    ;; org's table editor works in any major mode, and markdown pipe tables
-    ;; are close enough that it beats markdown-mode's own table commands.
-    ;; Its C-c C-c must not shadow markdown's prefix map, so override the
-    ;; minor-mode map buffer-locally with that one binding removed.
-    (when (require 'org-table nil t)
-      (orgtbl-mode 1)
-      (let ((map (copy-keymap orgtbl-mode-map)))
-        (define-key map (kbd "C-c C-c") nil)
-        (setq-local minor-mode-overriding-map-alist
-                    (cons (cons 'orgtbl-mode map)
-                          minor-mode-overriding-map-alist))))
+    ;; NOT orgtbl-mode. It rewrites the GFM delimiter row `|---|---|' into
+    ;; org's `|---+---|', which is not valid GFM: pandoc and GitHub then
+    ;; render the table as a paragraph of literal text. It realigns on TAB,
+    ;; so merely tabbing through a table would destroy it. markdown-mode's
+    ;; own table commands keep the pipes.
     (my/pkm-md-mode 1)
     ;; Inline images, matching org's startup-with-link-previews behaviour,
     ;; bounded the same way.
