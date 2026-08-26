@@ -57,6 +57,31 @@ opaque exit code."
 ;; inline images, org-like folding and navigation, and a native GFM table
 ;; mode.  markdown-ts-mode-x adds export/preview and TOC generation.
 ;;
+;; Keep tables and code monospaced under mixed-pitch.
+;;
+;; The existing entry covers `markdown-table-face', which belongs to
+;; markdown-mode; markdown-ts-mode fontifies with its own faces, so tables
+;; rendered in the variable-pitch body font and stopped lining up even
+;; though the text was character-aligned.  Column alignment is only
+;; meaningful in a fixed-pitch font.
+(with-eval-after-load 'mixed-pitch
+  (dolist (face '(;; tables -- alignment depends on this
+                  markdown-ts-table
+                  markdown-ts-table-cell
+                  markdown-ts-table-delimiter-cell
+                  markdown-ts-table-header
+                  markdown-ts-in-table
+                  ;; code, where proportional glyphs are just wrong
+                  markdown-ts-code-block
+                  markdown-ts-code-span
+                  markdown-ts-indented-code-block
+                  markdown-ts-in-code-block
+                  markdown-ts-code-block-markup-hidden
+                  markdown-ts-language-keyword
+                  ;; the rule drawn for a thematic break, so it is continuous
+                  markdown-ts-thematic-break))
+    (add-to-list 'mixed-pitch-fixed-pitch-faces face)))
+
 ;; Claimed by remapping, not by auto-mode-alist: markdown-mode registers
 ;; ".md" in its own autoloads, which elpaca loads asynchronously after init.
 ;; Any entry we add during init is therefore prepended *before* that one
