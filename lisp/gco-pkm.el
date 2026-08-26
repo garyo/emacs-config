@@ -17,23 +17,26 @@
 
 (require 'org)
 (require 'org-id)
-(require 'org-mem)
 (require 'org-element)
 (require 'org-datetree)
 (require 'org-capture)
 (require 'calendar)
-(require 'org-ql)
-(require 'org-ql-search)
+;; org-ql/org-node index org files only, so they are optional: the PKM has
+;; to keep working once the corpus is markdown and these are uninstalled.
+(require 'org-ql nil t)
+(require 'org-ql-search nil t)
 
 (require 'gco-pkm-consult)
+(require 'gco-pkm-format)
 
 (declare-function org-node-create "org-node")
+(declare-function consult-ripgrep "consult")
 
 (use-package org-transclusion)
 
 
 ;; Prevent warnings when running org-ql sexp queries
-(setq org-ql-ask-unsafe-queries nil)
+(with-eval-after-load 'org-ql (setq org-ql-ask-unsafe-queries nil))
 
 ;;;; Customization
 
@@ -67,11 +70,21 @@
 
 (defun gco-pkm-journal--path-for-date (&optional date)
   "Return full path for journal file for DATE (default today).
-DATE is a list (month day year) as used by calendar functions."
+DATE is a list (month day year) as used by calendar functions.
+An existing journal for DATE wins in either format; a new one follows
+whatever format the journals directory already holds."
   (let* ((date (or date (calendar-current-date)))
          (time (encode-time 0 0 0 (nth 1 date) (nth 0 date) (nth 2 date)))
-         (fname (format-time-string "%Y-%m-%d.org" time))) ; YYYY-MM-DD
-    (expand-file-name fname (gco-pkm-journal-dir))))
+         (dir (gco-pkm-journal-dir))
+         (stem (format-time-string "%Y-%m-%d" time))
+         (existing (seq-find #'file-exists-p
+                             (list (expand-file-name (concat stem ".md") dir)
+                                   (expand-file-name (concat stem ".org") dir)))))
+    (or existing
+        (expand-file-name
+         (format "%s.%s" stem
+                 (gco-pkm-format-extension (gco-pkm-format-for-dir dir)))
+         dir))))
 
 ;;;###autoload
 (defun gco-pkm-journal-today ()
@@ -80,10 +93,16 @@ DATE is a list (month day year) as used by calendar functions."
   (let ((file (gco-pkm-journal--path-for-date)))
     (find-file file)
     (when (= (buffer-size) 0)
-      (insert (format "#+title: %s\n\n* <%s>\n"
-                      (format-time-string "%Y-%m-%d")
-                      (format-time-string "%Y-%m-%d %a")))
-      (org-id-get-create)
+      (if (eq (gco-pkm-format-of file) 'md)
+          ;; The org date wrapper collapses into frontmatter.
+          (insert (format "---\ntitle: \"%s\"\nid: %s\ndate: %s\n---\n\n"
+                          (format-time-string "%Y-%m-%d")
+                          (upcase (org-id-new))
+                          (format-time-string "%Y-%m-%d")))
+        (insert (format "#+title: %s\n\n* <%s>\n"
+                        (format-time-string "%Y-%m-%d")
+                        (format-time-string "%Y-%m-%d %a")))
+        (org-id-get-create))
       (save-buffer))
     (goto-char (point-max))
     (unless (bolp) (insert "\n"))
@@ -109,7 +128,7 @@ DATE is a list (month day year) as used by calendar functions."
 (defun gco-pkm-open-recent-journal ()
   "Quickly open a recent journal file."
   (interactive)
-  (let* ((files (directory-files (gco-pkm-journal-dir) nil "\\.org$"))
+  (let* ((files (directory-files (gco-pkm-journal-dir) nil gco-pkm-format-file-regexp))
          (vertico-sort-function nil)    ; display in provided order (most recent first)
          (choice (completing-read "Recent journal: "
                                   (sort files #'string>))))
@@ -121,22 +140,28 @@ N defaults to 7. Each file may contribute multiple top-level entries."
   (interactive "P")
   (let* ((n (or n 7))
          (journal-dir (gco-pkm-journal-dir))
-         (files (sort (directory-files journal-dir t "\\.org$") #'string>))
+         (files (sort (directory-files journal-dir t gco-pkm-format-file-regexp) #'string>))
          (recent-files (seq-take files n))
          (buffer (get-buffer-create "*Recent Journals*")))
     (with-current-buffer buffer
       (setq default-directory gco-pkm-directory)
       (read-only-mode -1)
       (erase-buffer)
-      (org-mode)
-      (insert (format "#+title: Recent Journal Entries (%d)\n\n" n))
+      ;; Show the digest in the mode matching the journals it collects.
+      (if (eq (gco-pkm-format-for-dir journal-dir) 'md)
+          (progn (when (fboundp 'markdown-mode) (markdown-mode))
+                 (insert (format "# Recent Journal Entries (%d)\n\n" n)))
+        (org-mode)
+        (insert (format "#+title: Recent Journal Entries (%d)\n\n" n)))
       (dolist (file recent-files)
         (let* ((base (file-name-base file))
                (start (point))
                (content (with-temp-buffer
                           (insert-file-contents file)
                           (buffer-string))))
-          (insert (format "* Journal for %s (click to open)" base))
+          (insert (format "%s Journal for %s (click to open)"
+                          (if (eq (gco-pkm-format-for-dir journal-dir) 'md) "#" "*")
+                          base))
           (make-text-button
            start (point)
            'help-echo "RET or click to open this journal"
@@ -148,10 +173,10 @@ N defaults to 7. Each file may contribute multiple top-level entries."
           (with-temp-buffer
             (insert content)
             (goto-char (point-min))
-            (while (re-search-forward "^\\* " nil t)
+            (while (re-search-forward "^\\(?:\\*\\|#\\) " nil t)
               (let ((hl-start (line-beginning-position))
                     (hl-end (or (save-excursion
-                                  (and (re-search-forward "^\\* " nil t)
+                                  (and (re-search-forward "^\\(?:\\*\\|#\\) " nil t)
                                        (line-beginning-position)))
                                 (point-max))))
                 (insert-into-buffer buffer hl-start hl-end)
@@ -166,7 +191,7 @@ N defaults to 7. Each file may contribute multiple top-level entries."
          'follow-link t
          'action (lambda (_btn) (gco-pkm-show-recent-journals (+ n 7)))))
       (goto-char (point-min))
-      (org-hide-drawer-all)
+      (when (derived-mode-p 'org-mode) (org-hide-drawer-all))
       (view-mode 1))
     (switch-to-buffer buffer)))
 
@@ -177,27 +202,76 @@ N defaults to 7. Each file may contribute multiple top-level entries."
 (defun gco-pkm-create-tag-page (tag)
   "Create a dynamic tag page for TAG."
   (interactive "sTag: ")
-  (let ((filename (expand-file-name (format "tag-%s.org" tag) gco-pkm-directory)))
+  (let* ((fmt (gco-pkm-format-for-dir gco-pkm-directory))
+         (filename (expand-file-name
+                    (format "tag-%s.%s" tag (gco-pkm-format-extension fmt))
+                    gco-pkm-directory)))
     (find-file filename)
     (when (= (buffer-size) 0)
-      (insert (format "#+title: #%s\n\n" tag))
-      (when (fboundp 'org-ql)
-        (insert (format "#+BEGIN: org-ql :query (tags \"%s\")\n\n#+END:\n\n" tag))
-        (insert "Press C-c C-c on the block above to refresh.\n"))
-      (org-id-get-create)
+      (if (eq fmt 'md)
+          ;; No dblock equivalent in markdown; the tag itself is the query,
+          ;; and `gco-pkm-search-tag' lists live hits.
+          (insert (format "---\ntitle: \"#%s\"\nid: %s\n---\n\nNotes tagged #%s. Use `gco-pkm-search-tag' for the live list.\n\n"
+                          tag (upcase (org-id-new)) tag))
+        (insert (format "#+title: #%s\n\n" tag))
+        (when (fboundp 'org-ql)
+          (insert (format "#+BEGIN: org-ql :query (tags \"%s\")\n\n#+END:\n\n" tag))
+          (insert "Press C-c C-c on the block above to refresh.\n"))
+        (gco-pkm-format-ensure-file-id))
       (save-buffer))))
+
+;;;###autoload
+(defun gco-pkm-search-tag (tag)
+  "List notes carrying inline #TAG, in either format."
+  (interactive "sTag: ")
+  (if (fboundp 'consult-ripgrep)
+      (consult-ripgrep gco-pkm-directory (format "#%s\\b" tag))
+    (rgrep (format "#%s" tag) "*.org *.md" gco-pkm-directory)))
 
 ;;;; Block References
 
 ;;;###autoload
+(defun gco-pkm--anchor-slug (text)
+  "Return the `^anchor' slug the converter would give heading TEXT."
+  (let* ((s (downcase (string-trim text)))
+         (s (replace-regexp-in-string "\\[\\([^]]*\\)\\]([^)]*)" "\\1" s))
+         (s (replace-regexp-in-string "[^[:alnum:][:space:]-]" "" s))
+         (s (replace-regexp-in-string "[[:space:]_-]+" "-" s)))
+    (substring (string-trim s "-" "-") 0 (min 48 (length (string-trim s "-" "-"))))))
+
+;;;###autoload
 (defun gco-pkm-create-block-reference ()
-  "Create a reference to current block/paragraph with ID."
+  "Copy a link to the current heading.
+In org this mints an :ID: and copies an id: link.  In markdown it adds a
+`^anchor' to the heading -- the same convention the converter emits -- and
+copies a relative link to it."
   (interactive)
-  (unless (derived-mode-p 'org-mode)
-    (user-error "Block references only work in org-mode"))
-  (let ((id (org-id-get-create)))
-    (kill-new (format "[[id:%s]]" id))
-    (message "Block reference copied: [[id:%s]]" id)))
+  (pcase (gco-pkm-format-current)
+    ('org
+     (let ((id (org-id-get-create)))
+       (kill-new (format "[[id:%s]]" id))
+       (message "Block reference copied: [[id:%s]]" id)))
+    ('md
+     (save-excursion
+       (goto-char (gco-pkm-format-heading-start))
+       (unless (looking-at (gco-pkm-format-heading-regexp))
+         (user-error "Point is not under a heading"))
+       (let* ((text (match-string 2))
+              (existing (and (string-match "\\^\\([[:alnum:]_-]+\\)[ \t]*$" text)
+                             (match-string 1 text)))
+              (anchor (or existing
+                          (gco-pkm--anchor-slug
+                           (gco-pkm-format-heading-text text)))))
+         (unless existing
+           (end-of-line)
+           (insert " ^" anchor))
+         (let ((link (format "[%s](%s#^%s)"
+                             (gco-pkm-format-heading-text text)
+                             (file-name-nondirectory (buffer-file-name))
+                             anchor)))
+           (kill-new link)
+           (message "Block reference copied: %s" link)))))
+    (_ (user-error "Not a PKM note buffer"))))
 
 ;;;###autoload
 (defun gco-pkm-embed-block ()
@@ -216,22 +290,41 @@ N defaults to 7. Each file may contribute multiple top-level entries."
 ;;;; Search Functions
 
 ;;;###autoload
+(defun gco-pkm--file-title (file)
+  "Return FILE's note title, falling back to its basename.
+Reads only the head of the file, so scanning the whole PKM is cheap."
+  (or (with-temp-buffer
+        (insert-file-contents file nil 0 2048)
+        (setq buffer-file-name file)
+        (prog1 (ignore-errors (gco-pkm-format-buffer-title))
+          (setq buffer-file-name nil)))
+      (file-name-base file)))
+
+(defun gco-pkm--all-notes ()
+  "Return every note file under `gco-pkm-directory', newest first.
+Scans the directory rather than consulting org-mem, which only indexes
+org files and would go blind to the markdown half of the corpus."
+  (sort (directory-files-recursively
+         gco-pkm-directory gco-pkm-format-file-regexp nil
+         (lambda (dir) (not (string-prefix-p "." (file-name-nondirectory dir)))))
+        (lambda (a b)
+          (time-less-p (file-attribute-modification-time (file-attributes b))
+                       (file-attribute-modification-time (file-attributes a))))))
+
+;;;###autoload
 (defun gco-pkm-find-page ()
-  "Find any note file by title, with or without an org-id.
-Unlike `org-node-find', this lists every file org-mem has indexed,
-by its #+title (or file basename), so pages created outside the
-org-node capture flow are still visible.  If the input matches no
-existing page, create one via `org-node-create'."
+  "Find any note file by title, in either format.
+Lists every note under `gco-pkm-directory' by its title (or basename),
+newest first.  If the input matches no existing page, create one."
   (interactive)
   (let ((by-title (make-hash-table :test #'equal))
         titles)
-    (dolist (file (org-mem-all-files))
-      (puthash (org-mem-file-title-or-basename file) file by-title))
-    (maphash (lambda (title _) (push title titles)) by-title)
-    (setq titles (sort titles
-                       (lambda (a b)
-                         (> (org-mem-file-mtime-floor (gethash a by-title))
-                            (org-mem-file-mtime-floor (gethash b by-title))))))
+    (dolist (file (gco-pkm--all-notes))
+      (let ((title (gco-pkm--file-title file)))
+        (unless (gethash title by-title)   ; keep the newest of a duplicate title
+          (puthash title file by-title)
+          (push title titles))))
+    (setq titles (nreverse titles))
     (let* ((choice (completing-read
                     "Page: "
                     (lambda (str pred action)
@@ -242,22 +335,50 @@ existing page, create one via `org-node-create'."
            (file (gethash choice by-title)))
       (if file
           (find-file file)
-        (org-node-create choice (org-id-new))))))
+        (gco-pkm-create-page choice)))))
+
+;;;###autoload
+(defun gco-pkm-create-page (title)
+  "Create a new page called TITLE, in the PKM's current format."
+  (interactive "sPage title: ")
+  (let* ((fmt (gco-pkm-format-for-dir gco-pkm-directory))
+         (slug (replace-regexp-in-string
+                "[^[:alnum:]]+" "-" (downcase (string-trim title))))
+         (file (expand-file-name
+                (format "%s.%s" (string-trim slug "-" "-")
+                        (gco-pkm-format-extension fmt))
+                gco-pkm-directory)))
+    (find-file file)
+    (when (= (buffer-size) 0)
+      (if (eq fmt 'md)
+          (insert (format "---\ntitle: \"%s\"\nid: %s\n---\n\n"
+                          title (upcase (org-id-new))))
+        (insert (format "#+title: %s\n\n" title))
+        (gco-pkm-format-ensure-file-id))
+      (save-buffer))
+    (goto-char (point-max))))
 
 ;;;###autoload
 (defun gco-pkm-search-todos ()
-  "Search for TODO items."
+  "Search for open TODO items across the PKM, in either format.
+Unchecked checkboxes are the corpus's actual convention (org TODO
+keywords appear in a handful of files), and they read the same in both
+formats, so a ripgrep over them covers everything.  Falls back to
+`org-ql-search' only when consult is unavailable."
   (interactive)
-  (if (fboundp 'org-ql-search)
-      (org-ql-search gco-pkm-directory '(todo))
-    (org-todo-list)))
+  (cond
+   ((fboundp 'consult-ripgrep)
+    (consult-ripgrep gco-pkm-directory "^\\s*[-+*] \\[ \\]|^\\*+ TODO "))
+   ((fboundp 'org-ql-search)
+    (org-ql-search gco-pkm-directory '(todo)))
+   (t (org-todo-list))))
 
 ;;;###autoload
 (defun gco-pkm-recent-files (&optional num)
   "Show NUM recently modified org files (default 20)."
   (interactive)
   (let* ((num (or num 20))
-         (files (directory-files-recursively gco-pkm-directory "\\.org$" nil))
+         (files (directory-files-recursively gco-pkm-directory gco-pkm-format-file-regexp nil))
          (sorted (sort files (lambda (a b)
                               (time-less-p
                                (nth 5 (file-attributes b))
@@ -283,7 +404,7 @@ belong on day headings."
              (not (file-in-directory-p buffer-file-name (gco-pkm-journal-dir))))
     (org-with-wide-buffer
      (goto-char (point-min))
-     (org-id-get-create))))
+     (gco-pkm-format-ensure-file-id))))
 
 ;;;###autoload
 (defun gco-pkm-auto-commit ()

@@ -39,6 +39,13 @@ Set to nil to disable conversion."
   :type 'integer
   :group 'pkm)
 
+(defcustom my/org-assets-dir (expand-file-name "assets" my/notes-dir)
+  "Flat directory holding images pasted or dropped into notes.
+Replaces org-attach's ID-hashed `data/' trees so that the path in a
+file: link resolves identically in Emacs and in the web PKM."
+  :type 'directory
+  :group 'pkm)
+
 ;; Basic org-mode config
 (use-package org
   :ensure t          ; use latest even though org is included in emacs
@@ -129,21 +136,23 @@ Returns final path (may differ from input if format changed)."
        (t path))))
 
   (defun my/org-after-image-attach (&rest _)
-    "Optimize attached image on current line, then preview."
+    "Optimize the image just saved into `my/org-assets-dir', then preview."
     (save-excursion
       (goto-char (line-beginning-position))
-      ;; Match any image attachment link
+      ;; Match the file: link org just inserted
       (when (re-search-forward
-             "\\[\\[attachment:\\([^]]+\\.\\([a-zA-Z]+\\)\\)"
+             "\\[\\[file:\\([^]]+\\.\\([a-zA-Z]+\\)\\)"
              (line-end-position) t)
-        (let* ((old-name (match-string 1))
-               (ext (downcase (match-string 2)))
-               (attach-dir (org-attach-dir))
-               (old-path (and attach-dir (expand-file-name old-name attach-dir)))
+        (let* ((link (match-string 1))
+               (old-path (expand-file-name
+                          link (file-name-directory (buffer-file-name))))
+               (old-name (file-name-nondirectory old-path))
                (image-ext-re (image-file-name-regexp)))
-          ;; Only process image files
-          (when (and old-path (file-exists-p old-path)
-                     (string-match-p image-ext-re old-name))
+          ;; Only touch images we just placed in assets/ -- never an
+          ;; arbitrary file: link that happens to sit on this line.
+          (when (and (file-exists-p old-path)
+                     (string-match-p image-ext-re old-name)
+                     (file-in-directory-p old-path my/org-assets-dir))
             (let* ((new-path (my/optimize-image old-path))
                    (new-name (file-name-nondirectory new-path)))
               ;; Update link if filename changed (format conversion)
@@ -194,9 +203,15 @@ Returns final path (may differ from input if format changed)."
    org-indent-mode-turns-on-hiding-stars nil
    org-startup-with-link-previews t
    org-image-actual-width nil
-   org-yank-image-save-method 'attach
+   ;; Pasted/dropped images go to one flat assets/ dir as a relative file:
+   ;; link, so the same link resolves on every synced machine and in the
+   ;; web PKM.  `org-yank-dnd-method' stays `attach' because that is what
+   ;; routes dropped images through the save-method above; note that a
+   ;; dropped *non-image* file still goes through org-attach.
+   org-yank-image-save-method my/org-assets-dir
    org-yank-dnd-method 'attach
    org-yank-dnd-default-attach-method 'cp
+   org-link-file-path-type 'relative
 
    ;; Babel
    org-confirm-babel-evaluate nil
@@ -290,8 +305,25 @@ Returns final path (may differ from input if format changed)."
   :load-path "lisp/"
   :after (gco-pkm gco-inline-tags)
   :demand t
-  :hook (org-mode . gco-pkm-context-maybe-enable)
+  ;; Notes come in both formats while the PKM is converted to markdown,
+  ;; so the sidebar attaches to either.
+  :hook ((org-mode . gco-pkm-context-maybe-enable)
+         (markdown-mode . gco-pkm-context-maybe-enable))
   :bind (("C-c t c" . gco-pkm-context-toggle)))
+
+;; PKM setup that applies to markdown notes the way init-org's does to org.
+(defun my/pkm-markdown-setup ()
+  "Enable PKM conveniences in markdown notes under `my/notes-dir'."
+  (when (and buffer-file-name
+             (file-in-directory-p buffer-file-name my/notes-dir))
+    ;; org's table editor works in any major mode, and markdown pipe tables
+    ;; are close enough that it beats markdown-mode's own table commands.
+    (when (require 'org-table nil t) (orgtbl-mode 1))
+    ;; Inline images, matching org's startup-with-link-previews behaviour.
+    (when (fboundp 'markdown-display-inline-images)
+      (ignore-errors (markdown-display-inline-images)))))
+
+(add-hook 'markdown-mode-hook #'my/pkm-markdown-setup)
 
 
 (defun my/org-refresh-faces ()

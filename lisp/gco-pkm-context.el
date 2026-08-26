@@ -30,6 +30,7 @@
 (require 'text-property-search)
 (require 'gco-pkm)
 (require 'gco-inline-tags)
+(require 'gco-pkm-format)
 
 ;;;; Customization
 
@@ -89,7 +90,7 @@ entries don't fill the sidebar.  Word and tag matching are unaffected."
 (defcustom gco-pkm-context-rg-args
   '("--no-heading" "--with-filename" "--line-number"
     "--color=never" "--max-columns=500" "--max-columns-preview"
-    "--pcre2" "-A" "1" "--glob" "*.org")
+    "--pcre2" "-A" "1" "--glob" "*.org" "--glob" "*.md")
   "Ripgrep arguments for context queries."
   :type '(repeat string))
 
@@ -155,16 +156,12 @@ entries don't fill the sidebar.  Word and tag matching are unaffected."
 (defun gco-pkm-context--current-heading-text ()
   "Return cleaned heading text at point, or the file `#+title:' if none.
 Returns nil if no usable text is available."
-  (when (derived-mode-p 'org-mode)
-    (or (ignore-errors
-          (save-excursion
-            (org-back-to-heading t)
-            (let ((h (org-get-heading t t t t)))
-              (and h (not (string-empty-p (string-trim h)))
-                   (string-trim h)))))
-        (let ((kw (cadr (assoc "TITLE" (org-collect-keywords '("TITLE"))))))
-          (and kw (not (string-empty-p (string-trim kw)))
-               (string-trim kw))))))
+  (when (gco-pkm-format-note-buffer-p)
+    (or (let ((h (ignore-errors (gco-pkm-format-current-heading))))
+          (and h (not (string-empty-p (string-trim h))) (string-trim h)))
+        (let ((title (ignore-errors (gco-pkm-format-buffer-title))))
+          (and title (not (string-empty-p (string-trim title)))
+               (string-trim title))))))
 
 (defun gco-pkm-context--timestamp-only-p (heading)
   "Non-nil if HEADING is just an org timestamp like `<2026-05-09 Sat>'."
@@ -196,7 +193,7 @@ Returns nil if no usable text is available."
 
 (defun gco-pkm-context--nearby-tags ()
   "Return sorted list of inline tags within a window around point."
-  (when (derived-mode-p 'org-mode)
+  (when (gco-pkm-format-note-buffer-p)
     (let* ((lines gco-pkm-context-tag-window-lines)
            (start (save-excursion
                     (forward-line (- lines))
@@ -803,10 +800,8 @@ Closes the side window when no PKM buffer is visible anywhere."
             gco-pkm-context--last-source-file file
             gco-pkm-context--last-source-line
             (line-number-at-pos
-             (if (derived-mode-p 'org-mode)
-                 (or (ignore-errors
-                       (save-excursion (org-back-to-heading t) (point)))
-                     (point))
+             (if (gco-pkm-format-note-buffer-p)
+                 (or (ignore-errors (gco-pkm-format-heading-start)) (point))
                (point))))
       (unless (equal key gco-pkm-context--last-key)
         (setq gco-pkm-context--last-key key)
@@ -893,11 +888,12 @@ Closes the side window when no PKM buffer is visible anywhere."
 
 ;;;###autoload
 (defun gco-pkm-context-maybe-enable ()
-  "Enable `gco-pkm-context-track-mode' on first PKM org buffer this session.
-Intended for `org-mode-hook'.  Once it has fired, the user remains in
-control: toggling off will not be undone by visiting another PKM file."
+  "Enable `gco-pkm-context-track-mode' on the first PKM note this session.
+Intended for `org-mode-hook' and `markdown-mode-hook'.  Once it has fired,
+the user remains in control: toggling off will not be undone by visiting
+another PKM file."
   (when (and (not gco-pkm-context--auto-enable-attempted)
-             (derived-mode-p 'org-mode)
+             (gco-pkm-format-note-buffer-p)
              (gco-pkm-context--in-pkm-buffer-p))
     (setq gco-pkm-context--auto-enable-attempted t)
     (gco-pkm-context-track-mode 1)))
