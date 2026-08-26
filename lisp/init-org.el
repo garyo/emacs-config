@@ -358,7 +358,7 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
       (with-temp-file path (insert data)))
     path))
 
-(defun my/pkm-md-refresh-images ()
+(defun my/markdown-refresh-images ()
   "Re-display inline images, in whichever markdown mode is active."
   (ignore-errors
     (if (derived-mode-p 'markdown-ts-mode)
@@ -374,7 +374,7 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
          (path (my/pkm-md-save-asset data ext))
          (final (my/optimize-image path)))
     (insert (my/pkm-md-asset-link final))
-    (my/pkm-md-refresh-images)))
+    (my/markdown-refresh-images)))
 
 (defun my/pkm-md-dnd-handler (url action)
   "Copy a dropped image URL into assets/ and link it; else fall back."
@@ -387,7 +387,7 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
                                         my/org-assets-dir)))
             (copy-file file dest t)
             (insert (my/pkm-md-asset-link (my/optimize-image dest)))
-            (my/pkm-md-refresh-images)
+            (my/markdown-refresh-images)
             'private))
       (dnd-insert-text (selected-window) action (or file url)))))
 
@@ -397,12 +397,12 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
 ;; bookkeeping that belongs in the file but not in your face. Org folds
 ;; those on open, so fold this the same way.
 
-(defcustom my/pkm-md-fold-frontmatter t
+(defcustom my/markdown-fold-frontmatter t
   "Whether to fold YAML frontmatter when opening a markdown note."
   :type 'boolean
   :group 'pkm)
 
-(defun my/pkm-md-frontmatter-bounds ()
+(defun my/markdown-frontmatter-bounds ()
   "Return (START . END) of the buffer's YAML frontmatter, or nil."
   (save-excursion
     (goto-char (point-min))
@@ -412,25 +412,25 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
         (when (re-search-forward "^---[ \t]*$" nil t)
           (cons start (line-end-position)))))))
 
-(defun my/pkm-md-frontmatter-overlay ()
+(defun my/markdown-frontmatter-overlay ()
   "Return the existing frontmatter overlay, or nil."
   (seq-find (lambda (o) (overlay-get o 'my/pkm-frontmatter))
             (overlays-in (point-min) (min (point-max) 4096))))
 
-(defun my/pkm-md-in-frontmatter-p ()
+(defun my/markdown-in-frontmatter-p ()
   "Non-nil when point is inside the frontmatter block, folded or not.
 When folded the text is still there, just invisible, so the same bounds
 check answers for both states -- which is what lets one key toggle it
 each way."
-  (when-let* ((bounds (my/pkm-md-frontmatter-bounds)))
+  (when-let* ((bounds (my/markdown-frontmatter-bounds)))
     (and (>= (point) (car bounds)) (<= (point) (cdr bounds)))))
 
-(defun my/pkm-md-toggle-frontmatter ()
+(defun my/markdown-toggle-frontmatter ()
   "Fold or unfold the YAML frontmatter block."
   (interactive)
-  (if-let* ((o (my/pkm-md-frontmatter-overlay)))
+  (if-let* ((o (my/markdown-frontmatter-overlay)))
       (delete-overlay o)
-    (when-let* ((bounds (my/pkm-md-frontmatter-bounds)))
+    (when-let* ((bounds (my/markdown-frontmatter-bounds)))
       (let ((o (make-overlay (car bounds) (cdr bounds))))
         (overlay-put o 'my/pkm-frontmatter t)
         (overlay-put o 'invisible t)
@@ -446,54 +446,34 @@ each way."
                                   "frontmatter"))
                       'face 'shadow))))))
 
-;;;; C-c C-c
-;;
-;; markdown-mode uses C-c C-c as a *prefix* (preview, export, check refs),
-;; while org uses it to act on the thing at point. Dispatch on context and
-;; hand off to markdown's prefix map when there is nothing at point to act
-;; on, so both habits work.
-
-(defun my/pkm-md-ctrl-c-ctrl-c ()
-  "Act on the thing at point, or fall through to markdown's C-c C-c map."
-  (interactive)
-  (cond
-   ((save-excursion
-      (beginning-of-line)
-      (looking-at "[ \t]*[-+*][ \t]+\\[[ xX]\\]"))
-    (markdown-toggle-gfm-checkbox))
-   ((and (fboundp 'markdown-table-at-point-p) (markdown-table-at-point-p))
-    (call-interactively #'markdown-table-align))
-   ((my/pkm-md-in-frontmatter-p) (my/pkm-md-toggle-frontmatter))
-   (t (set-transient-map markdown-mode-command-map))))
-
-(defun my/pkm-md--delegate (key fallback)
-  "Run whatever KEY would do without `my/pkm-md-mode' in the way.
+(defun my/markdown--delegate (key fallback)
+  "Run whatever KEY would do without `my/markdown-extras-mode' in the way.
 Resolved dynamically rather than against a named keymap, so this works
 whether the buffer is in `markdown-ts-mode' or `markdown-mode'."
-  (let* ((my/pkm-md-mode nil)          ; take our own map out of the lookup
+  (let* ((my/markdown-extras-mode nil)          ; take our own map out of the lookup
          (cmd (or (key-binding key t) fallback)))
     (if (commandp cmd)
         (progn (setq this-command cmd) (call-interactively cmd))
       (call-interactively fallback))))
 
-(defun my/pkm-md-tab ()
+(defun my/markdown-tab ()
   "Fold or unfold frontmatter at point; otherwise behave as usual.
 Org folds a drawer with TAB, so frontmatter answers to it too."
   (interactive)
-  (if (my/pkm-md-in-frontmatter-p)
-      (my/pkm-md-toggle-frontmatter)
-    (my/pkm-md--delegate (kbd "TAB") #'indent-for-tab-command)))
+  (if (my/markdown-in-frontmatter-p)
+      (my/markdown-toggle-frontmatter)
+    (my/markdown--delegate (kbd "TAB") #'indent-for-tab-command)))
 
-(defvar my/pkm-md-mode-map
+(defvar my/markdown-extras-mode-map
   (let ((map (make-sparse-keymap)))
     ;; TAB only. markdown-ts-mode binds C-c C-c to its own checkbox toggle
     ;; and TAB to outline cycling; we intercept TAB purely so frontmatter
     ;; folds like an org drawer, and defer to the mode otherwise.
-    (define-key map (kbd "TAB") #'my/pkm-md-tab)
+    (define-key map (kbd "TAB") #'my/markdown-tab)
     map)
   "Keymap for PKM markdown notes.")
 
-(define-minor-mode my/pkm-md-mode
+(define-minor-mode my/markdown-extras-mode
   "Buffer-local conveniences for markdown notes in the PKM.
 
 A minor mode rather than `local-set-key': the latter mutates
@@ -501,35 +481,43 @@ A minor mode rather than `local-set-key': the latter mutates
 `markdown-mode-map', so its bindings would leak into every markdown
 file rather than just notes under `my/notes-dir'."
   :lighter " PKM"
-  :keymap my/pkm-md-mode-map)
+  :keymap my/markdown-extras-mode-map)
 
 ;; PKM setup that applies to markdown notes the way init-org's does to org.
+(defun my/markdown-setup ()
+  "Conveniences for editing any markdown file.
+Frontmatter folding, TAB handling and bounded inline images are useful in
+a blog post or a README, not just in a note, so they are not gated on
+`my/notes-dir'."
+  ;; NB: not orgtbl-mode. It rewrites the GFM delimiter row `|---|---|' into
+  ;; org's `|---+---|', which is not valid GFM: pandoc and GitHub then render
+  ;; the table as a paragraph of literal text. It realigns on TAB, so merely
+  ;; tabbing through a table would destroy it. markdown-ts-mode has a native
+  ;; GFM table mode; markdown-mode's own commands keep the pipes too.
+  (my/markdown-extras-mode 1)
+  ;; Inline images, matching org's startup-with-link-previews behaviour,
+  ;; bounded the same way. The two markdown modes spell this differently.
+  (if (derived-mode-p 'markdown-ts-mode)
+      (progn
+        (setq-local markdown-ts-image-max-width my/pkm-inline-image-width)
+        (setq-local markdown-ts-inline-images t)
+        (when (fboundp 'markdown-ts--set-inline-images)
+          (ignore-errors (markdown-ts--set-inline-images t))))
+    (setq-local markdown-max-image-size
+                (cons my/pkm-inline-image-width
+                      (round (* my/pkm-inline-image-width 0.75))))
+    (when (fboundp 'markdown-display-inline-images)
+      (ignore-errors (markdown-display-inline-images))))
+  (when my/markdown-fold-frontmatter
+    (my/markdown-toggle-frontmatter)))
+
 (defun my/pkm-markdown-setup ()
-  "Enable PKM conveniences in markdown notes under `my/notes-dir'."
+  "PKM-specific markdown setup, for notes under `my/notes-dir'.
+Only the parts that depend on the PKM's layout: pasted and dropped images
+belong in its flat assets/ directory, which makes no sense elsewhere."
   (when (and buffer-file-name
              (file-in-directory-p buffer-file-name my/notes-dir))
-    ;; NOT orgtbl-mode. It rewrites the GFM delimiter row `|---|---|' into
-    ;; org's `|---+---|', which is not valid GFM: pandoc and GitHub then
-    ;; render the table as a paragraph of literal text. It realigns on TAB,
-    ;; so merely tabbing through a table would destroy it. markdown-mode's
-    ;; own table commands keep the pipes.
-    (my/pkm-md-mode 1)
-    ;; Inline images, matching org's startup-with-link-previews behaviour,
-    ;; bounded the same way. The two markdown modes spell this differently.
-    (if (derived-mode-p 'markdown-ts-mode)
-        (progn
-          (setq-local markdown-ts-image-max-width my/pkm-inline-image-width)
-          (setq-local markdown-ts-inline-images t)
-          (when (fboundp 'markdown-ts--set-inline-images)
-            (ignore-errors (markdown-ts--set-inline-images t))))
-      (setq-local markdown-max-image-size
-                  (cons my/pkm-inline-image-width
-                        (round (* my/pkm-inline-image-width 0.75))))
-      (when (fboundp 'markdown-display-inline-images)
-        (ignore-errors (markdown-display-inline-images))))
-    (when my/pkm-md-fold-frontmatter
-      (my/pkm-md-toggle-frontmatter))
-    ;; Same key as markdown-mode's own registration, so this replaces it.
+    ;; Same key markdown-mode registers under, so this replaces its handler.
     (when (fboundp 'yank-media-handler)
       (yank-media-handler "image/.*" #'my/pkm-md-image-yank-handler))
     (setq-local dnd-protocol-alist
@@ -538,37 +526,10 @@ file rather than just notes under `my/notes-dir'."
                               (cons "^file:[^/]" #'my/pkm-md-dnd-handler))
                         dnd-protocol-alist))))
 
-(add-hook 'markdown-mode-hook #'my/pkm-markdown-setup)
-(add-hook 'markdown-ts-mode-hook #'my/pkm-markdown-setup)
+(dolist (hook '(markdown-mode-hook markdown-ts-mode-hook))
+  (add-hook hook #'my/markdown-setup)
+  (add-hook hook #'my/pkm-markdown-setup))
 
-;; PKM notes get markdown-ts-mode: tree-sitter parsing, native GFM tables,
-;; folding, and a checkbox toggle on C-c C-c. Markdown elsewhere (READMEs in
-;; code repos and so on) keeps markdown-mode, which is more battle-tested.
-;; A regexp containing a slash is matched against the whole file name.
-;;
-;; Registered after startup, not here: elpaca activates packages
-;; asynchronously, so `use-package markdown-mode' adds its own `\.md\''
-;; entry once this file has already finished loading.  Adding ours now would
-;; leave it sitting *behind* that one, and markdown-mode would win.
-(defun my/pkm-register-markdown-ts-mode ()
-  "Route PKM notes to `markdown-ts-mode', ahead of any generic .md entry."
-  (interactive)
-  (setq auto-mode-alist
-        (cons (cons (concat "\\`" (regexp-quote (file-truename my/notes-dir))
-                            "/.*\\.md\\'")
-                    #'markdown-ts-mode)
-              (rassq-delete-all
-               #'markdown-ts-mode
-               (cl-remove-if (lambda (e)
-                               (and (stringp (car e))
-                                    (string-prefix-p "\\`" (car e))
-                                    (string-search "org-notes" (car e))))
-                             auto-mode-alist)))))
-
-(add-hook (if (boundp 'elpaca-after-init-hook)
-              'elpaca-after-init-hook
-            'emacs-startup-hook)
-          #'my/pkm-register-markdown-ts-mode)
 
 
 (defun my/org-refresh-faces ()

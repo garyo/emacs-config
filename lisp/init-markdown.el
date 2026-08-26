@@ -31,11 +31,14 @@ opaque exit code."
                      (if (string-empty-p stderr) "(no stderr)" stderr)))))
       (ignore-errors (delete-file stderr-file)))))
 
+;; markdown-ts-mode owns .md (below).  markdown-mode stays installed as the
+;; fallback when the tree-sitter grammar is missing, and for M-x use, but it
+;; no longer claims a file extension -- two packages racing for the same
+;; auto-mode-alist entry is exactly the bug that made PKM notes open in the
+;; wrong mode, since elpaca activates asynchronously and order is not the
+;; order of the require calls.
 (use-package markdown-mode
   :commands (markdown-mode gfm-mode)
-  :mode (("README\\.md\\'" . gfm-mode)
-         ("\\.md\\'" . markdown-mode)
-         ("\\.markdown\\'" . markdown-mode))
   :bind (:map markdown-mode-map
               ("M-RET" . completion-at-point))
   :init (setq markdown-command #'my-markdown-run-pandoc)
@@ -50,14 +53,22 @@ opaque exit code."
 ;; `markdown-mode-hook' does NOT run. Anything hooked for markdown has to
 ;; name markdown-ts-mode too, or it silently never fires there.
 
-;; Tree-sitter markdown mode: colored embedded code blocks, inline images,
-;; org-like folding and navigation, and a native GFM table mode. PKM notes
-;; use it (see init-org.el); markdown-mode still owns .md elsewhere.
-;; markdown-ts-mode-x adds export/preview and table-of-contents generation.
+;; Tree-sitter markdown mode for ALL markdown: colored embedded code blocks,
+;; inline images, org-like folding and navigation, and a native GFM table
+;; mode.  markdown-ts-mode-x adds export/preview and TOC generation.
+;;
+;; Falls back to markdown-mode if the grammar is unavailable, so a machine
+;; without it still edits markdown rather than dropping to fundamental-mode.
+(unless (and (fboundp 'treesit-ready-p) (treesit-ready-p 'markdown t))
+  (message "markdown-ts-mode: grammar unavailable, falling back to markdown-mode")
+  (add-to-list 'auto-mode-alist '("\\.md\\'" . markdown-mode))
+  (add-to-list 'auto-mode-alist '("\\.markdown\\'" . markdown-mode)))
+
 (when (fboundp 'markdown-ts-mode)
   (use-package markdown-ts-mode
     :ensure nil
-    :defer t
+    :mode (("\\.md\\'" . markdown-ts-mode)
+           ("\\.markdown\\'" . markdown-ts-mode))
     :config
     (require 'markdown-ts-mode-x nil t)
     ;; markdown-ts-mode has no `markdown-mode-command-map', so the preview

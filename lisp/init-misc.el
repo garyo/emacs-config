@@ -82,7 +82,10 @@
 ;; to get conflicts.
 (setq auto-save-visited-predicate
       (lambda ()
-        (memq major-mode '(org-mode markdown-mode))))
+        ;; derived-mode-p, not memq: markdown-ts-mode is its own symbol, so an
+        ;; exact match silently stopped auto-saving every note the moment the
+        ;; PKM moved to it.  This also picks up gfm-mode and org derivatives.
+        (derived-mode-p 'org-mode 'markdown-mode 'markdown-ts-mode)))
 (auto-save-visited-mode 1)
 
 (defun bf-pretty-print-xml-region (begin end)
