@@ -45,6 +45,16 @@ Set to nil to disable conversion."
   :type 'integer
   :group 'pkm)
 
+(defcustom my/pkm-inline-image-width 600
+  "Width, in pixels, for inline image previews in notes.
+Pasted images are already capped on disk at
+`my/org-attach-image-max-width' x `my/org-attach-image-max-height', but
+that is still far larger than a comfortable preview, so bound the display
+too.  An explicit per-image width (`#+ATTR_ORG: :width' in org, the
+menu's \"Image width\" in markdown) still wins."
+  :type 'integer
+  :group 'pkm)
+
 (defcustom my/org-assets-dir (expand-file-name "assets" my/notes-dir)
   "Flat directory holding images pasted or dropped into notes.
 Replaces org-attach's ID-hashed `data/' trees so that the path in a
@@ -208,7 +218,10 @@ Returns final path (may differ from input if format changed)."
    org-use-sub-superscripts '{}
    org-indent-mode-turns-on-hiding-stars nil
    org-startup-with-link-previews t
-   org-image-actual-width nil
+   ;; A list means: use an explicit #+ATTR width when present, else fall
+   ;; back to this. Plain nil falls back to the image's actual size, which
+   ;; for a 1558px paste fills the window.
+   org-image-actual-width (list my/pkm-inline-image-width)
    ;; Pasted/dropped images go to one flat assets/ dir as a relative file:
    ;; link, so the same link resolves on every synced machine and in the
    ;; web PKM.  `org-yank-dnd-method' stays `attach' because that is what
@@ -368,6 +381,75 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
             'private))
       (dnd-insert-text (selected-window) action (or file url)))))
 
+;;;; Frontmatter folding
+;;
+;; Frontmatter is the markdown counterpart of an org property drawer:
+;; bookkeeping that belongs in the file but not in your face. Org folds
+;; those on open, so fold this the same way.
+
+(defcustom my/pkm-md-fold-frontmatter t
+  "Whether to fold YAML frontmatter when opening a markdown note."
+  :type 'boolean
+  :group 'pkm)
+
+(defun my/pkm-md-frontmatter-bounds ()
+  "Return (START . END) of the buffer's YAML frontmatter, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (when (looking-at "^---[ \t]*$")
+      (let ((start (point)))
+        (forward-line 1)
+        (when (re-search-forward "^---[ \t]*$" nil t)
+          (cons start (line-end-position)))))))
+
+(defun my/pkm-md-frontmatter-overlay ()
+  "Return the existing frontmatter overlay, or nil."
+  (seq-find (lambda (o) (overlay-get o 'my/pkm-frontmatter))
+            (overlays-in (point-min) (min (point-max) 4096))))
+
+(defun my/pkm-md-toggle-frontmatter ()
+  "Fold or unfold the YAML frontmatter block."
+  (interactive)
+  (if-let* ((o (my/pkm-md-frontmatter-overlay)))
+      (delete-overlay o)
+    (when-let* ((bounds (my/pkm-md-frontmatter-bounds)))
+      (let ((o (make-overlay (car bounds) (cdr bounds))))
+        (overlay-put o 'my/pkm-frontmatter t)
+        (overlay-put o 'invisible t)
+        (overlay-put o 'isearch-open-invisible #'delete-overlay)
+        (overlay-put o 'display
+                     (propertize
+                      (format "--- %s ---"
+                              (or (save-excursion
+                                    (goto-char (car bounds))
+                                    (and (re-search-forward "^title:[ \t]*\\(.*\\)$"
+                                                            (cdr bounds) t)
+                                         (string-trim (match-string 1) "\"" "\"")))
+                                  "frontmatter"))
+                      'face 'shadow))))))
+
+;;;; C-c C-c
+;;
+;; markdown-mode uses C-c C-c as a *prefix* (preview, export, check refs),
+;; while org uses it to act on the thing at point. orgtbl-mode binds it too,
+;; and its binding wins over a major mode's -- which is why enabling
+;; orgtbl-mode here broke C-c C-c: orgtbl tried to run markdown's prefix
+;; keymap as a command. Dispatch on context instead, and hand off to
+;; markdown's prefix map when there is nothing at point to act on.
+
+(defun my/pkm-md-ctrl-c-ctrl-c ()
+  "Act on the thing at point, or fall through to markdown's C-c C-c map."
+  (interactive)
+  (cond
+   ((save-excursion
+      (beginning-of-line)
+      (looking-at "[ \t]*[-+*][ \t]+\\[[ xX]\\]"))
+    (markdown-toggle-gfm-checkbox))
+   ((and (fboundp 'org-at-table-p) (org-at-table-p))
+    (call-interactively #'orgtbl-ctrl-c-ctrl-c))
+   ((my/pkm-md-frontmatter-overlay) (my/pkm-md-toggle-frontmatter))
+   (t (set-transient-map markdown-mode-command-map))))
+
 ;; PKM setup that applies to markdown notes the way init-org's does to org.
 (defun my/pkm-markdown-setup ()
   "Enable PKM conveniences in markdown notes under `my/notes-dir'."
@@ -375,10 +457,25 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
              (file-in-directory-p buffer-file-name my/notes-dir))
     ;; org's table editor works in any major mode, and markdown pipe tables
     ;; are close enough that it beats markdown-mode's own table commands.
-    (when (require 'org-table nil t) (orgtbl-mode 1))
-    ;; Inline images, matching org's startup-with-link-previews behaviour.
+    ;; Its C-c C-c must not shadow markdown's prefix map, so override the
+    ;; minor-mode map buffer-locally with that one binding removed.
+    (when (require 'org-table nil t)
+      (orgtbl-mode 1)
+      (let ((map (copy-keymap orgtbl-mode-map)))
+        (define-key map (kbd "C-c C-c") nil)
+        (setq-local minor-mode-overriding-map-alist
+                    (cons (cons 'orgtbl-mode map)
+                          minor-mode-overriding-map-alist))))
+    (local-set-key (kbd "C-c C-c") #'my/pkm-md-ctrl-c-ctrl-c)
+    ;; Inline images, matching org's startup-with-link-previews behaviour,
+    ;; bounded the same way.
+    (setq-local markdown-max-image-size
+                (cons my/pkm-inline-image-width
+                      (round (* my/pkm-inline-image-width 0.75))))
     (when (fboundp 'markdown-display-inline-images)
       (ignore-errors (markdown-display-inline-images)))
+    (when my/pkm-md-fold-frontmatter
+      (my/pkm-md-toggle-frontmatter))
     ;; Same key as markdown-mode's own registration, so this replaces it.
     (when (fboundp 'yank-media-handler)
       (yank-media-handler "image/.*" #'my/pkm-md-image-yank-handler))

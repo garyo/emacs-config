@@ -25,6 +25,7 @@
 (require 'org-capture)
 
 (declare-function consult-ripgrep "consult")
+(declare-function my/pkm-md-toggle-frontmatter "init-org")
 (declare-function gco-inline-tags-insert "gco-inline-tags")
 (declare-function gco-inline-tags-search "gco-inline-tags")
 
@@ -170,6 +171,8 @@ is the only thing CommonMark renderers honour."
                       (gco-inline-tags-insert)
                     (insert "#"))))
     ("il" "Link to note" gco-pkm-insert-note-link)
+    ("if" "Fold frontmatter" my/pkm-md-toggle-frontmatter
+     :if gco-pkm-transient--md-p)
     ("is" "Schedule" org-schedule :if-derived org-mode)
     ("iD" "Deadline" org-deadline :if-derived org-mode)
     ("iT" "Timestamp" gco-pkm--insert-timestamp)
