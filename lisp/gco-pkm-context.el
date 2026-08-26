@@ -341,13 +341,20 @@ called with the parsed entry list when the process exits cleanly."
                (let ((this-buf (process-buffer p)))
                  (unwind-protect
                      (when (and (eq p gco-pkm-context--proc)
-                                (= 0 (or (process-exit-status p) 1))
                                 (buffer-live-p this-buf))
-                       (let* ((output (with-current-buffer this-buf
-                                        (buffer-string)))
-                              (entries (gco-pkm-context--parse-rg-output
-                                        output classifiers)))
+                       ;; rg exits 1 for "no matches", which is an ordinary
+                       ;; answer, not a failure. Treating it as one left the
+                       ;; sidebar showing "Computing context..." forever, and
+                       ;; left --proc set, which then blocked later refreshes.
+                       (let* ((status (or (process-exit-status p) 2))
+                              (entries
+                               (when (= status 0)
+                                 (gco-pkm-context--parse-rg-output
+                                  (with-current-buffer this-buf (buffer-string))
+                                  classifiers))))
                          (setq gco-pkm-context--proc nil)
+                         (when (> status 1)
+                           (message "gco-pkm-context: rg exited %d" status))
                          (funcall on-done entries)))
                    (when (buffer-live-p this-buf)
                      (kill-buffer this-buf))))))))
