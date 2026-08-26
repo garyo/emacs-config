@@ -473,12 +473,30 @@ Org folds a drawer with TAB, so frontmatter answers to it too."
       (my/markdown-toggle-frontmatter)
     (my/markdown--delegate (kbd "TAB") #'indent-for-tab-command)))
 
+(defun my/markdown-previous-line (&optional arg try-vscroll)
+  "Like `previous-line', but able to escape a tall inline image.
+
+markdown-ts-mode renders an inline image as an `after-string' on the
+trailing newline of the link's line.  `line-move' cannot always step up
+out of such a display, so point stays pinned to that line however many
+times C-p is pressed.  Moving down is unaffected.
+
+Detect the non-move and fall back to a logical line move, which is not
+confused by display strings."
+  (interactive "^p\np")
+  (let ((start (point)))
+    (ignore-errors (line-move (- (or arg 1)) nil nil try-vscroll))
+    (when (and (= (point) start) (not (bobp)))
+      (forward-line (- (or arg 1))))))
+
 (defvar my/markdown-extras-mode-map
   (let ((map (make-sparse-keymap)))
     ;; TAB only. markdown-ts-mode binds C-c C-c to its own checkbox toggle
     ;; and TAB to outline cycling; we intercept TAB purely so frontmatter
     ;; folds like an org drawer, and defer to the mode otherwise.
     (define-key map (kbd "TAB") #'my/markdown-tab)
+    (define-key map (kbd "C-p") #'my/markdown-previous-line)
+    (define-key map (kbd "<up>") #'my/markdown-previous-line)
     map)
   "Keymap for PKM markdown notes.")
 
