@@ -69,12 +69,19 @@ When nil, defaults to `org-directory' or `default-directory' at first use."
 ;;;; Regex utilities
 
 ;; Font-lock regexp: group 1 = full #tag, group 2 = tag text
+;;
+;; `:' is deliberately not a tag character.  It only ever appears in this
+;; corpus as punctuation after a tag -- "#Travel: LA or wine country?" --
+;; and including it captured the tag as "Travel:", so every search built
+;; from it looked for a tag nothing else spells that way.
 (defconst gco-inline-tags--re
-  "\\(?:^\\|[^[:alnum:]_]\\)\\(#\\([[:alnum:]_:-]+\\)\\)")
+  "\\(?:^\\|[^[:alnum:]_]\\)\\(#\\([[:alnum:]_-]+\\)\\)")
 
 (defun gco-inline-tags--pcre-pattern (tag)
   "PCRE2 pattern matching inline #TAG with tight boundaries."
-  (format "(?<![[:alnum:]_])#%s(?![[:alnum:]_:-])" (regexp-quote tag)))
+  ;; The lookahead must not include `:' either, or "#Travel" would fail to
+  ;; match the occurrence written "#Travel:".
+  (format "(?<![[:alnum:]_])#%s(?![[:alnum:]_-])" (regexp-quote tag)))
 
 (defun gco-inline-tags--rg-command (pat &optional for-collect)
   "Build ripgrep command list for PAT.
@@ -138,7 +145,7 @@ Uses text properties for speed (avoids expensive `org-element-at-point')."
 (defun gco-inline-tags--collect-tags ()
   "Return unique sorted list of inline tags (no leading '#')."
   (when (executable-find gco-inline-tags-rg-exe)
-    (let* ((pat "(?<=#)([[:alnum:]_:-]+)") ;; capture group
+    (let* ((pat "(?<=#)([[:alnum:]_-]+)") ;; capture group
            (cmd (gco-inline-tags--rg-command pat t))
            (out (with-temp-buffer
                   (apply #'process-file (car cmd) nil t nil (cdr cmd))
