@@ -83,14 +83,14 @@ entries don't fill the sidebar.  Word and tag matching are unaffected."
   "Side of the frame on which to display the context buffer."
   :type '(choice (const left) (const right) (const top) (const bottom)))
 
-(defcustom gco-pkm-context-window-width 50
+(defcustom gco-pkm-context-window-width 45
   "Width in columns for the context side window."
   :type 'integer)
 
 (defcustom gco-pkm-context-rg-args
   '("--no-heading" "--with-filename" "--line-number"
     "--color=never" "--max-columns=500" "--max-columns-preview"
-    "--pcre2" "-A" "1" "--glob" "*.org" "--glob" "*.md")
+    "--pcre2" "-A" "3" "--glob" "*.org" "--glob" "*.md")
   "Ripgrep arguments for context queries."
   :type '(repeat string))
 
@@ -391,6 +391,12 @@ Prefers a YYYY-MM-DD prefix in the basename, falls back to mtime."
                     (string-to-number (nth 0 parts)))))
     (`(:mtime . ,time) time)))
 
+(defun gco-pkm-context--frontmatter-line-p (text)
+  "Non-nil if TEXT is a YAML frontmatter delimiter or scalar field.
+Markdown's counterpart of a property drawer: metadata, not content."
+  (or (string-match-p "\\`---[ \t]*\\'" text)
+      (string-match-p "\\`[ \t]*\\(title\\|id\\|date\\|tags\\):[ \t]" text)))
+
 (defun gco-pkm-context--drawer-line-p (text)
   "Non-nil if TEXT is an Org drawer or property line, e.g. `:PROPERTIES:'.
 Matches drawer delimiters (`:PROPERTIES:', `:END:', `:LOGBOOK:') and
@@ -421,9 +427,19 @@ property rows (`:ID: ...') so they can be dropped from context snippets."
                               :context "" :kind kind :date date))))
        ((and current
              (string-match "\\`\\(.+\\)-\\([0-9]+\\)-\\(.*\\)\\'" raw))
-        (let ((ctx (match-string 3 raw)))
-          (unless (gco-pkm-context--drawer-line-p ctx)
-            (setq current (plist-put current :context ctx)))))))
+        ;; Keep the FIRST line under the match that actually says something.
+        ;; A bare heading like "# Travel" is its own match text, so without
+        ;; this the sidebar shows the word you searched for and nothing else.
+        (when (string-empty-p (or (plist-get current :context) ""))
+          (let ((ctx (match-string 3 raw)))
+            (unless (or (string-blank-p ctx)
+                        (gco-pkm-context--drawer-line-p ctx)
+                        (gco-pkm-context--frontmatter-line-p ctx))
+              ;; A markdown heading may carry a `^anchor' link target; it is
+              ;; addressing, not prose, so keep it out of the snippet.
+              (setq ctx (replace-regexp-in-string
+                         "[ \t]+\\^[[:alnum:]_-]+[ \t]*\\'" "" ctx))
+              (setq current (plist-put current :context ctx))))))))
     (when current (push current entries))
     (nreverse entries)))
 
