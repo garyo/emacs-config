@@ -57,18 +57,31 @@ opaque exit code."
 ;; inline images, org-like folding and navigation, and a native GFM table
 ;; mode.  markdown-ts-mode-x adds export/preview and TOC generation.
 ;;
-;; Falls back to markdown-mode if the grammar is unavailable, so a machine
-;; without it still edits markdown rather than dropping to fundamental-mode.
-(unless (and (fboundp 'treesit-ready-p) (treesit-ready-p 'markdown t))
-  (message "markdown-ts-mode: grammar unavailable, falling back to markdown-mode")
-  (add-to-list 'auto-mode-alist '("\\.md\\'" . markdown-mode))
-  (add-to-list 'auto-mode-alist '("\\.markdown\\'" . markdown-mode)))
+;; Claimed by remapping, not by auto-mode-alist: markdown-mode registers
+;; ".md" in its own autoloads, which elpaca loads asynchronously after init.
+;; Any entry we add during init is therefore prepended *before* that one
+;; arrives, and loses. major-mode-remap-alist sidesteps the ordering
+;; entirely -- whatever decides on markdown-mode, we get markdown-ts-mode --
+;; while leaving M-x markdown-mode reachable as the fallback.
+;;
+;; Only when the grammar is actually available; otherwise markdown-mode
+;; stays in charge rather than dropping the buffer into fundamental-mode.
+(when (and (fboundp 'markdown-ts-mode)
+           ;; treesit-available-p and treesit-language-available-p are C
+           ;; primitives, always defined. treesit-ready-p is not: it lives in
+           ;; treesit.el, so guarding on it silently skipped this whole block
+           ;; during init, before anything had loaded that file.
+           (fboundp 'treesit-available-p)
+           (treesit-available-p)
+           (treesit-language-available-p 'markdown)
+           (treesit-language-available-p 'markdown-inline))
+  (add-to-list 'major-mode-remap-alist '(markdown-mode . markdown-ts-mode))
+  (add-to-list 'major-mode-remap-alist '(gfm-mode . markdown-ts-mode)))
 
 (when (fboundp 'markdown-ts-mode)
   (use-package markdown-ts-mode
     :ensure nil
-    :mode (("\\.md\\'" . markdown-ts-mode)
-           ("\\.markdown\\'" . markdown-ts-mode))
+    :defer t
     :config
     (require 'markdown-ts-mode-x nil t)
     ;; markdown-ts-mode has no `markdown-mode-command-map', so the preview
