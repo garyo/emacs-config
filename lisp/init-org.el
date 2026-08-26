@@ -22,6 +22,7 @@ Notes may be org or markdown; see `gco-pkm-format'."
   (make-directory my/notes-dir))
 
 ;; Org mode
+(require 'cl-lib)
 
 ;; Image attachment optimization settings
 (defcustom my/org-attach-image-convert-formats '("png" "heic" "tiff" "bmp")
@@ -544,10 +545,30 @@ file rather than just notes under `my/notes-dir'."
 ;; folding, and a checkbox toggle on C-c C-c. Markdown elsewhere (READMEs in
 ;; code repos and so on) keeps markdown-mode, which is more battle-tested.
 ;; A regexp containing a slash is matched against the whole file name.
-(add-to-list 'auto-mode-alist
-             (cons (concat "\\`" (regexp-quote (file-truename my/notes-dir))
-                           "/.*\\.md\\'")
-                   #'markdown-ts-mode))
+;;
+;; Registered after startup, not here: elpaca activates packages
+;; asynchronously, so `use-package markdown-mode' adds its own `\.md\''
+;; entry once this file has already finished loading.  Adding ours now would
+;; leave it sitting *behind* that one, and markdown-mode would win.
+(defun my/pkm-register-markdown-ts-mode ()
+  "Route PKM notes to `markdown-ts-mode', ahead of any generic .md entry."
+  (interactive)
+  (setq auto-mode-alist
+        (cons (cons (concat "\\`" (regexp-quote (file-truename my/notes-dir))
+                            "/.*\\.md\\'")
+                    #'markdown-ts-mode)
+              (rassq-delete-all
+               #'markdown-ts-mode
+               (cl-remove-if (lambda (e)
+                               (and (stringp (car e))
+                                    (string-prefix-p "\\`" (car e))
+                                    (string-search "org-notes" (car e))))
+                             auto-mode-alist)))))
+
+(add-hook (if (boundp 'elpaca-after-init-hook)
+              'elpaca-after-init-hook
+            'emacs-startup-hook)
+          #'my/pkm-register-markdown-ts-mode)
 
 
 (defun my/org-refresh-faces ()
