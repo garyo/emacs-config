@@ -397,6 +397,15 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
 ;; bookkeeping that belongs in the file but not in your face. Org folds
 ;; those on open, so fold this the same way.
 
+(defcustom my/markdown-hide-markup t
+  "Whether to hide markup delimiters in markdown buffers.
+With this on, list markers render as bullets, checkboxes as boxes, and
+thematic breaks as rules -- the org-like presentation.  It is a single
+switch: emphasis and link delimiters are hidden too.  Toggle per buffer
+with \[markdown-ts-toggle-hide-markup] (C-c C-x C-m)."
+  :type 'boolean
+  :group 'pkm)
+
 (defcustom my/markdown-fold-frontmatter t
   "Whether to fold YAML frontmatter when opening a markdown note."
   :type 'boolean
@@ -508,8 +517,21 @@ a blog post or a README, not just in a note, so they are not gated on
                       (round (* my/pkm-inline-image-width 0.75))))
     (when (fboundp 'markdown-display-inline-images)
       (ignore-errors (markdown-display-inline-images))))
+  ;; Bullets for list markers, boxes for checkboxes, a rule for thematic
+  ;; breaks. markdown-ts-unordered-list-marker and friends only take effect
+  ;; when markup is hidden, so it is this one switch that turns them on.
+  (when (and my/markdown-hide-markup (derived-mode-p 'markdown-ts-mode))
+    (setq-local markdown-ts-hide-markup t)
+    (when (fboundp 'markdown-ts--set-hide-markup)
+      (ignore-errors (markdown-ts--set-hide-markup t))))
   (when my/markdown-fold-frontmatter
     (my/markdown-toggle-frontmatter)))
+
+(defun my/pkm-journal-capture-template ()
+  "Capture template text matching the journal's own format."
+  (if (eq (gco-pkm-format-for-dir (gco-pkm-journal-dir)) 'md)
+      "- %?"
+    "* %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n"))
 
 (defun my/pkm-markdown-setup ()
   "PKM-specific markdown setup, for notes under `my/notes-dir'.
@@ -603,9 +625,13 @@ belong in its flat assets/ directory, which makes no sense elsewhere."
 ;; C-c c j/n/t/f
 (setq org-capture-templates
       '(("j" "Journal"
-         entry
+         ;; `plain', not `entry': the journal is markdown now, and an org
+         ;; `entry' capture would insert a `*' heading and a :PROPERTIES:
+         ;; drawer into it.  The template follows the journal's own format.
+         plain
          (file (gco-pkm-journal--path-for-date))
-         "* %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n")
+         (function my/pkm-journal-capture-template)
+         :empty-lines 1 :unnarrowed t)
         ("n" "Note" entry
          (file org-default-notes-file)
          "* %U - %?\n")
