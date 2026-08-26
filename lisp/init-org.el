@@ -477,16 +477,20 @@ Org folds a drawer with TAB, so frontmatter answers to it too."
   "Like `previous-line', but able to escape a tall inline image.
 
 markdown-ts-mode renders an inline image as an `after-string' on the
-trailing newline of the link's line.  `line-move' cannot always step up
-out of such a display, so point stays pinned to that line however many
-times C-p is pressed.  Moving down is unaffected.
+trailing newline of the link's line.  Moving up into such a display
+confuses `line-move': it either pins point to that line or, once a goal
+column is established across successive presses, lands *below* where it
+started, so C-p oscillates between two lines instead of going up.  Moving
+down is unaffected.
 
-Detect the non-move and fall back to a logical line move, which is not
-confused by display strings."
+Hence the test is that point ended up strictly earlier, not merely that it
+moved: fall back to a logical line move otherwise, which display strings
+do not confuse."
   (interactive "^p\np")
   (let ((start (point)))
     (ignore-errors (line-move (- (or arg 1)) nil nil try-vscroll))
-    (when (and (= (point) start) (not (bobp)))
+    (when (and (>= (point) start) (not (bobp)))
+      (goto-char start)
       (forward-line (- (or arg 1))))))
 
 (defvar my/markdown-extras-mode-map
