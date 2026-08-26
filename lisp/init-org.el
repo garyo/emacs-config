@@ -327,7 +327,9 @@ Returns final path (may differ from input if format changed)."
   ;; Notes come in both formats while the PKM is converted to markdown,
   ;; so the sidebar attaches to either.
   :hook ((org-mode . gco-pkm-context-maybe-enable)
-         (markdown-mode . gco-pkm-context-maybe-enable))
+         (markdown-mode . gco-pkm-context-maybe-enable)
+         ;; markdown-ts-mode does not run markdown-mode-hook; see init-markdown.
+         (markdown-ts-mode . gco-pkm-context-maybe-enable))
   :bind (("C-c t c" . gco-pkm-context-toggle)))
 
 ;;;; Markdown notes: the same image handling org notes get
@@ -355,6 +357,15 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
       (with-temp-file path (insert data)))
     path))
 
+(defun my/pkm-md-refresh-images ()
+  "Re-display inline images, in whichever markdown mode is active."
+  (ignore-errors
+    (if (derived-mode-p 'markdown-ts-mode)
+        (when (fboundp 'markdown-ts--set-inline-images)
+          (markdown-ts--set-inline-images t))
+      (when (fboundp 'markdown-display-inline-images)
+        (markdown-display-inline-images)))))
+
 (defun my/pkm-md-image-yank-handler (mimetype data)
   "Save pasted image DATA of MIMETYPE into assets/ and link it."
   (require 'mailcap)
@@ -362,8 +373,7 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
          (path (my/pkm-md-save-asset data ext))
          (final (my/optimize-image path)))
     (insert (my/pkm-md-asset-link final))
-    (when (fboundp 'markdown-display-inline-images)
-      (ignore-errors (markdown-display-inline-images)))))
+    (my/pkm-md-refresh-images)))
 
 (defun my/pkm-md-dnd-handler (url action)
   "Copy a dropped image URL into assets/ and link it; else fall back."
@@ -376,8 +386,7 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
                                         my/org-assets-dir)))
             (copy-file file dest t)
             (insert (my/pkm-md-asset-link (my/optimize-image dest)))
-            (when (fboundp 'markdown-display-inline-images)
-              (ignore-errors (markdown-display-inline-images)))
+            (my/pkm-md-refresh-images)
             'private))
       (dnd-insert-text (selected-window) action (or file url)))))
 
@@ -457,10 +466,11 @@ each way."
    (t (set-transient-map markdown-mode-command-map))))
 
 (defun my/pkm-md--delegate (key fallback)
-  "Run whatever KEY would otherwise do in markdown-mode."
-  (let ((cmd (or (and (boundp 'markdown-mode-map)
-                      (lookup-key markdown-mode-map key))
-                 fallback)))
+  "Run whatever KEY would do without `my/pkm-md-mode' in the way.
+Resolved dynamically rather than against a named keymap, so this works
+whether the buffer is in `markdown-ts-mode' or `markdown-mode'."
+  (let* ((my/pkm-md-mode nil)          ; take our own map out of the lookup
+         (cmd (or (key-binding key t) fallback)))
     (if (commandp cmd)
         (progn (setq this-command cmd) (call-interactively cmd))
       (call-interactively fallback))))
@@ -475,7 +485,9 @@ Org folds a drawer with TAB, so frontmatter answers to it too."
 
 (defvar my/pkm-md-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-c") #'my/pkm-md-ctrl-c-ctrl-c)
+    ;; TAB only. markdown-ts-mode binds C-c C-c to its own checkbox toggle
+    ;; and TAB to outline cycling; we intercept TAB purely so frontmatter
+    ;; folds like an org drawer, and defer to the mode otherwise.
     (define-key map (kbd "TAB") #'my/pkm-md-tab)
     map)
   "Keymap for PKM markdown notes.")
@@ -502,12 +514,18 @@ file rather than just notes under `my/notes-dir'."
     ;; own table commands keep the pipes.
     (my/pkm-md-mode 1)
     ;; Inline images, matching org's startup-with-link-previews behaviour,
-    ;; bounded the same way.
-    (setq-local markdown-max-image-size
-                (cons my/pkm-inline-image-width
-                      (round (* my/pkm-inline-image-width 0.75))))
-    (when (fboundp 'markdown-display-inline-images)
-      (ignore-errors (markdown-display-inline-images)))
+    ;; bounded the same way. The two markdown modes spell this differently.
+    (if (derived-mode-p 'markdown-ts-mode)
+        (progn
+          (setq-local markdown-ts-image-max-width my/pkm-inline-image-width)
+          (setq-local markdown-ts-inline-images t)
+          (when (fboundp 'markdown-ts--set-inline-images)
+            (ignore-errors (markdown-ts--set-inline-images t))))
+      (setq-local markdown-max-image-size
+                  (cons my/pkm-inline-image-width
+                        (round (* my/pkm-inline-image-width 0.75))))
+      (when (fboundp 'markdown-display-inline-images)
+        (ignore-errors (markdown-display-inline-images))))
     (when my/pkm-md-fold-frontmatter
       (my/pkm-md-toggle-frontmatter))
     ;; Same key as markdown-mode's own registration, so this replaces it.
@@ -520,6 +538,16 @@ file rather than just notes under `my/notes-dir'."
                         dnd-protocol-alist))))
 
 (add-hook 'markdown-mode-hook #'my/pkm-markdown-setup)
+(add-hook 'markdown-ts-mode-hook #'my/pkm-markdown-setup)
+
+;; PKM notes get markdown-ts-mode: tree-sitter parsing, native GFM tables,
+;; folding, and a checkbox toggle on C-c C-c. Markdown elsewhere (READMEs in
+;; code repos and so on) keeps markdown-mode, which is more battle-tested.
+;; A regexp containing a slash is matched against the whole file name.
+(add-to-list 'auto-mode-alist
+             (cons (concat "\\`" (regexp-quote (file-truename my/notes-dir))
+                           "/.*\\.md\\'")
+                   #'markdown-ts-mode))
 
 
 (defun my/org-refresh-faces ()

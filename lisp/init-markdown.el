@@ -45,15 +45,30 @@ opaque exit code."
          (markdown-ts-mode . my-markdown-mode-setup))
   )
 
-;; Emacs 31 ships an experimental tree-sitter markdown mode with colored
-;; embedded code blocks, inline image viewing, and org-like navigation.
-;; markdown-mode (above) still owns `.md' files; this just makes
-;; `markdown-ts-mode' available to switch into, and lets eglot render LSP
-;; docs via `markdown-ts-view-mode' (see init-language-server.el).
+;; markdown-ts-mode declares markdown-mode only via
+;; `derived-mode-extra-parents': `derived-mode-p' answers yes, but
+;; `markdown-mode-hook' does NOT run. Anything hooked for markdown has to
+;; name markdown-ts-mode too, or it silently never fires there.
+
+;; Tree-sitter markdown mode: colored embedded code blocks, inline images,
+;; org-like folding and navigation, and a native GFM table mode. PKM notes
+;; use it (see init-org.el); markdown-mode still owns .md elsewhere.
+;; markdown-ts-mode-x adds export/preview and table-of-contents generation.
 (when (fboundp 'markdown-ts-mode)
   (use-package markdown-ts-mode
     :ensure nil
-    :defer t))
+    :defer t
+    :config
+    (require 'markdown-ts-mode-x nil t)
+    ;; markdown-ts-mode has no `markdown-mode-command-map', so the preview
+    ;; commands bound into that map are re-bound here directly.
+    (with-eval-after-load 'grip-mode
+      (define-key markdown-ts-mode-map (kbd "C-c C-x g") #'grip-mode))
+    (with-eval-after-load 'markdown-xwidget
+      (define-key markdown-ts-mode-map (kbd "C-c C-x x")
+                  #'markdown-xwidget-preview-mode))
+    (when (fboundp 'markdown-ts-convert)
+      (define-key markdown-ts-mode-map (kbd "C-c C-x c") #'markdown-ts-convert))))
 
 ;; Live preview in an xwidget-webkit buffer with GitHub styling, MathJax,
 ;; Mermaid, and highlight.js. Toggle with C-c C-c x in markdown-mode.

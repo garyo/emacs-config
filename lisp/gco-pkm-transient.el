@@ -26,6 +26,7 @@
 
 (declare-function consult-ripgrep "consult")
 (declare-function my/pkm-md-toggle-frontmatter "init-org")
+(declare-function markdown-ts-table-insert-table "markdown-ts-mode")
 (declare-function gco-inline-tags-insert "gco-inline-tags")
 (declare-function gco-inline-tags-search "gco-inline-tags")
 
@@ -36,6 +37,10 @@
 (defun gco-pkm-transient--md-p ()
   "Non-nil in a markdown note buffer."
   (eq (gco-pkm-format-current) 'md))
+
+(defun gco-pkm-transient--md-ts-p ()
+  "Non-nil in a markdown note using the tree-sitter mode."
+  (and (gco-pkm-transient--md-p) (derived-mode-p 'markdown-ts-mode)))
 
 ;;;; Quick Insert Functions (for transient menu)
 
@@ -177,7 +182,9 @@ is the only thing CommonMark renderers honour."
     ("iD" "Deadline" org-deadline :if-derived org-mode)
     ("iT" "Timestamp" gco-pkm--insert-timestamp)
     ("ia" "Date" gco-pkm--insert-date)
-    ("ii" "Image width" gco-pkm--insert-image-width)]]
+    ("ii" "Image width" gco-pkm--insert-image-width)
+    ("iN" "Insert table" markdown-ts-table-insert-table
+     :if gco-pkm-transient--md-ts-p)]]
 
   [:description ""
    ["Navigate"
