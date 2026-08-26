@@ -221,14 +221,24 @@ Any literal `\\E' in S is broken across two quoted spans."
           (replace-regexp-in-string "\\\\E" "\\E\\E\\Q" s nil t)
           "\\E"))
 
+(defconst gco-pkm-context--pcre-heading "(?:\\*+|#+)"
+  "PCRE fragment matching an org or markdown heading's leading marker.
+The corpus holds both formats during the conversion, and a sidebar that
+only recognised one would quietly find nothing in half the notes.")
+
+(defconst gco-pkm-context--elisp-heading "^\\(?:\\*+\\|#+\\)"
+  "Emacs-regexp counterpart of `gco-pkm-context--pcre-heading'.")
+
 (defun gco-pkm-context--exact-pattern (heading)
   "PCRE2 pattern matching a heading line whose text equals HEADING."
-  (format "(?:^\\*+\\s+(?:TODO\\s+|DONE\\s+|WAITING\\s+|NOTE\\s+)?%s\\s*$)"
+  (format "(?:^%s\\s+(?:TODO\\s+|DONE\\s+|WAITING\\s+|NOTE\\s+)?%s\\s*$)"
+          gco-pkm-context--pcre-heading
           (gco-pkm-context--pcre-quote heading)))
 
 (defun gco-pkm-context--word-pattern (word)
   "PCRE2 pattern matching a heading line containing WORD on a word boundary."
-  (format "(?:^\\*+\\s+.*\\b%s\\b.*$)"
+  (format "(?:^%s\\s+.*\\b%s\\b.*$)"
+          gco-pkm-context--pcre-heading
           (gco-pkm-context--pcre-quote word)))
 
 (defun gco-pkm-context--tag-pattern (tag)
@@ -242,7 +252,7 @@ Any literal `\\E' in S is broken across two quoted spans."
 
 (defun gco-pkm-context--heading-word-classifier-re (word)
   "Emacs regex matching a heading line containing WORD on word boundaries."
-  (concat "^\\*+\\s-+.*\\b" (regexp-quote word) "\\b"))
+  (concat gco-pkm-context--elisp-heading "\\s-+.*\\b" (regexp-quote word) "\\b"))
 
 (defun gco-pkm-context--build-pattern (heading words tags)
   "Return (PCRE-STRING . CLASSIFIERS) for the combined query.
@@ -271,7 +281,8 @@ first one whose REGEX matches the hit text wins, so order = priority
      ((and heading
            (not (member (downcase heading) stop-headings)))
       (push (gco-pkm-context--exact-pattern heading) pieces)
-      (push (cons (concat "^\\*+\\s-+\\(?:TODO\\s-+\\|DONE\\s-+\\|WAITING\\s-+\\|NOTE\\s-+\\)?"
+      (push (cons (concat gco-pkm-context--elisp-heading
+                          "\\s-+\\(?:TODO\\s-+\\|DONE\\s-+\\|WAITING\\s-+\\|NOTE\\s-+\\)?"
                           (regexp-quote heading) "\\s-*$")
                   'exact)
             classifiers)))
