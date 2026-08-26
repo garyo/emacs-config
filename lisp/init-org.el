@@ -407,6 +407,14 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
   (seq-find (lambda (o) (overlay-get o 'my/pkm-frontmatter))
             (overlays-in (point-min) (min (point-max) 4096))))
 
+(defun my/pkm-md-in-frontmatter-p ()
+  "Non-nil when point is inside the frontmatter block, folded or not.
+When folded the text is still there, just invisible, so the same bounds
+check answers for both states -- which is what lets one key toggle it
+each way."
+  (when-let* ((bounds (my/pkm-md-frontmatter-bounds)))
+    (and (>= (point) (car bounds)) (<= (point) (cdr bounds)))))
+
 (defun my/pkm-md-toggle-frontmatter ()
   "Fold or unfold the YAML frontmatter block."
   (interactive)
@@ -447,8 +455,49 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
     (markdown-toggle-gfm-checkbox))
    ((and (fboundp 'org-at-table-p) (org-at-table-p))
     (call-interactively #'orgtbl-ctrl-c-ctrl-c))
-   ((my/pkm-md-frontmatter-overlay) (my/pkm-md-toggle-frontmatter))
+   ((and (fboundp 'markdown-table-at-point-p) (markdown-table-at-point-p))
+    (call-interactively #'markdown-table-align))
+   ((my/pkm-md-in-frontmatter-p) (my/pkm-md-toggle-frontmatter))
    (t (set-transient-map markdown-mode-command-map))))
+
+(defun my/pkm-md--delegate (key fallback)
+  "Run whatever KEY would otherwise do, preferring orgtbl then markdown.
+orgtbl-mode installs \"hijacker\" commands on TAB and RET that handle
+tables and defer otherwise, so table editing keeps working as long as
+they stay in the chain."
+  (let ((cmd (or (and (bound-and-true-p orgtbl-mode)
+                      (lookup-key orgtbl-mode-map key))
+                 (and (boundp 'markdown-mode-map)
+                      (lookup-key markdown-mode-map key))
+                 fallback)))
+    (if (commandp cmd)
+        (progn (setq this-command cmd) (call-interactively cmd))
+      (call-interactively fallback))))
+
+(defun my/pkm-md-tab ()
+  "Fold or unfold frontmatter at point; otherwise behave as usual.
+Org folds a drawer with TAB, so frontmatter answers to it too."
+  (interactive)
+  (if (my/pkm-md-in-frontmatter-p)
+      (my/pkm-md-toggle-frontmatter)
+    (my/pkm-md--delegate (kbd "TAB") #'indent-for-tab-command)))
+
+(defvar my/pkm-md-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-c") #'my/pkm-md-ctrl-c-ctrl-c)
+    (define-key map (kbd "TAB") #'my/pkm-md-tab)
+    map)
+  "Keymap for PKM markdown notes.")
+
+(define-minor-mode my/pkm-md-mode
+  "Buffer-local conveniences for markdown notes in the PKM.
+
+A minor mode rather than `local-set-key': the latter mutates
+`current-local-map', which for a markdown buffer is the shared
+`markdown-mode-map', so its bindings would leak into every markdown
+file rather than just notes under `my/notes-dir'."
+  :lighter " PKM"
+  :keymap my/pkm-md-mode-map)
 
 ;; PKM setup that applies to markdown notes the way init-org's does to org.
 (defun my/pkm-markdown-setup ()
@@ -466,7 +515,7 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
         (setq-local minor-mode-overriding-map-alist
                     (cons (cons 'orgtbl-mode map)
                           minor-mode-overriding-map-alist))))
-    (local-set-key (kbd "C-c C-c") #'my/pkm-md-ctrl-c-ctrl-c)
+    (my/pkm-md-mode 1)
     ;; Inline images, matching org's startup-with-link-previews behaviour,
     ;; bounded the same way.
     (setq-local markdown-max-image-size
