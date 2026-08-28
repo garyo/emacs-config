@@ -39,8 +39,6 @@ opaque exit code."
 ;; order of the require calls.
 (use-package markdown-mode
   :commands (markdown-mode gfm-mode)
-  :bind (:map markdown-mode-map
-              ("M-RET" . completion-at-point))
   :init (setq markdown-command #'my-markdown-run-pandoc)
   :config
   (add-to-list 'mixed-pitch-fixed-pitch-faces 'markdown-table-face)
@@ -113,11 +111,6 @@ opaque exit code."
     :defer t
     :config
     (require 'markdown-ts-mode-x nil t)
-    ;; Same trade as in `markdown-mode-map' above: M-RET completes rather
-    ;; than opening a list item, which RET (`markdown-ts-newline') already
-    ;; does.  It has to be set here because `markdown-ts-mode-map' shadows
-    ;; the global binding, so the one in `markdown-mode-map' never applied.
-    (define-key markdown-ts-mode-map (kbd "M-RET") #'completion-at-point)
     ;; markdown-ts-mode has no `markdown-mode-command-map', so the preview
     ;; commands bound into that map are re-bound here directly.
     (with-eval-after-load 'grip-mode
