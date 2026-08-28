@@ -230,21 +230,28 @@ N defaults to 7. Each file may contribute multiple top-level entries."
 
 ;;;; Block References
 
-;;;###autoload
-(defun gco-pkm--anchor-slug (text)
-  "Return the `^anchor' slug the converter would give heading TEXT."
+(defconst gco-pkm--slug-strip-re
+  "[][!\"#$%&'()*+,./:;<=>?@\\^`{|}~]"
+  "Punctuation GitHub's gh-slugger drops before hyphenating a heading.
+Kept in step with `markdown-ts--slug-github-strip-re', so that the
+fragment links this file mints are the ones markdown-ts-mode follows.")
+
+(defun gco-pkm--heading-slug (text)
+  "Return the GitHub-flavor anchor slug for heading TEXT.
+Link markup collapses to its description first, since a renderer slugs
+what the heading displays, not its source."
   (let* ((s (downcase (string-trim text)))
          (s (replace-regexp-in-string "\\[\\([^]]*\\)\\]([^)]*)" "\\1" s))
-         (s (replace-regexp-in-string "[^[:alnum:][:space:]-]" "" s))
-         (s (replace-regexp-in-string "[[:space:]_-]+" "-" s)))
-    (substring (string-trim s "-" "-") 0 (min 48 (length (string-trim s "-" "-"))))))
+         (s (replace-regexp-in-string gco-pkm--slug-strip-re "" s)))
+    (replace-regexp-in-string "[[:blank:]]" "-" (string-trim s))))
 
 ;;;###autoload
 (defun gco-pkm-create-block-reference ()
   "Copy a link to the current heading.
-In org this mints an :ID: and copies an id: link.  In markdown it adds a
-`^anchor' to the heading -- the same convention the converter emits -- and
-copies a relative link to it."
+In org this mints an :ID: and copies an id: link.  In markdown it copies
+a relative link to the heading's GitHub-flavor anchor, which GitHub, the
+web PKM and markdown-ts-mode all derive from the heading text -- so the
+heading itself needs no marker and is left alone."
   (interactive)
   (pcase (gco-pkm-format-current)
     ('org
@@ -256,21 +263,13 @@ copies a relative link to it."
        (goto-char (gco-pkm-format-heading-start))
        (unless (looking-at (gco-pkm-format-heading-regexp))
          (user-error "Point is not under a heading"))
-       (let* ((text (match-string 2))
-              (existing (and (string-match "\\^\\([[:alnum:]_-]+\\)[ \t]*$" text)
-                             (match-string 1 text)))
-              (anchor (or existing
-                          (gco-pkm--anchor-slug
-                           (gco-pkm-format-heading-text text)))))
-         (unless existing
-           (end-of-line)
-           (insert " ^" anchor))
-         (let ((link (format "[%s](%s#^%s)"
-                             (gco-pkm-format-heading-text text)
-                             (file-name-nondirectory (buffer-file-name))
-                             anchor)))
-           (kill-new link)
-           (message "Block reference copied: %s" link)))))
+       (let* ((text (gco-pkm-format-heading-text (match-string 2)))
+              (link (format "[%s](%s#%s)"
+                            text
+                            (file-name-nondirectory (buffer-file-name))
+                            (gco-pkm--heading-slug text))))
+         (kill-new link)
+         (message "Block reference copied: %s" link))))
     (_ (user-error "Not a PKM note buffer"))))
 
 ;;;###autoload
