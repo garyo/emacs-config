@@ -532,10 +532,17 @@ a blog post or a README, not just in a note, so they are not gated on
   ;; tabbing through a table would destroy it. markdown-ts-mode has a native
   ;; GFM table mode; markdown-mode's own commands keep the pipes too.
   (my/markdown-extras-mode 1)
-  ;; markdown-ts-mode reads its own options for images and hidden markup;
-  ;; only markdown-mode, the fallback, needs setting up here, and it spells
-  ;; image bounding differently.
-  (unless (derived-mode-p 'markdown-ts-mode)
+  (if (derived-mode-p 'markdown-ts-mode)
+      ;; `markdown-ts-inline-images' only gates the fontifier; the
+      ;; `image-preview' feature that runs it lives at font-lock level 4,
+      ;; and `treesit-font-lock-level' is 3, so setting the option alone
+      ;; never reaches it.  Enable the feature for this buffer rather than
+      ;; raising the level globally for every other ts-mode.  Hiding markup
+      ;; needs none of this: the mode applies it while setting up.
+      (when markdown-ts-inline-images
+        (treesit-font-lock-recompute-features '(image-preview))
+        (font-lock-flush))
+    ;; markdown-mode, the fallback, spells image bounding differently.
     (setq-local markdown-max-image-size
                 (cons my/pkm-inline-image-width
                       (round (* my/pkm-inline-image-width 0.75))))
