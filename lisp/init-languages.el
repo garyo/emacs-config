@@ -258,11 +258,8 @@
     (when (boundp 'treesit-auto-install-grammar)
       (setopt treesit-auto-install-grammar 'always))
     (when (boundp 'treesit-enabled-modes)
-      (setopt treesit-enabled-modes t))
-    ;; markdown-ts-mode is too minimal (no command map, preview, or export);
-    ;; a leading identity entry shadows the ts remap so .md files keep the
-    ;; full markdown-mode package.
-    (add-to-list 'major-mode-remap-alist '(markdown-mode . markdown-mode)))
+      (setopt treesit-enabled-modes t)))
+  ;; Markdown deliberately opts *into* the tree-sitter mode; see init-markdown.
 
   (use-package treesit-auto
     :custom

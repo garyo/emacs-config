@@ -82,6 +82,10 @@ opaque exit code."
                   markdown-ts-thematic-break))
     (add-to-list 'mixed-pitch-fixed-pitch-faces face)))
 
+;; Folded headings get org's chevron rather than "...", which reads as
+;; truncation.  Consulted when the mode sets up outline folding.
+(setopt markdown-ts-ellipsis " ⌄")
+
 ;; Claimed by remapping, not by auto-mode-alist: markdown-mode registers
 ;; ".md" in its own autoloads, which elpaca loads asynchronously after init.
 ;; Any entry we add during init is therefore prepended *before* that one
@@ -109,6 +113,11 @@ opaque exit code."
     :defer t
     :config
     (require 'markdown-ts-mode-x nil t)
+    ;; Same trade as in `markdown-mode-map' above: M-RET completes rather
+    ;; than opening a list item, which RET (`markdown-ts-newline') already
+    ;; does.  It has to be set here because `markdown-ts-mode-map' shadows
+    ;; the global binding, so the one in `markdown-mode-map' never applied.
+    (define-key markdown-ts-mode-map (kbd "M-RET") #'completion-at-point)
     ;; markdown-ts-mode has no `markdown-mode-command-map', so the preview
     ;; commands bound into that map are re-bound here directly.
     (with-eval-after-load 'grip-mode

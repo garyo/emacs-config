@@ -391,20 +391,26 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
             'private))
       (dnd-insert-text (selected-window) action (or file url)))))
 
+;;;; Markdown display
+;;
+;; The org-like presentation: list markers as bullets, checkboxes as boxes,
+;; thematic breaks as rules, images shown, all bounded to a readable width.
+;; markdown-ts-mode applies these while setting the buffer up, which is
+;; before `markdown-ts-mode-hook' runs, so they are set globally here rather
+;; than buffer-locally from the hook.  Hiding markup is one switch, covering
+;; emphasis and link delimiters too; toggle a buffer back with
+;; `markdown-ts-toggle-hide-markup' (C-c C-x C-m).
+
+(with-eval-after-load 'markdown-ts-mode
+  (setopt markdown-ts-hide-markup t
+          markdown-ts-inline-images t
+          markdown-ts-image-max-width my/pkm-inline-image-width))
+
 ;;;; Frontmatter folding
 ;;
 ;; Frontmatter is the markdown counterpart of an org property drawer:
 ;; bookkeeping that belongs in the file but not in your face. Org folds
 ;; those on open, so fold this the same way.
-
-(defcustom my/markdown-hide-markup t
-  "Whether to hide markup delimiters in markdown buffers.
-With this on, list markers render as bullets, checkboxes as boxes, and
-thematic breaks as rules -- the org-like presentation.  It is a single
-switch: emphasis and link delimiters are hidden too.  Toggle per buffer
-with \[markdown-ts-toggle-hide-markup] (C-c C-x C-m)."
-  :type 'boolean
-  :group 'pkm)
 
 (defcustom my/markdown-fold-frontmatter t
   "Whether to fold YAML frontmatter when opening a markdown note."
@@ -526,26 +532,15 @@ a blog post or a README, not just in a note, so they are not gated on
   ;; tabbing through a table would destroy it. markdown-ts-mode has a native
   ;; GFM table mode; markdown-mode's own commands keep the pipes too.
   (my/markdown-extras-mode 1)
-  ;; Inline images, matching org's startup-with-link-previews behaviour,
-  ;; bounded the same way. The two markdown modes spell this differently.
-  (if (derived-mode-p 'markdown-ts-mode)
-      (progn
-        (setq-local markdown-ts-image-max-width my/pkm-inline-image-width)
-        (setq-local markdown-ts-inline-images t)
-        (when (fboundp 'markdown-ts--set-inline-images)
-          (ignore-errors (markdown-ts--set-inline-images t))))
+  ;; markdown-ts-mode reads its own options for images and hidden markup;
+  ;; only markdown-mode, the fallback, needs setting up here, and it spells
+  ;; image bounding differently.
+  (unless (derived-mode-p 'markdown-ts-mode)
     (setq-local markdown-max-image-size
                 (cons my/pkm-inline-image-width
                       (round (* my/pkm-inline-image-width 0.75))))
     (when (fboundp 'markdown-display-inline-images)
       (ignore-errors (markdown-display-inline-images))))
-  ;; Bullets for list markers, boxes for checkboxes, a rule for thematic
-  ;; breaks. markdown-ts-unordered-list-marker and friends only take effect
-  ;; when markup is hidden, so it is this one switch that turns them on.
-  (when (and my/markdown-hide-markup (derived-mode-p 'markdown-ts-mode))
-    (setq-local markdown-ts-hide-markup t)
-    (when (fboundp 'markdown-ts--set-hide-markup)
-      (ignore-errors (markdown-ts--set-hide-markup t))))
   (when my/markdown-fold-frontmatter
     (my/markdown-toggle-frontmatter)))
 
