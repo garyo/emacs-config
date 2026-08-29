@@ -264,8 +264,18 @@
               `(menu-item "" corfu-insert-separator
                           :filter ,(lambda (cmd)
                                      (if my/corfu-manual cmd #'corfu-quit))))
+
+  ;; The auto-popup timer runs only where code is written; in text
+  ;; modes typing is king and the popup mostly interrupts (manual
+  ;; M-RET / C-M-i still completes anywhere).  corfu-mode consults
+  ;; `corfu-auto' once, when it is enabled in a buffer, and mode hooks
+  ;; run before global-corfu-mode's enabling hook, so a buffer-local
+  ;; value set here is in place in time.
+  (defun my/corfu-enable-auto () (setq-local corfu-auto t))
+  (dolist (hook '(prog-mode-hook conf-mode-hook))
+    (add-hook hook #'my/corfu-enable-auto))
   :custom
-  (corfu-auto t)
+  (corfu-auto nil) ; default off; prog/conf modes turn it on (above)
   (corfu-auto-delay 0.75)
   (corfu-auto-prefix 3) ; need at least this many chars before auto-popup
   (corfu-preview-current nil) ; don't insert current candidate as preview text
