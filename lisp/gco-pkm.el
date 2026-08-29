@@ -245,13 +245,30 @@ what the heading displays, not its source."
          (s (replace-regexp-in-string gco-pkm--slug-strip-re "" s)))
     (replace-regexp-in-string "[[:blank:]]" "-" (string-trim s))))
 
+(defun gco-pkm--md-link-path (target &optional from)
+  "Return TARGET's path as it should appear in a markdown link in FROM.
+Relative links only resolve against the file that contains them, so the
+path is computed against FROM's directory -- empty when FROM is TARGET
+itself, leaving a bare #fragment link.  With FROM nil (the destination
+is not yet known), assume it will be a note in one of the PKM's
+subdirectories -- journals/, pages/ -- where \"../\" plus TARGET's
+root-relative path resolves correctly."
+  (cond ((and from (file-equal-p target from)) "")
+        (from (file-relative-name target (file-name-directory from)))
+        (t (concat "../" (file-relative-name target gco-pkm-directory)))))
+
 ;;;###autoload
 (defun gco-pkm-create-block-reference ()
   "Copy a link to the current heading.
 In org this mints an :ID: and copies an id: link.  In markdown it copies
 a relative link to the heading's GitHub-flavor anchor, which GitHub, the
 web PKM and markdown-ts-mode all derive from the heading text -- so the
-heading itself needs no marker and is left alone."
+heading itself needs no marker and is left alone.
+
+A relative path is only correct with respect to the file it lands in,
+which is unknown at copy time: yanking inside Emacs re-computes it for
+the destination buffer (via a `yank-handler'), and pastes elsewhere get
+a fallback path that resolves from the PKM's subdirectories."
   (interactive)
   (pcase (gco-pkm-format-current)
     ('org
@@ -264,12 +281,17 @@ heading itself needs no marker and is left alone."
        (unless (looking-at (gco-pkm-format-heading-regexp))
          (user-error "Point is not under a heading"))
        (let* ((text (gco-pkm-format-heading-text (match-string 2)))
-              (link (format "[%s](%s#%s)"
-                            text
-                            (file-name-nondirectory (buffer-file-name))
-                            (gco-pkm--heading-slug text))))
-         (kill-new link)
-         (message "Block reference copied: %s" link))))
+              (slug (gco-pkm--heading-slug text))
+              (target (buffer-file-name))
+              (link-to (lambda (from)
+                         (format "[%s](%s#%s)" text
+                                 (gco-pkm--md-link-path target from) slug)))
+              (fallback (funcall link-to nil)))
+         (kill-new (propertize
+                    fallback 'yank-handler
+                    (list (lambda (_)
+                            (insert (funcall link-to (buffer-file-name)))))))
+         (message "Block reference copied: %s" fallback))))
     (_ (user-error "Not a PKM note buffer"))))
 
 ;;;###autoload
