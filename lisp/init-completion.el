@@ -223,24 +223,61 @@
   :demand t                      ; need this when using :bind or :hook
   :config
   (global-corfu-mode 1)
-  ;; Make completion non-intrusive: TAB accepts, everything else just
-  ;; keeps typing normally (dismissing the popup).
+
+  ;; A session invoked explicitly (M-RET / C-M-i) is a statement of
+  ;; intent, so acceptance is streamlined: first candidate preselected,
+  ;; RET accepts the selection, SPC inserts the orderless field
+  ;; separator to keep filtering, and a typo shows "No match" rather
+  ;; than quitting (backspace recovers; C-g aborts).  The auto-popup
+  ;; stays non-intrusive: nothing preselected, RET is a plain newline,
+  ;; SPC dismisses, no match quits, and only TAB accepts.
+  ;;
+  ;; Both entry points funnel into the same session machinery, which
+  ;; re-reads these vars throughout the session, so each session start
+  ;; stamps them buffer-locally.
+  (defvar-local my/corfu-manual nil
+    "Non-nil while the current corfu session was invoked explicitly.")
+  (defun my/corfu-begin-session (manual)
+    (setq my/corfu-manual manual)
+    (setq-local corfu-preselect (if manual 'first 'prompt)
+                corfu-quit-no-match (not manual)))
+  (defun my/corfu-begin-manual (&rest _) (my/corfu-begin-session t))
+  (advice-add 'corfu--in-region-1 :before #'my/corfu-begin-manual)
+  (with-eval-after-load 'corfu-auto
+    (defun my/corfu-begin-auto (&rest _)
+      ;; The idle timer may fire during a live session; don't let it
+      ;; flip that session's settings.
+      (unless completion-in-region-mode (my/corfu-begin-session nil)))
+    (advice-add 'corfu-auto--complete-deferred :before #'my/corfu-begin-auto))
+
+  ;; Keys whose meaning depends on the session kind: menu-item filters
+  ;; (which :bind cannot express) decide at keypress time.  A nil
+  ;; filter result leaves the key unbound here, falling through to the
+  ;; mode's own binding.
+  (keymap-set corfu-map "RET"
+              `(menu-item "" corfu-insert
+                          :filter ,(lambda (cmd)
+                                     (and my/corfu-manual
+                                          (>= corfu--index 0)
+                                          cmd))))
+  (keymap-set corfu-map "SPC"
+              `(menu-item "" corfu-insert-separator
+                          :filter ,(lambda (cmd)
+                                     (if my/corfu-manual cmd #'corfu-quit))))
   :custom
   (corfu-auto t)
   (corfu-auto-delay 0.75)
   (corfu-auto-prefix 3) ; need at least this many chars before auto-popup
   (corfu-preview-current nil) ; don't insert current candidate as preview text
-  (corfu-quit-no-match t) ; quit popup when no match
-  (corfu-preselect 'prompt) ; don't preselect first candidate, stay on prompt
+  (corfu-quit-no-match t) ; auto sessions; manual sessions override per above
+  (corfu-preselect 'prompt) ; auto sessions; manual sessions override per above
   ;; Might want to customize corfu-sort-function
   :bind
   (("M-RET" . completion-at-point)
    :map corfu-map
    ("TAB" . corfu-insert)     ; TAB accepts the selected completion
    ("<tab>" . corfu-insert)
-   ("RET" . nil)              ; don't let RET accept completion
-   ("<return>" . nil)         ; (just insert newline as usual)
-   ("SPC" . corfu-quit)       ; space dismisses and inserts space
+   ("<return>" . nil)         ; let <return> translate to RET
    )
   )
 
@@ -266,17 +303,20 @@
 ;; Additional capf completion sources
 (use-package cape
   :config
-  ;; Note: order matters here. First one returning a result wins. Use
-  ;; ~add-hook~ to add these, since it sets the global (default) value
-  ;; of capf, instead of ~setq~ which would make it buffer-local
-  ;; (which would be bad): capf is automatically buffer-local when
-  ;; set.
+  ;; Note: order matters here. First one returning a result wins.
+  ;; `add-hook' PREPENDS by default, so adding these in priority order
+  ;; used to produce the reverse -- dabbrev first, swallowing nearly
+  ;; every word before the more specific capfs could run.  The explicit
+  ;; depths pin the intended order.  Use ~add-hook~ to add these, since
+  ;; it sets the global (default) value of capf, instead of ~setq~
+  ;; which would make it buffer-local (which would be bad): capf is
+  ;; automatically buffer-local when set.
   ;; The buffer-local value, which takes precedence over these, calls these as long
   ;; as it ends with ~t~.
-  (add-hook 'completion-at-point-functions #'cape-history)
-  (add-hook 'completion-at-point-functions #'cape-file)
-  (add-hook 'completion-at-point-functions #'cape-keyword)
-  (add-hook 'completion-at-point-functions #'cape-dabbrev)
+  (add-hook 'completion-at-point-functions #'cape-history 10)
+  (add-hook 'completion-at-point-functions #'cape-file 20)
+  (add-hook 'completion-at-point-functions #'cape-keyword 30)
+  (add-hook 'completion-at-point-functions #'cape-dabbrev 40)
   (message "Loading my capf extensions: %s" completion-at-point-functions)
   )
 
