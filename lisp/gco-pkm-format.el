@@ -111,16 +111,22 @@ Works in both formats without requiring org-mode to be active."
 
 (defun gco-pkm-format-buffer-title ()
   "Return the current buffer's note title, or nil.
-Reads `#+title:' in org and the frontmatter `title:' in markdown."
+Reads `#+title:' in org; in markdown, the frontmatter `title:', falling
+back to the first level-1 heading, which is the de facto title of the
+many notes that carry no frontmatter."
   (save-excursion
     (goto-char (point-min))
     (if (eq (gco-pkm-format-current) 'md)
-        (when (looking-at "^---[ \t]*$")
-          (let ((end (save-excursion
-                       (forward-line 1)
-                       (and (re-search-forward "^---[ \t]*$" nil t) (point)))))
-            (when (and end (re-search-forward "^title:[ \t]*\\(.*\\)$" end t))
-              (string-trim (match-string 1) "\"" "\""))))
+        (or (when (looking-at "^---[ \t]*$")
+              (let ((end (save-excursion
+                           (forward-line 1)
+                           (and (re-search-forward "^---[ \t]*$" nil t) (point)))))
+                (when (and end (re-search-forward "^title:[ \t]*\\(.*\\)$" end t))
+                  (string-trim (match-string 1) "\"" "\""))))
+            (progn
+              (goto-char (point-min))
+              (when (re-search-forward "^#[ \t]+\\(.+\\)$" nil t)
+                (string-trim (match-string 1)))))
       (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" nil t)
         (string-trim (match-string 1))))))
 

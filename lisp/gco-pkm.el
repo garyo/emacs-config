@@ -308,6 +308,126 @@ a fallback path that resolves from the PKM's subdirectories."
     (insert "#+TRANSCLUDE: [[id:]] ")
     (backward-char 3)))
 
+;;;; Link Completion
+
+(defvar gco-pkm--link-candidates-cache nil
+  "Cons of (TIME . ALIST) caching `gco-pkm--link-candidates'.")
+
+(defun gco-pkm--link-candidates ()
+  "Return an alist of (TITLE . ABSOLUTE-FILE) for every note, newest first.
+Cached briefly: corfu re-runs the CAPF on each keystroke, and scanning
+every note title costs tens of milliseconds over the corpus, so a short
+TTL keeps typing smooth while new notes still show up promptly."
+  (let ((now (float-time)))
+    (unless (and gco-pkm--link-candidates-cache
+                 (< (- now (car gco-pkm--link-candidates-cache)) 10))
+      (setq gco-pkm--link-candidates-cache
+            (cons now (mapcar (lambda (f) (cons (gco-pkm--file-title f) f))
+                              (gco-pkm--all-notes)))))
+    (cdr gco-pkm--link-candidates-cache)))
+
+(defun gco-pkm--md-heading-anchors (file)
+  "Return an alist of (SLUG . HEADING-TEXT) for markdown FILE.
+Fenced code blocks are skipped: their `#' comment lines would otherwise
+masquerade as headings."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (let (anchors in-fence)
+      (while (not (eobp))
+        (cond ((looking-at "```\\|~~~")
+               (setq in-fence (not in-fence)))
+              ((and (not in-fence) (looking-at "#+[ \t]+\\(.+\\)"))
+               (let ((text (gco-pkm-format-heading-text (match-string 1) 'md)))
+                 (push (cons (gco-pkm--heading-slug text) text) anchors))))
+        (forward-line 1))
+      (nreverse anchors))))
+
+(defun gco-pkm--link-capf-titles (start end)
+  "Note-title completion between START and END, after a \"[[\" trigger.
+Exiting replaces the \"[[\" and the title with a full markdown link
+whose path is relative to the current buffer."
+  (list start end
+        (let ((self (buffer-file-name)))   ; a self-link would mint "[title]()"
+          (delq nil (mapcar (lambda (cand)
+                              (unless (equal (cdr cand) self) (car cand)))
+                            (gco-pkm--link-candidates))))
+        :company-kind (lambda (_) 'file)
+        :annotation-function
+        (lambda (title)
+          (when-let* ((file (cdr (assoc title (gco-pkm--link-candidates)))))
+            (concat "  " (file-relative-name file gco-pkm-directory))))
+        :exit-function
+        (lambda (title status)
+          (when (eq status 'finished)
+            (when-let* ((file (cdr (assoc title (gco-pkm--link-candidates)))))
+              (delete-region (- (point) (length title) 2) (point))
+              (insert (format "[%s](%s)" title
+                              (gco-pkm--md-link-path file (buffer-file-name)))))))))
+
+(defun gco-pkm--link-capf-target (tstart end)
+  "Complete a link target written between TSTART and END.
+Note paths until a \"#\" appears; heading anchors of the named file (or
+of this one, when the path part is empty) after it."
+  (let* ((target (buffer-substring-no-properties tstart end))
+         (hash (string-search "#" target)))
+    (if hash
+        (let* ((path (substring target 0 hash))
+               (file (if (string-empty-p path)
+                         (buffer-file-name)
+                       (expand-file-name
+                        path (file-name-directory (buffer-file-name))))))
+          (when (and file (file-exists-p file) (eq (gco-pkm-format-of file) 'md))
+            (let ((anchors (gco-pkm--md-heading-anchors file)))
+              (list (+ tstart hash 1) end
+                    (mapcar #'car anchors)
+                    :company-kind (lambda (_) 'text)
+                    :annotation-function
+                    (lambda (slug)
+                      (when-let* ((text (cdr (assoc slug anchors))))
+                        (concat "  " text)))))))
+      (let (paths)
+        (dolist (cand (gco-pkm--link-candidates))
+          (let ((p (gco-pkm--md-link-path (cdr cand) (buffer-file-name))))
+            (unless (string-empty-p p)  ; the buffer's own note: link by anchor
+              (push (cons p (car cand)) paths))))
+        (setq paths (nreverse paths))
+        (list tstart end
+              (mapcar #'car paths)
+              :company-kind (lambda (_) 'file)
+              :annotation-function
+              (lambda (p)
+                (when-let* ((title (cdr (assoc p paths))))
+                  (concat "  " title))))))))
+
+;;;###autoload
+(defun gco-pkm-link-capf ()
+  "Complete note links at point in a markdown note (a capf).
+Two contexts: after \"[[\" it completes note titles, expanding the
+result to a full relative markdown link; inside a link target \"](...\"
+it completes note paths, or heading anchors once a \"#\" follows."
+  (let ((end (point))
+        (bol (line-beginning-position)))
+    (cond
+     ((looking-back "\\[\\[\\([^][]*\\)" bol)
+      (gco-pkm--link-capf-titles (match-beginning 1) end))
+     ((looking-back "\\](\\([^()]*\\)" bol)
+      (gco-pkm--link-capf-target (match-beginning 1) end)))))
+
+(defun gco-pkm--enable-link-capf ()
+  "Activate `gco-pkm-link-capf' in markdown note buffers.
+Added buffer-locally at the front so it outranks cape's global capfs --
+`cape-dabbrev' in particular matches almost any prefix and would
+otherwise shadow it."
+  (when (and buffer-file-name
+             (file-in-directory-p buffer-file-name gco-pkm-directory))
+    (add-hook 'completion-at-point-functions #'gco-pkm-link-capf -10 t)))
+
+;; markdown-ts-mode does not run markdown-mode-hook (it declares the parent
+;; only via `derived-mode-extra-parents'), so both hooks are needed.
+(dolist (hook '(markdown-mode-hook markdown-ts-mode-hook))
+  (add-hook hook #'gco-pkm--enable-link-capf))
+
 ;;;; Search Functions
 
 ;;;###autoload
