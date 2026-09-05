@@ -165,12 +165,18 @@
                                  (expand-file-name file default-directory))
                                files))))))
 
+  ;; consult 3.0+ made its buffer-source variables public (consult-source-*);
+  ;; older versions used consult--source-*. Support both. Keep these as symbols
+  ;; rather than their values, so a later redefinition of a source is picked up.
+  (defun gco-consult-source (new old)
+    "Return NEW if it is bound, else OLD."
+    (if (boundp new) new old))
   (setq consult-buffer-sources
-        '(consult-source-buffer               ; open buffers (file and non-file)
-          consult-source-git-project-files    ; all source files, current project (narrowed: g)
-          consult-source-recent-file          ; recentf files
-          consult-source-project-root         ; roots of all known projects
-          consult-source-bookmark))           ; bookmarks
+        (list (gco-consult-source 'consult-source-buffer 'consult--source-buffer)
+              'consult-source-git-project-files ; current project's files (narrowed: g)
+              (gco-consult-source 'consult-source-recent-file 'consult--source-recent-file)
+              (gco-consult-source 'consult-source-project-root 'consult--source-project-root)
+              (gco-consult-source 'consult-source-bookmark 'consult--source-bookmark)))
   )
 
 (use-package consult-dir
