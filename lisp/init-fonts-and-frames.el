@@ -141,7 +141,11 @@
 ;;; Cambria and Segoe UI Symbol should both work on Windows, but Emacs
 ;;; may pick up some other inappropriate font.
 (when-windows
- (set-fontset-font t 'mathematical "Segoe UI Symbol"))
+ (set-fontset-font t 'mathematical "Segoe UI Symbol")
+ ;; Emoji-ish chars such as #x1F5D3 are script `symbol' to Emacs, and nothing in
+ ;; the default symbol fontset covers them. Appended, so Segoe UI Emoji is only
+ ;; consulted for chars the existing symbol fonts don't already cover.
+ (set-fontset-font t 'symbol (font-spec :family "Segoe UI Emoji") nil 'append))
 
 ;; Useful things for chars, fonts and fontsets:
 ;;  M-x describe-fontset
@@ -149,7 +153,7 @@
 ;;  C-x 8 RET ; insert char by name or unicode (hex)
 ;;  var script-representative-chars: list of all (most?) Unicode script ranges with "representative" chars
 ;;  See https://lists.gnu.org/archive/html/help-gnu-emacs/2021-09/txtRLYx8BDBtJ.txt for useful math fontset test code
-;;  As of 2024, Emacs 30 on Windows does not support color emojis, just black & white.
+;;  Emacs 32 on Windows renders color emoji, via Segoe UI Emoji (see the fontset above).
 ;;  To set or adjust text scale: C-x C-= to enlarge, C-x C-- to shrink, C-x C-0 to reset.
 ;;    To modify interactively, S-0 followed by +, -, 0, etc.
 
