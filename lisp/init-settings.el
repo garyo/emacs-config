@@ -117,7 +117,7 @@
  '(visible-bell t)
  '(w32-get-true-file-attributes nil t)
  '(warning-suppress-log-types '((comp) (frameset) (\(undo\ discard-info\))))
- '(warning-suppress-types '((frameset) (\(undo\ discard-info\))))
+ '(warning-suppress-types '((frameset) (\(undo\ discard-info\)) (files missing-lexbind-cookie)))
  '(what-cursor-show-names t)
  '(whitespace-style
    '(face trailing tabs spaces newline empty indentation space-after-tab space-before-tab space-mark tab-mark newline-mark)))
