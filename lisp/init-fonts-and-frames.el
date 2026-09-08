@@ -61,9 +61,13 @@
 (defun use-font (name size &optional frame)
   "Use font NAME at height SIZE (in points, float or int).
    FRAME of nil means all existing + new.
-   Returns t if font exists and was set, else nil."
+   Returns t if font exists and was set, else nil.
+   `fixed-pitch' gets the same family, so monospaced text under
+   `mixed-pitch-mode' (code, tables) matches the default face instead
+   of falling back to the stock Monospace, which is Courier on Mac."
   (when (font-exists-p name frame)
     (set-face-attribute 'default frame :family name :height (round (* size 10)))
+    (set-face-attribute 'fixed-pitch frame :family name)
     (face-all-attributes 'default)))
 
 (defun my-dpi (&optional frame)
