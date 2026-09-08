@@ -63,7 +63,12 @@ opaque exit code."
 ;; though the text was character-aligned.  Column alignment is only
 ;; meaningful in a fixed-pitch font.
 (with-eval-after-load 'mixed-pitch
-  (dolist (face '(;; tables -- alignment depends on this
+  (dolist (face '(;; fixed-pitch itself: otherwise it inherits the height
+                  ;; scale mixed-pitch gives the default face and comes out
+                  ;; larger than every other monospaced face in the buffer,
+                  ;; which threw off md-render's pixel-measured table padding
+                  fixed-pitch
+                  ;; tables -- alignment depends on this
                   markdown-ts-table
                   markdown-ts-table-cell
                   markdown-ts-table-delimiter-cell
@@ -119,7 +124,21 @@ opaque exit code."
       (define-key markdown-ts-mode-map (kbd "C-c C-x x")
                   #'markdown-xwidget-preview-mode))
     (when (fboundp 'markdown-ts-convert)
-      (define-key markdown-ts-mode-map (kbd "C-c C-x c") #'markdown-ts-convert))))
+      (define-key markdown-ts-mode-map (kbd "C-c C-x c") #'markdown-ts-convert))
+    (define-key markdown-ts-mode-map (kbd "C-c C-x C-t") #'gco-md-tables-mode)))
+
+;; Box-drawn tables from yibie/md-mode's renderer.  Only md-render.el is
+;; taken from that repo: md-mode.el's autoloads would claim .md files for
+;; its own major mode.
+(use-package md-render
+  :ensure (:host github :repo "yibie/md-mode" :files ("md-render.el"))
+  :defer t)
+
+;; Tables show rendered while point is elsewhere and as source while point
+;; is inside them (lisp/gco-md-tables.el).  Toggle with C-c C-x C-t.
+(use-package gco-md-tables
+  :ensure nil
+  :hook (markdown-ts-mode . gco-md-tables-mode))
 
 ;; Live preview in an xwidget-webkit buffer with GitHub styling, MathJax,
 ;; Mermaid, and highlight.js. Toggle with C-c C-c x in markdown-mode.
