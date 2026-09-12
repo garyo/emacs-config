@@ -175,6 +175,27 @@ by using nxml's indentation rules."
               (let ((print-quoted t))
                 (funcall orig))))
 
+;; Workaround for an Emacs master regression (build 73add0e2, Aug 2026):
+;; `(kill-all-local-variables 'reset)' no longer removes local bindings,
+;; so the work buffer behind `string-pixel-width' keeps a buffer-local
+;; `deactivate-mark' of t, set there by `add-text-properties' and
+;; `erase-buffer' outside the `let' that guards `insert'.  That stale
+;; value is what the command loop reads after the call returns to a
+;; buffer with no local binding of its own, and it deactivates the region
+;; the user just marked.  doom-modeline measures strings from mode-line
+;; `:eval' forms, which the display engine can run inside `next-line', so
+;; the first C-SPC C-n in a freshly visited file lost its region.  The
+;; flag is buffer-local when set, so the binding has to be made in the
+;; work buffer itself; a `let' around the caller does not help.
+;; Reported upstream; drop this once `kill-all-local-variables' is fixed.
+(defun my/keep-mark-active (orig &rest args)
+  "Run ORIG on ARGS without letting buffer edits deactivate the mark."
+  (let (deactivate-mark)
+    (apply orig args)))
+
+(dolist (fn '(work-buffer--prepare-pixelwise work-buffer--release))
+  (advice-add fn :around #'my/keep-mark-active))
+
 ;;; Start emacs server
 (require 'server)
 (unless (server-running-p)
