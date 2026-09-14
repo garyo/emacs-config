@@ -123,6 +123,17 @@ opaque exit code."
     (with-eval-after-load 'markdown-xwidget
       (define-key markdown-ts-mode-map (kbd "C-c C-x x")
                   #'markdown-xwidget-preview-mode))
+    ;; markdown-mode installs the save/kill hooks that drive
+    ;; `markdown-live-preview-mode' from its major-mode body, so in
+    ;; markdown-ts-mode the preview renders once and never refreshes.
+    (with-eval-after-load 'markdown-mode
+      (defun my-markdown-ts-live-preview-hooks (&rest _)
+        "Add the live-preview save and kill hooks in `markdown-ts-mode'."
+        (when (and markdown-live-preview-mode (derived-mode-p 'markdown-ts-mode))
+          (add-hook 'after-save-hook #'markdown-live-preview-if-markdown t t)
+          (add-hook 'kill-buffer-hook #'markdown-live-preview-remove-on-kill t t)))
+      (advice-add 'markdown-live-preview-mode :after
+                  #'my-markdown-ts-live-preview-hooks))
     (when (fboundp 'markdown-ts-convert)
       (define-key markdown-ts-mode-map (kbd "C-c C-x c") #'markdown-ts-convert))
     (define-key markdown-ts-mode-map (kbd "C-c C-x C-t") #'gco-md-tables-mode)))
