@@ -402,7 +402,7 @@ Names match the corpus convention, `clipboard-<ISO stamp>.<ext>'."
 ;; `markdown-ts-toggle-hide-markup' (C-c C-x C-m).
 
 (with-eval-after-load 'markdown-ts-mode
-  (setopt markdown-ts-hide-markup t
+  (setopt markdown-ts-hide-markup nil   ; t is nice but makes it hard to edit
           markdown-ts-inline-images t
           markdown-ts-image-max-width my/pkm-inline-image-width))
 
