@@ -32,11 +32,7 @@ opaque exit code."
       (ignore-errors (delete-file stderr-file)))))
 
 ;; markdown-ts-mode owns .md (below).  markdown-mode stays installed as the
-;; fallback when the tree-sitter grammar is missing, and for M-x use, but it
-;; no longer claims a file extension -- two packages racing for the same
-;; auto-mode-alist entry is exactly the bug that made PKM notes open in the
-;; wrong mode, since elpaca activates asynchronously and order is not the
-;; order of the require calls.
+;; fallback when the tree-sitter grammar is missing, and for M-x use only.
 (use-package markdown-mode
   :commands (markdown-mode gfm-mode)
   :init (setq markdown-command #'my-markdown-run-pandoc)
@@ -88,6 +84,84 @@ opaque exit code."
 ;; Folded headings get org's chevron rather than "...", which reads as
 ;; truncation.  Consulted when the mode sets up outline folding.
 (setopt markdown-ts-ellipsis " ⌄")
+
+;; An edit can change how the text *around* it parses -- typing the first
+;; word of a sub-list item turns the line above back from a setext heading
+;; into a list item -- but treesit only refontifies the wider region when
+;; `treesit--pre-redisplay' is the call that performs the reparse.  Anything
+;; that touches the tree first consumes the changed regions, and the line
+;; above keeps the face it had, until a manual `font-lock-update'.  A
+;; notifier fires on every reparse, whoever triggered it.
+(defun gco-treesit-refontify-changed (ranges parser)
+  "Mark RANGES touched by PARSER's reparse as needing refontification."
+  (with-current-buffer (treesit-parser-buffer parser)
+    (with-silent-modifications
+      (dolist (range ranges)
+        (put-text-property (car range) (cdr range) 'fontified nil)))))
+
+;; `markdown-ts-mode' has one face for both setext levels, and it inherits
+;; heading 1: bold black at 1.2x.  That is loud for a real heading and
+;; alarming for the transient one that a half-typed "  -" sub-item makes of
+;; the line above it.  Demote it -- ---- underlines are level 2 anyway, and
+;; ==== underlines appear nowhere in my notes.
+(custom-set-faces
+ '(markdown-ts-setext-heading ((t (:inherit markdown-ts-heading-2)))))
+
+;; The grammar only builds a task_list_marker node once the item has
+;; content, so an item still at "- [ ]" parses as a shortcut link and is
+;; fontified as one -- brackets in the delimiter face around a link-faced
+;; space, which looks nothing like the checkbox it becomes a keystroke
+;; later.  GitHub and pandoc both read it as a checkbox, so fontify it as
+;; one.  Appended to the settings so it wins over the link rule.
+(defun gco-markdown-ts-empty-checkbox-p (node)
+  "Return non-nil if NODE is a bare `[ ]' or `[x]' opening a list item."
+  (and (string-match-p "\\`\\[[ xX]\\]\\'" (treesit-node-text node t))
+       (save-excursion
+         (goto-char (treesit-node-start node))
+         (looking-back "^[ \t]*\\(?:[-+*]\\|[0-9]+[.)]\\)[ \t]+"
+                       (line-beginning-position)))))
+
+(defun gco-markdown-ts-fontify-empty-checkbox (node override start end &rest _)
+  "Fontify NODE, a checkbox the grammar did not recognize, as one.
+Mirrors `markdown-ts--fontify-checkbox', including the symbol shown
+when `markdown-ts-hide-markup' is on, so an empty checkbox keeps its
+appearance once text follows it.  OVERRIDE, START and END are passed
+through to `treesit-fontify-with-override'."
+  (let* ((beg (treesit-node-start node))
+         (fin (treesit-node-end node))
+         (checked (memq (char-after (1+ beg)) '(?x ?X)))
+         (value (if checked markdown-ts-checked-checkbox
+                  markdown-ts-unchecked-checkbox))
+         (symbol (if (eq value 'icon)
+                     (icon-string (if checked
+                                      'markdown-ts-checked-checkbox-icon
+                                    'markdown-ts-unchecked-checkbox-icon))
+                   (markdown-ts--resolve-display-value value))))
+    (treesit-fontify-with-override
+     beg fin (if checked 'markdown-ts-task-checked 'markdown-ts-task-unchecked)
+     override start end)
+    (if (and markdown-ts-hide-markup symbol)
+        (put-text-property beg fin 'display
+                           (or (and (stringp symbol)
+                                    (get-text-property 0 'display symbol))
+                               symbol))
+      (remove-text-properties beg fin '(display nil)))))
+
+(defun gco-markdown-ts-font-lock-setup ()
+  "Fix up `markdown-ts-mode' fontification: empty checkboxes, stale faces."
+  (setq-local treesit-font-lock-settings
+              (append treesit-font-lock-settings
+                      (treesit-font-lock-rules
+                       :language 'markdown-inline
+                       :feature 'paragraph-inline
+                       :override t
+                       '(((shortcut_link) @gco-markdown-ts-fontify-empty-checkbox
+                          (:pred gco-markdown-ts-empty-checkbox-p
+                                 @gco-markdown-ts-fontify-empty-checkbox))))))
+  (treesit-parser-add-notifier treesit-primary-parser
+                               #'gco-treesit-refontify-changed))
+
+(add-hook 'markdown-ts-mode-hook #'gco-markdown-ts-font-lock-setup)
 
 ;; Claimed by remapping, not by auto-mode-alist: markdown-mode registers
 ;; ".md" in its own autoloads, which elpaca loads asynchronously after init.
