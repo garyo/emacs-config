@@ -14,6 +14,18 @@
   :ensure nil
   :after xwidget)
 
+;; Copy as rich text (HTML) for pasting into mail: C-c C-x w renders the
+;; Markdown region with pandoc; M-w copies an xwidget-webkit page selection.
+(use-package gco-rich-copy
+  :ensure nil
+  :commands (gco-rich-copy-markdown gco-rich-copy-xwidget-selection)
+  :init
+  (with-eval-after-load 'markdown-ts-mode
+    (define-key markdown-ts-mode-map (kbd "C-c C-x w") #'gco-rich-copy-markdown))
+  (with-eval-after-load 'xwidget
+    (define-key xwidget-webkit-mode-map (kbd "M-w")
+                #'gco-rich-copy-xwidget-selection)))
+
 
 
 (provide 'init-mac)
