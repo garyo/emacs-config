@@ -109,12 +109,14 @@ WINDOW's buffer, which must not leave a trace in the undo list."
 ;; widths scaled by each face's measured pixel ratio (inline code under
 ;; mixed-pitch is 8/9 of fixed-pitch here) and comparing that float with
 ;; the integer column width.  Rounding noise -- 27.000000000000004 against
-;; 27 -- wraps a cell that fits exactly, so allow a hair of slack.
+;; 27 -- wraps a cell that fits exactly, so allow a hair of slack on each
+;; char.  A real overflow is off by a whole fraction of a column, far more
+;; than the slack summed over any cell.
 (defun gco-md-tables--tolerate-rounding (width)
   "Return WIDTH minus a rounding-error margin."
-  (if (floatp width) (- width 1e-6) width))
+  (if (floatp width) (- width 1e-9) width))
 
-(advice-add 'md-render--table-wrap-string-width :filter-return
+(advice-add 'md-render--table-wrap-char-width :filter-return
             #'gco-md-tables--tolerate-rounding)
 
 (defun gco-md-tables--layout-key (window)

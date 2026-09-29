@@ -212,11 +212,16 @@ through to `treesit-fontify-with-override'."
       (define-key markdown-ts-mode-map (kbd "C-c C-x c") #'markdown-ts-convert))
     (define-key markdown-ts-mode-map (kbd "C-c C-x C-t") #'gco-md-tables-mode)))
 
-;; Box-drawn tables from yibie/md-mode's renderer.  Only md-render.el is
-;; taken from that repo: md-mode.el's autoloads would claim .md files for
-;; its own major mode.
+;; Box-drawn tables from yibie/md-mode's renderer.  Only the md-render
+;; files are taken from that repo: md-mode.el's autoloads would claim .md
+;; files for its own major mode.  Since 0.5 md-render needs textui, which
+;; only md-mode.el declares, so elpaca can't infer it.
+(use-package textui
+  :ensure (:host github :repo "yibie/textui")
+  :defer t)
+
 (use-package md-render
-  :ensure (:host github :repo "yibie/md-mode" :files ("md-render.el"))
+  :ensure (:host github :repo "yibie/md-mode" :files ("md-render*.el"))
   :defer t)
 
 ;; Tables show rendered while point is elsewhere and as source while point
