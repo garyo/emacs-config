@@ -126,19 +126,20 @@
   (setq-default mixed-pitch-set-height t)
   )
 
-;; Geneva works & looks good on Mac
-;; or try Lucida Grande
-(cond ((find-font (font-spec :name "Helvetica Neue"))
-       (set-face-attribute 'variable-pitch nil :font "Helvetica Neue" :weight 'regular :height 1.15))
-      ((find-font (font-spec :name "Geneva"))
-       (set-face-attribute 'variable-pitch nil :font "Geneva" :weight 'regular :height 1.15))
-      ((find-font (font-spec :name "Lucida Grande"))
-       (set-face-attribute 'variable-pitch nil :font "Lucida Grande" :weight 'regular :height 1.15))
-      ((find-font (font-spec :name "Verdana"))
-       (set-face-attribute 'variable-pitch nil :font "Verdana" :weight 'regular :height 1.3))
-      ((find-font (font-spec :name "Times New Roman"))
-       (set-face-attribute 'variable-pitch nil :font "Times New Roman" :weight 'regular :height 1.3))
-      )
+;; First installed wins; heights are relative to the default face.
+;; Verdana's tall x-height makes it look larger than its point size, so
+;; it gets less scaling to match Helvetica Neue on the Mac.
+(defvar preferred-variable-pitch-fonts
+  '(("Helvetica Neue" . 1.15)
+    ("Geneva" . 1.15)
+    ("Lucida Grande" . 1.15)
+    ("Verdana" . 1.1)
+    ("Times New Roman" . 1.3)))
+
+(when-let* ((font-info (cl-find-if (lambda (x) (font-exists-p (car x)))
+                                   preferred-variable-pitch-fonts)))
+  (set-face-attribute 'variable-pitch nil :font (car font-info)
+                      :weight 'regular :height (cdr font-info)))
 
 ;;; to display Unicode math chars, like math A to z (𝐴 .. 𝑧, #x1D434 .. #x1D467)
 ;;; and pi: #1D70B = 𝜋
