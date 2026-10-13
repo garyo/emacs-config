@@ -7,14 +7,17 @@
 
 ;;; Commentary:
 ;; A side window that surfaces material related to the heading at point:
+;;   - pages whose title or query block names one of the heading's words,
 ;;   - identical headings elsewhere in the PKM,
 ;;   - other headings sharing significant words with the current one,
 ;;   - inline #tags found within a few lines of point.
 ;;
-;; Results are sorted latest-first (by date in filename, falling back to
-;; mtime) and deduplicated.  The sidebar refreshes after a short idle
-;; delay only when the heading or nearby tag set actually changes, so it
-;; is cheap to keep on while editing.
+;; Pages come first; the rest are sorted latest-first (by date in filename,
+;; falling back to mtime) and deduplicated.  Text inside query blocks is
+;; skipped: it is a copy of journal sections (see gco-pkm-query.el), so
+;; every hit there would repeat one at its source.  The sidebar refreshes
+;; after a short idle delay only when the heading or nearby tag set
+;; actually changes, so it is cheap to keep on while editing.
 ;;
 ;; Navigation: focus the side window with `C-x o' and use `n'/`p' to
 ;; walk entries.  Each move previews the source location in the editing
@@ -31,6 +34,7 @@
 (require 'gco-pkm)
 (require 'gco-inline-tags)
 (require 'gco-pkm-format)
+(require 'gco-pkm-query)
 
 ;;;; Customization
 
@@ -95,6 +99,10 @@ entries don't fill the sidebar.  Word and tag matching are unaffected."
   :type '(repeat string))
 
 ;;;; Faces
+
+(defface gco-pkm-context-page-face
+  '((t :inherit font-lock-function-name-face :weight bold))
+  "Face for the page badge.")
 
 (defface gco-pkm-context-exact-face
   '((t :inherit font-lock-keyword-face :weight bold))
@@ -254,23 +262,38 @@ only recognised one would quietly find nothing in half the notes.")
   "Emacs regex matching a heading line containing WORD on word boundaries."
   (concat gco-pkm-context--elisp-heading "\\s-+.*\\b" (regexp-quote word) "\\b"))
 
+(defun gco-pkm-context--page-pattern (words)
+  "PCRE2 pattern matching a query or `title:' line containing any of WORDS.
+Only a candidate: the query line may sit in a code fence, or the
+`title:' line outside frontmatter; `gco-pkm-context--page-hits' checks."
+  (format "(?:^(?:[ \\t]{0,3}<!--\\s*query:|title:).*\\b(?:%s)\\b)"
+          (mapconcat #'gco-pkm-context--pcre-quote words "|")))
+
+(defun gco-pkm-context--page-classifier-re (words)
+  "Emacs regex counterpart of `gco-pkm-context--page-pattern'."
+  (concat "\\`\\(?:[ \t]\\{0,3\\}<!--[[:blank:]]*query:\\|title:\\).*\\b"
+          (regexp-opt words t) "\\b"))
+
 (defun gco-pkm-context--build-pattern (heading words tags)
   "Return (PCRE-STRING . CLASSIFIERS) for the combined query.
 Each nearby tag drives both `#tag' matches and headings containing the
-tag text; each significant heading word drives both heading matches and
-`#word' matches.  CLASSIFIERS is an ordered list of (REGEX . KIND); the
-first one whose REGEX matches the hit text wins, so order = priority
-(exact > tag > word)."
+tag text; each significant heading word drives heading matches, `#word'
+matches, and page hits on query and title lines.  CLASSIFIERS is an
+ordered list of (REGEX . KIND); the first one whose REGEX matches the
+hit text wins, so order = priority (page > exact > tag > word)."
   (let* ((pieces '())
          (classifiers '())
          (stop-headings (mapcar #'downcase gco-pkm-context-stop-headings)))
+    (when words
+      (push (gco-pkm-context--page-pattern words) pieces)
+      (push (cons (gco-pkm-context--page-classifier-re words) 'page) classifiers))
     (cond
      ;; A pure date/timestamp heading has no content words worth matching
      ;; (its tokens are calendar artifacts).  Instead, look for the literal
      ;; date anywhere in the PKM: other notes that mention this day are real
      ;; references back to it.
      ((gco-pkm-context--timestamp-only-p heading)
-      (when-let ((date (gco-pkm-context--heading-date heading)))
+      (when-let* ((date (gco-pkm-context--heading-date heading)))
         (push (format "(?:(?<![0-9])%s(?![0-9]))"
                       (gco-pkm-context--pcre-quote date))
               pieces)
@@ -468,9 +491,105 @@ references from *other* notes are meaningful backlinks."
               (equal (expand-file-name (plist-get e :file)) self)))
        entries))))
 
+(defvar gco-pkm-context--file-info-cache (make-hash-table :test 'equal)
+  "FILE -> (MTIME . INFO), for `gco-pkm-context--file-info'.")
+
+(defun gco-pkm-context--file-info (file)
+  "Return a plist describing FILE's layout, as it is on disk.
+:blocks holds its query blocks (see `gco-pkm-query-blocks'),
+:frontmatter-lines the number of lines its YAML frontmatter spans (0 if
+none), and :title its title.  Read only for files that turn up in hits,
+and cached until FILE's modification time changes."
+  (let* ((mtime (file-attribute-modification-time (file-attributes file)))
+         (cached (gethash file gco-pkm-context--file-info-cache)))
+    (if (and cached (equal (car cached) mtime))
+        (cdr cached)
+      (let ((info
+             (with-temp-buffer
+               (ignore-errors (insert-file-contents file))
+               (let ((buffer-file-name file)) ; so the title is read in FILE's format
+                 (list :blocks (gco-pkm-query-blocks)
+                       :frontmatter-lines
+                       (if-let* ((bounds (gco-pkm-format--frontmatter-bounds)))
+                           (1- (line-number-at-pos (cdr bounds)))
+                         0)
+                       :title (or (gco-pkm-format-buffer-title)
+                                  (file-name-base file)))))))
+        (puthash file (cons mtime info) gco-pkm-context--file-info-cache)
+        info))))
+
+(defun gco-pkm-context--in-query-block-p (file line)
+  "Non-nil if LINE of FILE lies in a query block, markers included."
+  (seq-some (lambda (block)
+              (<= (gco-pkm-query-block-first-line block)
+                  line
+                  (gco-pkm-query-block-last-line block)))
+            (plist-get (gco-pkm-context--file-info file) :blocks)))
+
+(defun gco-pkm-context--filter-copies (entries)
+  "Drop ENTRIES that lie in query blocks, from query line to closing line.
+Results there copy journal sections, so each such hit would repeat the
+one at its source.  `page' hits, which land on query lines on purpose,
+stay."
+  (cl-remove-if
+   (lambda (e)
+     (and (not (eq (plist-get e :kind) 'page))
+          (gco-pkm-context--in-query-block-p (plist-get e :file)
+                                             (plist-get e :line))))
+   entries))
+
+(defun gco-pkm-context--page-hit-p (entry source-file)
+  "Non-nil if ENTRY, a `page' candidate, is a real query or title line.
+That is a query line outside code fences, or a `title:' line inside the
+frontmatter.  Pages are never hits in SOURCE-FILE: the sidebar need not
+point at the page you are on."
+  (let ((file (plist-get entry :file))
+        (line (plist-get entry :line)))
+    (unless (and source-file
+                 (equal (expand-file-name file) (expand-file-name source-file)))
+      (let ((info (gco-pkm-context--file-info file)))
+        (or (<= line (plist-get info :frontmatter-lines))
+            (seq-some (lambda (block) (= line (gco-pkm-query-block-first-line block)))
+                      (plist-get info :blocks)))))))
+
+(defun gco-pkm-context--page-entry (file hits)
+  "Merge HITS, the `page' entries for FILE, into the one the sidebar shows.
+It shows the page title and lands on the first query line that matched,
+else the page's first query line, else its title."
+  (let* ((info (gco-pkm-context--file-info file))
+         (blocks (plist-get info :blocks))
+         (lines (mapcar (lambda (e) (plist-get e :line)) hits))
+         (block (or (seq-find (lambda (b) (memq (gco-pkm-query-block-first-line b) lines))
+                              blocks)
+                    (car blocks)))
+         (entry (copy-sequence (car hits))))
+    (setq entry (plist-put entry :line (if block
+                                           (gco-pkm-query-block-first-line block)
+                                         (apply #'min lines))))
+    (setq entry (plist-put entry :match (plist-get info :title)))
+    (plist-put entry :context (if block
+                                  (concat "query: " (gco-pkm-query-block-query block))
+                                ""))))
+
+(defun gco-pkm-context--page-hits (entries source-file)
+  "Reduce the `page' candidates in ENTRIES to one entry per page.
+Candidates that `gco-pkm-context--page-hit-p' rejects, given
+SOURCE-FILE, are dropped; other entries pass through."
+  (let ((pages '())
+        (others '()))
+    (dolist (e entries)
+      (cond ((not (eq (plist-get e :kind) 'page))
+             (push e others))
+            ((gco-pkm-context--page-hit-p e source-file)
+             (push e (alist-get (plist-get e :file) pages nil nil #'equal)))))
+    (nconc (mapcar (lambda (page) (gco-pkm-context--page-entry (car page) (cdr page)))
+                   pages)
+           (nreverse others))))
+
 (defun gco-pkm-context--kind-priority (kind)
   "Lower number = higher priority."
   (cond
+   ((eq kind 'page) -1)
    ((eq kind 'exact) 0)
    ((eq kind 'date) 0)
    ((and (symbolp kind) (string-prefix-p "tag:" (symbol-name kind))) 1)
@@ -489,12 +608,15 @@ references from *other* notes are meaningful backlinks."
     (hash-table-values table)))
 
 (defun gco-pkm-context--sort (entries)
-  "Sort ENTRIES by date descending, then by file, then by line descending."
+  "Sort ENTRIES: pages first, then by date descending, file, line descending."
   (sort entries
         (lambda (a b)
-          (let ((ta (gco-pkm-context--date-key (plist-get a :date)))
+          (let ((pa (eq (plist-get a :kind) 'page))
+                (pb (eq (plist-get b :kind) 'page))
+                (ta (gco-pkm-context--date-key (plist-get a :date)))
                 (tb (gco-pkm-context--date-key (plist-get b :date))))
             (cond
+             ((not (eq pa pb)) pa)
              ((time-less-p tb ta) t)
              ((time-less-p ta tb) nil)
              ((string< (plist-get a :file) (plist-get b :file)) t)
@@ -527,11 +649,28 @@ merged hit; its `:kind' is the highest-priority kind among them."
 (defun gco-pkm-context--truncate (entries n)
   (if (> (length entries) n) (seq-take entries n) entries))
 
+(defun gco-pkm-context--process (entries source-file source-line)
+  "Turn parsed rg ENTRIES into the groups the sidebar shows, best first.
+SOURCE-FILE and SOURCE-LINE locate the heading the sidebar is about."
+  (gco-pkm-context--truncate
+   (gco-pkm-context--group
+    (gco-pkm-context--sort
+     (gco-pkm-context--dedup
+      (gco-pkm-context--page-hits
+       (gco-pkm-context--filter-copies
+        (gco-pkm-context--filter-same-file-dates
+         (gco-pkm-context--filter-self entries source-file source-line)
+         source-file))
+       source-file))))
+   gco-pkm-context-max-results))
+
 ;;;; Renderer
 
 (defun gco-pkm-context--badge (kind)
   "Return propertized badge string for KIND."
   (cond
+   ((eq kind 'page)
+    (propertize "▤" 'face 'gco-pkm-context-page-face))
    ((eq kind 'exact)
     (propertize "≡" 'face 'gco-pkm-context-exact-face))
    ((eq kind 'date)
@@ -863,17 +1002,9 @@ Closes the side window when no PKM buffer is visible anywhere."
         (gco-pkm-context--launch
          (car built) (cdr built) root
          (lambda (entries)
-           (let* ((cleaned
-                   (gco-pkm-context--truncate
-                    (gco-pkm-context--group
-                     (gco-pkm-context--sort
-                      (gco-pkm-context--dedup
-                       (gco-pkm-context--filter-same-file-dates
-                        (gco-pkm-context--filter-self
-                         entries source-file src-line)
-                        source-file))))
-                    gco-pkm-context-max-results)))
-             (gco-pkm-context--render buf cleaned root header))))))))
+           (gco-pkm-context--render
+            buf (gco-pkm-context--process entries source-file src-line)
+            root header)))))))
 
 (defun gco-pkm-context-refresh-now ()
   "Force a refresh of the context buffer using the current selection."

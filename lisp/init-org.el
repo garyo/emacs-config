@@ -320,6 +320,17 @@ Returns final path (may differ from input if format changed)."
   :after (gco-pkm calendar)
   :commands (gco-pkm-calendar-browse))
 
+(use-package gco-pkm-query
+  :ensure nil
+  :load-path "lisp/"
+  :after gco-pkm
+  :demand t
+  ;; Query blocks are a markdown feature: shade their results, keep them
+  ;; read-only, and refresh them with C-c C-c.
+  :hook ((markdown-mode . gco-pkm-query-maybe-enable)
+         ;; markdown-ts-mode does not run markdown-mode-hook; see init-markdown.
+         (markdown-ts-mode . gco-pkm-query-maybe-enable)))
+
 (use-package gco-pkm-context
   :ensure nil
   :load-path "lisp/"
