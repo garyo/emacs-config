@@ -7,9 +7,10 @@
 ;;   emacs -Q --batch -l test/gco-pkm-query-test.el -f ert-run-tests-batch-and-exit
 ;;
 ;; Packages come from elpaca's build directories, which this file puts on
-;; the load path itself.  Refreshes run against a stub engine that honors
-;; the CLI's JSON contract; one more test runs the real engine when
-;; `gco-pkm-query-engine-directory' has it.
+;; the load path itself.  Refreshes and check-offs run against a stub
+;; engine that honors the CLI's JSON contract; a few more tests run the
+;; real engine when `gco-pkm-query-engine-directory' has it, and the
+;; markdown-ts-mode tests need this configuration's tree-sitter grammars.
 
 ;;; Code:
 
@@ -32,6 +33,11 @@
 (require 'gco-pkm-context)
 
 (declare-function markdown-ts--heading-ids "markdown-ts-mode")
+(declare-function markdown-ts-mode "markdown-ts-mode")
+(declare-function markdown-ts-toggle-checkbox "markdown-ts-mode")
+
+;; As init-org.el hooks it.
+(add-hook 'markdown-ts-mode-hook #'gco-pkm-query-maybe-enable)
 
 ;;;; Fixtures
 
@@ -134,9 +140,30 @@ or reverted, come up in `gco-pkm-query-test-mode'."
                             (gco-pkm-query-block-query b)))
           (gco-pkm-query-blocks)))
 
+(defun gco-pkm-query-test--line ()
+  "Return the text of the line at point."
+  (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+
+(defun gco-pkm-query-test--file-text (rel)
+  "Return the text of REL under `gco-pkm-directory', as it is on disk."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name rel gco-pkm-directory))
+    (buffer-string)))
+
 (defmacro gco-pkm-query-test--read-only (&rest body)
   "Assert that BODY is refused as a change to read-only text."
   `(should-error (progn ,@body) :type 'text-read-only))
+
+(defmacro gco-pkm-query-test--with-markdown-ts (&rest body)
+  "Run BODY with markdown-ts-mode and this configuration's grammars, or skip."
+  (declare (indent 0))
+  `(let ((treesit-extra-load-path
+          (cons (expand-file-name "tree-sitter" gco-pkm-query-test--config-dir)
+                treesit-extra-load-path)))
+     (skip-unless (and (require 'markdown-ts-mode nil t)
+                       (treesit-language-available-p 'markdown)
+                       (treesit-language-available-p 'markdown-inline)))
+     ,@body))
 
 ;;;; Finding blocks
 
@@ -459,11 +486,15 @@ MAIN is the Python source of its pkm_bridge/queries/__main__.py."
                (buffer-string)))
       (should-error (gco-pkm-insert-query " ") :type 'user-error))))
 
+(defun gco-pkm-query-test--real-engine-p ()
+  "Non-nil if the real query engine is where `gco-pkm-query-engine-directory' says."
+  (and (executable-find gco-pkm-query-python)
+       (file-directory-p (expand-file-name "pkm_bridge/queries"
+                                           gco-pkm-query-engine-directory))))
+
 (ert-deftest gco-pkm-query-test-real-engine ()
   "Refresh against the real engine, when it is installed."
-  (skip-unless (and (executable-find gco-pkm-query-python)
-                    (file-directory-p (expand-file-name "pkm_bridge/queries"
-                                                        gco-pkm-query-engine-directory))))
+  (skip-unless (gco-pkm-query-test--real-engine-p))
   (gco-pkm-query-test--with-notes
       '(("journals/2026-10-13.md" . "---\ntitle: \"2026-10-13\"\n---\n\n# Travel Egypt\nWe booked the Luxor hotel.\n")
         ("pages/egypt.md" . "---\ntitle: \"Egypt\"\n---\n\n# Journal\n\n<!-- query: Egypt -->\n<!-- /query -->\n"))
@@ -480,6 +511,365 @@ MAIN is the Python source of its pkm_bridge/queries/__main__.py."
     (let ((text (buffer-string)))
       (gco-pkm-query-refresh)
       (should (equal (buffer-string) text)))))
+
+;;;; Tasks
+
+(defconst gco-pkm-query-test--task-lines
+  '(("- [ ] Buy milk" "- [x] Buy milk ✅ 2026-10-13" "- [ ] Buy milk")
+    ("- [x] Buy milk ✅ 2026-10-01" "- [x] Buy milk ✅ 2026-10-13" "- [ ] Buy milk")
+    ("- [X] Shout" "- [x] Shout ✅ 2026-10-13" "- [ ] Shout")
+    ("- [ ] Spaces after   " "- [x] Spaces after ✅ 2026-10-13" "- [ ] Spaces after   ")
+    ("- [x] Tabs\t✅2026-10-01 \t" "- [x] Tabs ✅ 2026-10-13" "- [ ] Tabs \t")
+    ("- [ ] Trailing tab\t" "- [x] Trailing tab ✅ 2026-10-13" "- [ ] Trailing tab\t")
+    ("- [ ] No-break space\u00a0" "- [x] No-break space\u00a0 ✅ 2026-10-13"
+     "- [ ] No-break space\u00a0")
+    ("- [x] No-break\u00a0 ✅ 2026-10-01" "- [x] No-break\u00a0 ✅ 2026-10-13" "- [ ] No-break\u00a0")
+    ("    * [ ] Indented" "    * [x] Indented ✅ 2026-10-13" "    * [ ] Indented")
+    ("\t+ [x] Tab-indented ✅ 2026-10-01" "\t+ [x] Tab-indented ✅ 2026-10-13"
+     "\t+ [ ] Tab-indented")
+    ("12. [x] Ordered ✅ 2026-01-02" "12. [x] Ordered ✅ 2026-10-13" "12. [ ] Ordered")
+    ("3) [ ]\tParenthesized" "3) [x]\tParenthesized ✅ 2026-10-13" "3) [ ]\tParenthesized")
+    ("- [ ]" "- [x] ✅ 2026-10-13" "- [ ]")
+    ("- [ ] See ✅ 2026-10-01 there" "- [x] See ✅ 2026-10-01 there ✅ 2026-10-13"
+     "- [ ] See ✅ 2026-10-01 there")
+    ("- [x] Twice ✅ 2026-10-01 ✅ 2026-10-02" "- [x] Twice ✅ 2026-10-01 ✅ 2026-10-13"
+     "- [ ] Twice ✅ 2026-10-01"))
+  "Task lines, each followed by itself checked on 2026-10-13, then opened.")
+
+(defconst gco-pkm-query-test--not-tasks
+  '("- [ ]x" "-[ ] Tight" "- [y] Other" "- [] Empty" "> - [ ] Quoted" "Text [ ]"
+    "1234567890. [ ] Too long")
+  "Lines that only look like tasks.")
+
+(defun gco-pkm-query-test--set-state (line checked)
+  "Return LINE set to CHECKED on 2026-10-13, or nil if it isn't a task."
+  (with-temp-buffer
+    (insert line)
+    (goto-char (point-min))
+    (and (gco-pkm-query-set-task-state checked "2026-10-13")
+         (buffer-string))))
+
+(ert-deftest gco-pkm-query-test-set-task-state ()
+  (pcase-dolist (`(,line ,checked ,open) gco-pkm-query-test--task-lines)
+    (should (equal (gco-pkm-query-test--set-state line t) checked))
+    (should (equal (gco-pkm-query-test--set-state line nil) open)))
+  (dolist (line gco-pkm-query-test--not-tasks)
+    (should-not (gco-pkm-query-test--set-state line t)))
+  (with-temp-buffer
+    (insert "# PKM\n- [ ] Buy milk  \n  at the shop\n")
+    ;; From anywhere on the line, and only the line changes; point stays put.
+    (gco-pkm-query-test--goto "milk")
+    (should (gco-pkm-query-set-task-state t "2026-10-13"))
+    (should (equal (buffer-string) "# PKM\n- [x] Buy milk ✅ 2026-10-13\n  at the shop\n"))
+    (should (looking-at-p "milk ✅"))
+    ;; Already so, nothing changes, not even the modified flag.
+    (set-buffer-modified-p nil)
+    (gco-pkm-query-set-task-state t "2026-10-13")
+    (should-not (buffer-modified-p))
+    ;; Today, by default.
+    (gco-pkm-query-set-task-state t)
+    (should (string-match-p (concat "Buy milk ✅ " (format-time-string "%F") "\n")
+                            (buffer-string)))))
+
+(defun gco-pkm-query-test--python (script input)
+  "Run Python SCRIPT, able to import the engine; return the JSON it prints.
+INPUT goes to its standard input as JSON."
+  (with-temp-buffer
+    (json-insert input)
+    (let* ((default-directory (file-name-as-directory
+                               (expand-file-name gco-pkm-query-engine-directory)))
+           (process-environment (cons (concat "PYTHONPATH=" default-directory)
+                                      process-environment))
+           (coding-system-for-write 'utf-8-unix)
+           (coding-system-for-read 'utf-8-unix)
+           (status (call-process-region (point-min) (point-max) gco-pkm-query-python
+                                        t t nil "-c" script)))
+      (unless (eql status 0)
+        (error "Python failed: %s" (buffer-string)))
+      (goto-char (point-min))
+      (json-parse-buffer :array-type 'list :null-object nil))))
+
+(ert-deftest gco-pkm-query-test-set-task-state-engine ()
+  "Ticks come out byte for byte as the engine's `set_task_state' makes them."
+  (skip-unless (gco-pkm-query-test--real-engine-p))
+  (let ((lines (append (mapcar #'car gco-pkm-query-test--task-lines)
+                       gco-pkm-query-test--not-tasks)))
+    (should (equal (gco-pkm-query-test--python "\
+import json, sys
+from datetime import date
+from pkm_bridge.queries import set_task_state
+def state(line, checked):
+    try:
+        return set_task_state(line, checked, date(2026, 10, 13))
+    except ValueError:
+        return None
+json.dump([[state(l, True), state(l, False)] for l in json.load(sys.stdin.buffer)], sys.stdout)
+"
+                                               (vconcat lines))
+                   (mapcar (lambda (line)
+                             (list (gco-pkm-query-test--set-state line t)
+                                   (gco-pkm-query-test--set-state line nil)))
+                           lines)))))
+
+(ert-deftest gco-pkm-query-test-toggle-stamps ()
+  "Ticking a task in a note stamps it, and one undo takes the tick back."
+  (gco-pkm-query-test--with-markdown-ts
+    (gco-pkm-query-test--with-notes
+        '(("journals/2026-10-12.md"
+           . "# PKM\n- [ ] Buy milk\n  at the shop\n- [X] Call Bob ✅ 2026-10-01\n"))
+      (let ((auto-mode-alist '(("\\.md\\'" . markdown-ts-mode)))
+            (today (format-time-string "%F")))
+        (gco-pkm-query-test--visit "journals/2026-10-12.md")
+        (should gco-pkm-query-mode)
+        (gco-pkm-query-test--goto "Buy milk")
+        (should (eq (key-binding (kbd "C-c C-c")) #'gco-pkm-query-toggle-checkbox))
+        (let ((before (buffer-string)))
+          (undo-boundary)
+          (call-interactively (key-binding (kbd "C-c C-c")))
+          (should (equal (gco-pkm-query-test--line) (concat "- [x] Buy milk ✅ " today)))
+          (undo-boundary)
+          (let ((last-command nil))
+            (undo))
+          (should (equal (buffer-string) before)))
+        ;; From a continuation line, the stamp goes on the item it toggles.
+        (gco-pkm-query-test--goto "at the shop")
+        (call-interactively (key-binding (kbd "C-c C-c")))
+        (should (string-match-p (concat "^- \\[x\\] Buy milk ✅ " today "\n  at the shop\n")
+                                (buffer-string)))
+        ;; Reopening takes the stamp off, and X is as done as x.
+        (gco-pkm-query-test--goto "Call Bob")
+        (call-interactively (key-binding (kbd "C-c C-c")))
+        (should (equal (gco-pkm-query-test--line) "- [ ] Call Bob"))))))
+
+(ert-deftest gco-pkm-query-test-toggle-elsewhere ()
+  "Outside the notes, C-c C-c is markdown-ts-mode's own toggle, with no stamp."
+  (gco-pkm-query-test--with-markdown-ts
+    (with-temp-buffer
+      (insert "- [ ] Buy milk\n")
+      (markdown-ts-mode)
+      (goto-char (point-min))
+      (should-not gco-pkm-query-mode)
+      (should (eq (key-binding (kbd "C-c C-c")) #'markdown-ts-toggle-checkbox))
+      (call-interactively (key-binding (kbd "C-c C-c")))
+      (should (equal (buffer-string) "- [x] Buy milk\n")))))
+
+(defconst gco-pkm-query-test--tasks-journal
+  "---
+title: \"2026-10-12\"
+---
+
+# PKM
+- [ ] Auto-updating queries on pages
+- [x] Write the design ✅ 2026-10-11
+"
+  "A journal whose tasks the to-do page copies.")
+
+(defconst gco-pkm-query-test--todo
+  "---
+title: \"ToDo\"
+---
+
+# This week
+<!-- query: PKM is:todo -->
+
+## [2026-10-12 Mon · PKM](../journals/2026-10-12.md#pkm)
+- [ ] Auto-updating queries on pages
+- [x] Write the design ✅ 2026-10-11
+- [ ] Gone from the journal
+Not a task.
+
+<!-- /query 86ba1cd4 -->
+
+# Mine
+- [ ] Buy milk
+"
+  "A to-do page holding copies of tasks, the first on line 9.")
+
+(defconst gco-pkm-query-test--task-stub-main
+  (concat "import json, os, re, sys
+sys.stdin.reconfigure(encoding='utf-8')
+args = sys.argv[1:]
+if args[0] in ('locate-task', 'check-task'):
+    opt = lambda name: args[args.index(name) + 1]
+    request = json.load(sys.stdin) if args[0] == 'check-task' else {'page': sys.stdin.read()}
+    with open(os.path.join(os.path.dirname(__file__), 'request.json'), 'w') as f:
+        json.dump(dict(request, args=args), f)
+    page, n = request['page'].split('\\n'), int(opt('--line')) - 1
+    stamp = r'(?: \\u2705 [-0-9]+)?$'
+    task = re.match(r'- \\[[ xX]\\] (.*?)' + stamp, page[n])
+    entry = re.compile(r'## \\[.*\\]\\(\\.\\./([^#)]+)')
+    links = [m.group(1) for m in map(entry.match, page[:n]) if m]
+    if not (task and links):
+        result = {'error': 'not a copied task'}
+    elif args[0] == 'locate-task':
+        result = {'source_path': links[-1]}
+    else:
+        source = request['source']
+        if source is None:
+            with open(os.path.join(opt('--root'), links[-1]), encoding='utf-8') as f:
+                source = f.read()
+        lines, item = source.split('\\n'), task.group(1)
+        same = [i for i, line in enumerate(lines)
+                if re.match(r'- \\[[ xX]\\] ' + re.escape(item) + stamp, line)]
+        if not same:
+            result = {'error': 'this copy is out of date; refresh it'}
+        else:
+            ticked = ('- [x] %s \\u2705 2026-10-13' if '--check' in args else '- [ ] %s') % item
+            lines[same[0]] = page[n] = ticked
+            result = {'page': '\\n'.join(page), 'source_path': links[-1],
+                      'source': '\\n'.join(lines), 'source_line': same[0] + 1, 'item': item}
+    json.dump(result, sys.stdout)
+    sys.exit(0)
+" gco-pkm-query-test--stub-main)
+  "The stub engine, answering `locate-task' and `check-task' too.
+It finds a copy's source by the entry heading above it, ticks the first
+source item with the copy's text, stamping it 2026-10-13, and keeps the
+last request it got, with its arguments, in request.json beside it.")
+
+(defun gco-pkm-query-test--stub-request ()
+  "Return the last request the stub engine got, with :null for null."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "pkm_bridge/queries/request.json"
+                                            gco-pkm-query-engine-directory))
+    (json-parse-buffer :object-type 'alist :array-type 'list)))
+
+(defun gco-pkm-query-test--visiting (rel)
+  "Return the buffer visiting REL under `gco-pkm-directory', or nil."
+  (find-buffer-visiting (expand-file-name rel gco-pkm-directory)))
+
+(ert-deftest gco-pkm-query-test-check-task ()
+  "Checking a copy off ticks its source too, saving the notes that were clean."
+  (gco-pkm-query-test--with-engine gco-pkm-query-test--task-stub-main
+    (gco-pkm-query-test--with-notes
+        `(("journals/2026-10-12.md" . ,gco-pkm-query-test--tasks-journal)
+          ("pages/todo.md" . ,gco-pkm-query-test--todo))
+      (let ((journal "journals/2026-10-12.md"))
+        (gco-pkm-query-test--visit "pages/todo.md")
+        ;; A clean page and an unvisited journal: the engine reads the
+        ;; journal itself, both are saved, and the journal isn't left open.
+        (gco-pkm-query-test--goto "Auto-updating")
+        (should (equal (gco-pkm-query-check-task) "Checked off in journals/2026-10-12.md"))
+        (should (looking-at-p "Auto-updating queries on pages ✅ 2026-10-13$"))
+        (let-alist (gco-pkm-query-test--stub-request)
+          (should (eq .source :null))
+          (should (equal .page gco-pkm-query-test--todo))
+          (should (equal (cadr (member "--line" .args)) "9"))
+          (should (member "--check" .args)))
+        (should-not (buffer-modified-p))
+        (should (equal (gco-pkm-query-test--file-text "pages/todo.md") (buffer-string)))
+        (should (string-match-p "^- \\[x\\] Auto-updating queries on pages ✅ 2026-10-13\n"
+                                (gco-pkm-query-test--file-text journal)))
+        (should-not (gco-pkm-query-test--visiting journal))
+        ;; A copy the engine can't place is refused, and nothing changes.
+        (let ((page (buffer-string)))
+          (gco-pkm-query-test--goto "Gone from")
+          (should (equal (cadr (should-error (gco-pkm-query-check-task) :type 'user-error))
+                         "this copy is out of date; refresh it"))
+          (gco-pkm-query-test--goto "Not a task")
+          (should-error (gco-pkm-query-check-task) :type 'user-error)
+          (should (equal (buffer-string) page))
+          (should-not (gco-pkm-query-test--visiting journal)))
+        ;; Unsaved edits in both: the engine gets the journal's buffer, and
+        ;; neither note is saved.
+        (let ((saved-page (buffer-string))
+              (saved-journal (gco-pkm-query-test--file-text journal)))
+          (with-current-buffer (find-file-noselect (expand-file-name journal gco-pkm-directory))
+            (goto-char (point-max))
+            (insert "Unsaved.\n"))
+          (gco-pkm-query-test--goto "Buy milk")
+          (insert "Unsaved: ")
+          (gco-pkm-query-test--goto "Write the design")
+          (should (equal (gco-pkm-query-check-task) "Reopened in journals/2026-10-12.md"))
+          (should (equal (gco-pkm-query-test--line) "- [ ] Write the design"))
+          (let-alist (gco-pkm-query-test--stub-request)
+            (should (string-suffix-p "\nUnsaved.\n" .source))
+            (should (member "--uncheck" .args)))
+          (should (buffer-modified-p))
+          (should (equal (gco-pkm-query-test--file-text "pages/todo.md") saved-page))
+          (with-current-buffer (gco-pkm-query-test--visiting journal)
+            (should (buffer-modified-p))
+            (should (string-suffix-p "- [ ] Write the design\nUnsaved.\n" (buffer-string))))
+          (should (equal (gco-pkm-query-test--file-text journal) saved-journal)))))))
+
+(ert-deftest gco-pkm-query-test-task-keys ()
+  "C-c C-c checks off a copied task, and still refreshes elsewhere in a block."
+  (gco-pkm-query-test--with-buffer gco-pkm-query-test--todo
+    (dolist (spot '("Auto-updating" "Write the design"))
+      (gco-pkm-query-test--goto spot)
+      (should (eq (key-binding (kbd "C-c C-c")) #'gco-pkm-query-check-task)))
+    (dolist (spot '("<!-- query" "## [2026" "Not a task" "<!-- /query"))
+      (gco-pkm-query-test--goto spot)
+      (should (eq (key-binding (kbd "C-c C-c")) #'gco-pkm-query-refresh)))
+    (gco-pkm-query-test--goto "Buy milk")
+    (should (eq (key-binding (kbd "C-c C-c")) #'gco-pkm-query-test-toggle))))
+
+(ert-deftest gco-pkm-query-test-task-dispatch ()
+  "In markdown-ts-mode, C-c C-c checks off a copy, refreshes a block, or ticks."
+  (gco-pkm-query-test--with-markdown-ts
+    (gco-pkm-query-test--with-engine gco-pkm-query-test--task-stub-main
+      (gco-pkm-query-test--with-notes
+          `(("journals/2026-10-12.md" . ,gco-pkm-query-test--tasks-journal)
+            ("pages/todo.md" . ,gco-pkm-query-test--todo))
+        (let ((auto-mode-alist '(("\\.md\\'" . markdown-ts-mode))))
+          (gco-pkm-query-test--visit "pages/todo.md")
+          (gco-pkm-query-test--goto "Auto-updating")
+          (call-interactively (key-binding (kbd "C-c C-c")))
+          (should (equal (gco-pkm-query-test--line)
+                         "- [x] Auto-updating queries on pages ✅ 2026-10-13"))
+          (should (string-match-p "^- \\[x\\] Auto-updating queries on pages ✅ 2026-10-13\n"
+                                  (gco-pkm-query-test--file-text "journals/2026-10-12.md")))
+          (gco-pkm-query-test--goto "Buy milk")
+          (call-interactively (key-binding (kbd "C-c C-c")))
+          (should (equal (gco-pkm-query-test--line)
+                         (concat "- [x] Buy milk ✅ " (format-time-string "%F"))))
+          (gco-pkm-query-test--goto "## [2026")
+          (call-interactively (key-binding (kbd "C-c C-c")))
+          (should (string-match-p (concat "<!-- query: PKM is:todo -->\n"
+                                          "## \\[Stub: PKM is:todo\\](pages/todo.md)\n"
+                                          "<!-- /query 0123abcd -->\n")
+                                  (buffer-string))))))))
+
+(ert-deftest gco-pkm-query-test-real-engine-tasks ()
+  "Check a task off through a page and reopen it, with the real engine."
+  (skip-unless (gco-pkm-query-test--real-engine-p))
+  (gco-pkm-query-test--with-notes
+      '(("journals/2026-10-12.md"
+         . "---\ntitle: \"2026-10-12\"\n---\n\n# PKM\n- [ ] Auto-updating queries on pages\n- [ ] Try markdown-ts-appear\n")
+        ("pages/todo.md"
+         . "---\ntitle: \"ToDo\"\n---\n\n# This week\n<!-- query: PKM is:todo -->\n\n# Flat\n<!-- query: PKM is:todo show:list -->\n"))
+    (let ((today (format-time-string "%F"))
+          (journal "journals/2026-10-12.md"))
+      (gco-pkm-query-test--visit "pages/todo.md")
+      (gco-pkm-query-refresh)
+      (save-buffer)
+      (gco-pkm-query-test--goto "- [ ] Auto-updating")
+      (should (equal (call-interactively (key-binding (kbd "C-c C-c")))
+                     "Checked off in journals/2026-10-12.md"))
+      (should (equal (gco-pkm-query-test--line)
+                     (concat "- [x] Auto-updating queries on pages ✅ " today)))
+      (should (string-match-p (concat "^- \\[x\\] Auto-updating queries on pages ✅ " today "\n")
+                              (gco-pkm-query-test--file-text journal)))
+      (should-not (buffer-modified-p))
+      ;; In a show:list item, the stamp goes before the source link.
+      (gco-pkm-query-test--goto "Try markdown-ts-appear · [")
+      (call-interactively (key-binding (kbd "C-c C-c")))
+      (should (string-prefix-p
+               (concat "- [x] Try markdown-ts-appear ✅ " today " · [2026-10-12 PKM](")
+               (gco-pkm-query-test--line)))
+      (should (string-match-p (concat "^- \\[x\\] Try markdown-ts-appear ✅ " today "\n")
+                              (gco-pkm-query-test--file-text journal)))
+      (gco-pkm-query-test--goto "- [x] Auto-updating")
+      (should (equal (call-interactively (key-binding (kbd "C-c C-c")))
+                     "Reopened in journals/2026-10-12.md"))
+      (should (string-match-p "^- \\[ \\] Auto-updating queries on pages\n"
+                              (gco-pkm-query-test--file-text journal)))
+      ;; Once its item is gone from the journal, a copy is refused.
+      (gco-pkm-query-test--write journal "---\ntitle: \"2026-10-12\"\n---\n\n# PKM\n")
+      (gco-pkm-query-test--goto "- [ ] Auto-updating")
+      (should (string-match-p "out of date"
+                              (cadr (should-error (call-interactively
+                                                   (key-binding (kbd "C-c C-c")))
+                                                  :type 'user-error)))))))
 
 ;;;; Heading anchors
 
@@ -538,12 +928,7 @@ title: \"2026-10-13\"
 
 (ert-deftest gco-pkm-query-test-anchor-links ()
   "Links to headings with links in them land there, in markdown-ts-mode."
-  (let ((treesit-extra-load-path
-         (cons (expand-file-name "tree-sitter" gco-pkm-query-test--config-dir)
-               treesit-extra-load-path)))
-    (skip-unless (and (require 'markdown-ts-mode nil t)
-                      (treesit-language-available-p 'markdown)
-                      (treesit-language-available-p 'markdown-inline)))
+  (gco-pkm-query-test--with-markdown-ts
     (gco-pkm-query-test--with-notes
         `(("journals/2026-10-13.md" . ,gco-pkm-query-test--journal)
           ("pages/x.md" . "# Page\n\nSee [the meeting](../journals/2026-10-13.md#openfx-tsc-meeting).\n"))

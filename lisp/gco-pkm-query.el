@@ -21,6 +21,12 @@
 ;; the note through the server's query engine.  Like an Org dynamic block
 ;; update, that leaves the buffer modified rather than saving it.
 ;;
+;; Ticking a task anywhere in a note stamps it: checked, its line ends
+;; with a ✅ and today's date; reopened, it loses the stamp.  On a task
+;; copied into a block's results, C-c C-c ticks the item it is a copy
+;; of instead, in its journal, and the copy with it; see
+;; doc/query-todos-design.md in gco-pkm-llm.
+;;
 ;; Markers are recognised exactly as the engine (pkm_bridge/queries)
 ;; recognises them, fences included, so what is shaded here is precisely
 ;; what the server will overwrite.  The context sidebar uses the same
@@ -283,10 +289,19 @@ For `after-change-functions'."
       (user-error "%s isn't under %s" (abbreviate-file-name file) gco-pkm-directory))
     (file-relative-name (file-truename file) root)))
 
-(defun gco-pkm-query--run-engine (rel)
-  "Pipe the buffer through the query engine as note REL; return its report.
-The report is the engine's JSON as an alist: `text', `changed' and
-`blocks', one alist per block."
+(defun gco-pkm-query--buffer-text (&optional buffer)
+  "Return all of BUFFER's text (default the current buffer's), without properties."
+  (with-current-buffer (or buffer (current-buffer))
+    (save-restriction
+      (widen)
+      (buffer-substring-no-properties (point-min) (point-max)))))
+
+(defun gco-pkm-query--run-engine (command &rest args)
+  "Pipe the buffer through the query engine's COMMAND with ARGS; return its JSON.
+The engine works on the notes in `gco-pkm-directory'.  Its JSON comes
+back as an alist, with lists for arrays and nil for null and false.  An
+`error' key is the engine declining, which becomes a `user-error' with
+its message."
   (let ((python (or (executable-find gco-pkm-query-python)
                     (user-error "Can't find Python (`%s'); set `gco-pkm-query-python'"
                                 gco-pkm-query-python)))
@@ -309,24 +324,27 @@ The report is the engine's JSON as an alist: `text', `changed' and
                        (coding-system-for-read 'utf-8-unix))
                    (save-restriction
                      (widen)
-                     (call-process-region (point-min) (point-max) python nil
-                                          (list out err) nil
-                                          "-m" "pkm_bridge.queries" "refresh-text" "--json"
-                                          "--root" (expand-file-name gco-pkm-directory)
-                                          "--path" rel)))))
+                     (apply #'call-process-region (point-min) (point-max) python nil
+                            (list out err) nil
+                            "-m" "pkm_bridge.queries" command
+                            (append args (list "--root"
+                                               (expand-file-name gco-pkm-directory))))))))
             (unless (eql status 0)
               (let ((lines (with-temp-buffer
                              (insert-file-contents err)
                              (split-string (buffer-string) "\n" t "[ \t]+"))))
                 (error "Query engine failed (%s): %s"
                        status (or (car (last lines)) "no output"))))
-            (with-current-buffer out
-              (goto-char (point-min))
-              (condition-case nil
-                  (json-parse-buffer :object-type 'alist :array-type 'list
-                                     :null-object nil :false-object nil)
-                (json-error (error "Query engine returned no JSON: %s"
-                                   (string-limit (buffer-string) 200))))))
+            (let ((report (with-current-buffer out
+                            (goto-char (point-min))
+                            (condition-case nil
+                                (json-parse-buffer :object-type 'alist :array-type 'list
+                                                   :null-object nil :false-object nil)
+                              (json-error (error "Query engine returned no JSON: %s"
+                                                 (string-limit (buffer-string) 200)))))))
+              (when-let* ((refusal (alist-get 'error report)))
+                (user-error "%s" refusal))
+              report))
         (kill-buffer out)
         (delete-file err)))))
 
@@ -369,12 +387,10 @@ The buffer goes through the query engine's command line, so this works
 offline.  Only the changed text is replaced, so point stays put, and the
 buffer is left modified rather than saved."
   (interactive)
-  (let* ((report (gco-pkm-query--run-engine (gco-pkm-query--note-path)))
+  (let* ((report (gco-pkm-query--run-engine "refresh-text" "--json"
+                                            "--path" (gco-pkm-query--note-path)))
          (text (alist-get 'text report))
-         (changed (not (string= text (save-restriction
-                                       (widen)
-                                       (buffer-substring-no-properties
-                                        (point-min) (point-max)))))))
+         (changed (not (string= text (gco-pkm-query--buffer-text)))))
     (when changed
       (gco-pkm-query--replace-text text))
     (gco-pkm-query--update-overlays)
@@ -485,6 +501,133 @@ filled in at once."
         (unless (eobp) (insert "\n")))))
   (gco-pkm-query-refresh))
 
+;;;; Tasks
+;;
+;; A task is a list item that starts with a checkbox.  Emacs, the web
+;; editor and the server all set a task's state by the same rule,
+;; set_task_state in pkm_bridge/queries/notes.py, so a tick comes out
+;; the same bytes wherever it is made.
+
+(declare-function markdown-ts-toggle-checkbox "markdown-ts-mode" ())
+
+(defconst gco-pkm-query--task-re
+  (rx (* (any " \t")) (or (any "-*+") (seq (** 1 9 (any "0-9")) (any ".)")))
+      (+ (any " \t")) "[" (group (any " xX")) "]" (or (any " \t") eol))
+  "Matches a task line from its start, as the engine's TASK_RE.
+Group 1 is its state: a space when open, x or X when done.")
+
+(defconst gco-pkm-query--stamp-re
+  (rx (group (+ (any " \t")) "✅" (* (any " \t"))
+             (= 4 (any "0-9")) "-" (= 2 (any "0-9")) "-" (= 2 (any "0-9")))
+      (* (any " \t")) eol)
+  "Matches a completion stamp as group 1, as the engine's _STAMP_RE.
+A stamp ends its line, but for any spaces and tabs.")
+
+(defun gco-pkm-query--task-state ()
+  "Return `open' or `done' for the task line at point, nil for any other line."
+  (save-excursion
+    (forward-line 0)
+    (let ((case-fold-search nil))
+      (and (looking-at gco-pkm-query--task-re)
+           (if (eq (char-after (match-beginning 1)) ?\s) 'open 'done)))))
+
+(defun gco-pkm-query-set-task-state (checked &optional today)
+  "Make the task line at point CHECKED, or open if CHECKED is nil.
+Checking sets the task's state to x, takes any ✅ stamp and then any
+trailing spaces and tabs off its line, and ends it with \" ✅ TODAY\";
+TODAY is a YYYY-MM-DD string, by default the local date.  Opening sets
+the state to a space and takes off any stamp.  Nothing else on the line
+changes.  Return nil, changing nothing, if the line isn't a task."
+  (save-excursion
+    (forward-line 0)
+    (let ((case-fold-search nil))
+      (when (looking-at gco-pkm-query--task-re)
+        (let ((state (match-beginning 1))
+              (stamp (and (re-search-forward gco-pkm-query--stamp-re (line-end-position) t)
+                          (cons (match-beginning 1) (match-end 1)))))
+          (if checked
+              (let ((tail (concat " ✅ " (or today (format-time-string "%F"))))
+                    (end (progn (goto-char (or (car stamp) (line-end-position)))
+                                (skip-chars-backward " \t")
+                                (point))))
+                (unless (string= (buffer-substring-no-properties end (line-end-position)) tail)
+                  (delete-region end (line-end-position))
+                  (insert tail)))
+            (when stamp
+              (delete-region (car stamp) (cdr stamp))))
+          ;; Inserting before deleting keeps markers on both sides in place.
+          (goto-char state)
+          (unless (eq (char-after) (if checked ?x ?\s))
+            (insert (if checked "x" " "))
+            (delete-char 1))
+          t)))))
+
+(defun gco-pkm-query-toggle-checkbox ()
+  "Toggle the task checkbox at point, and stamp the task to match.
+This is `markdown-ts-toggle-checkbox', then `gco-pkm-query-set-task-state'
+on the task it toggled: one it checks gets today's ✅ stamp, one it
+unchecks loses its stamp.  One undo takes back both."
+  (interactive)
+  (let (toggled)
+    (with-undo-amalgamate
+      ;; Watch where the toggle edits: from a continuation line, the
+      ;; checkbox it toggles is on the item's first line.
+      (let ((note (lambda (beg _end _length) (unless toggled (setq toggled beg)))))
+        (add-hook 'after-change-functions note nil t)
+        (unwind-protect
+            (markdown-ts-toggle-checkbox)
+          (remove-hook 'after-change-functions note t)))
+      (when toggled
+        (save-excursion
+          (goto-char toggled)
+          (when-let* ((state (gco-pkm-query--task-state)))
+            (gco-pkm-query-set-task-state (eq state 'done))))))))
+
+;;;###autoload
+(defun gco-pkm-query-check-task ()
+  "Tick the task at point, a copy in query results, where it came from.
+An open copy checks off the item it is a copy of, adding a ✅ stamp in
+its journal; a done copy reopens it.  The copy changes the same way at
+once, and the next refresh brings the rest of the page in line.
+
+The query engine finds the item and makes both changes, working from
+the text of the buffers visiting the two notes, so unsaved edits in
+either count.  Each of the two is saved unless it had unsaved changes
+already.  A journal that wasn't being visited is visited for this, and
+killed again afterwards."
+  (interactive)
+  (let* ((checked (eq (or (gco-pkm-query--task-state) (user-error "Not on a task"))
+                      'open))
+         (page (current-buffer))
+         (rel (gco-pkm-query--note-path))
+         (line (number-to-string (line-number-at-pos nil t)))
+         (source-path (alist-get 'source_path
+                                 (gco-pkm-query--run-engine "locate-task"
+                                                            "--path" rel "--line" line)))
+         (file (expand-file-name source-path gco-pkm-directory))
+         (visited (find-buffer-visiting file))
+         (request `((page . ,(gco-pkm-query--buffer-text))
+                    (source . ,(if visited (gco-pkm-query--buffer-text visited) :null))))
+         (change (with-temp-buffer
+                   (json-insert request)
+                   (gco-pkm-query--run-engine "check-task" "--path" rel "--line" line
+                                              (if checked "--check" "--uncheck"))))
+         (save-page (not (buffer-modified-p page)))
+         (save-source (not (and visited (buffer-modified-p visited))))
+         (source (or visited (find-file-noselect file))))
+    (unwind-protect
+        (progn
+          (with-current-buffer source
+            (gco-pkm-query--replace-text (alist-get 'source change))
+            (when save-source (save-buffer)))
+          (with-current-buffer page
+            (gco-pkm-query--replace-text (alist-get 'page change))
+            (gco-pkm-query--update-overlays)
+            (when save-page (save-buffer))))
+      (unless (or visited (buffer-modified-p source))
+        (kill-buffer source)))
+    (message (if checked "Checked off in %s" "Reopened in %s") source-path)))
+
 ;;;; Heading anchors
 ;;
 ;; Entry headings link to their source section by its GitHub anchor, taken
@@ -583,9 +726,11 @@ a line that looks like a marker pays for a scan of the buffer."
                                    (= (overlay-end ov) (1+ (point)))))
                  (overlays-at (point)))))
 
-(defun gco-pkm-query--refresh-filter (cmd)
-  "Key filter: CMD on a query block, else nil to let C-c C-c fall through."
-  (and (gco-pkm-query--at-block-p) cmd))
+(defun gco-pkm-query--block-filter (cmd)
+  "Key filter: CMD on a query block, else nil to let C-c C-c fall through.
+On a task among a block's results, `gco-pkm-query-check-task' instead."
+  (and (gco-pkm-query--at-block-p)
+       (if (gco-pkm-query--task-state) #'gco-pkm-query-check-task cmd)))
 
 (defun gco-pkm-query--newline-filter (cmd)
   "Key filter: CMD at the end of a closing line, else nil to let RET fall through."
@@ -598,10 +743,12 @@ a line that looks like a marker pays for a scan of the buffer."
     ;; checkbox toggle and newline, or markdown-mode's C-c C-c prefix.
     (define-key map (kbd "C-c C-c")
                 '(menu-item "" gco-pkm-query-refresh
-                            :filter gco-pkm-query--refresh-filter))
+                            :filter gco-pkm-query--block-filter))
     (define-key map (kbd "RET")
                 '(menu-item "" gco-pkm-query-newline-after-block
                             :filter gco-pkm-query--newline-filter))
+    ;; From C-c C-c or the menu, the checkbox toggle stamps what it ticks.
+    (define-key map [remap markdown-ts-toggle-checkbox] #'gco-pkm-query-toggle-checkbox)
     map)
   "Keymap for `gco-pkm-query-mode'.")
 
@@ -609,10 +756,15 @@ a line that looks like a marker pays for a scan of the buffer."
 (define-minor-mode gco-pkm-query-mode
   "Shade the results of a note's query blocks and keep them read-only.
 Results are a copy that the server rewrites, so edit the query line, or
-the note a result came from.  On a block, C-c C-c refreshes it; at the
-end of a closing line, RET opens a line below the block.  Delete a
-whole block with `gco-pkm-query-delete-block', or kill a region that
-spans it."
+the note a result came from.  On a block, C-c C-c refreshes it; on a
+task among its results, it checks that task off where it came from, or
+reopens it.  At the end of a closing line, RET opens a line below the
+block.  Delete a whole block with `gco-pkm-query-delete-block', or kill
+a region that spans it.
+
+Elsewhere, C-c C-c on a task, `markdown-ts-toggle-checkbox', stamps it
+with today's date when it checks it off, and takes the stamp off when
+it reopens it."
   :keymap gco-pkm-query-mode-map
   (gco-pkm-query--update-overlays)
   (if gco-pkm-query-mode
