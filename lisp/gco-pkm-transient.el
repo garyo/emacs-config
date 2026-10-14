@@ -25,6 +25,7 @@
 (require 'org-capture)
 
 (declare-function consult-ripgrep "consult")
+(defvar consult-ripgrep-args)
 (declare-function my/markdown-toggle-frontmatter "init-org")
 (declare-function markdown-ts-table-insert-table "markdown-ts-mode")
 (declare-function gco-inline-tags-insert "gco-inline-tags")
@@ -101,10 +102,11 @@ is the only thing CommonMark renderers honour."
       (forward-line -1))))
 
 (defun gco-pkm-grep-notes ()
-  "Full-text search across notes in either format."
+  "Full-text search across notes in either format, most recently changed first."
   (interactive)
   (if (fboundp 'consult-ripgrep)
-      (consult-ripgrep gco-pkm-directory)
+      (let ((consult-ripgrep-args (concat consult-ripgrep-args " --sortr=modified")))
+        (consult-ripgrep gco-pkm-directory))
     (rgrep (read-string "Search notes for: ") "*.org *.md" gco-pkm-directory)))
 
 (defun gco-pkm-insert-note-link ()
