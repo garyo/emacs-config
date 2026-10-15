@@ -120,13 +120,15 @@ is the only thing CommonMark renderers honour."
           (puthash title file by-title)
           (push title titles))))
     (let* ((choice (completing-read "Link to note: " (nreverse titles) nil t))
-           (target (gethash choice by-title))
-           (rel (file-relative-name
-                 target (file-name-directory (or (buffer-file-name)
-                                                 gco-pkm-directory)))))
+           (target (gethash choice by-title)))
       (insert (if (gco-pkm-transient--md-p)
-                  (format "[%s](%s)" choice rel)
-                (format "[[file:%s][%s]]" rel choice))))))
+                  (format "[%s](%s)" choice
+                          (gco-pkm--md-link-path target (buffer-file-name)))
+                (format "[[file:%s][%s]]"
+                        (file-relative-name
+                         target (file-name-directory (or (buffer-file-name)
+                                                         gco-pkm-directory)))
+                        choice))))))
 
 ;;;; Transient Definitions
 

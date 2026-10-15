@@ -21,6 +21,7 @@
 (require 'org-datetree)
 (require 'org-capture)
 (require 'calendar)
+(require 'url-util)
 ;; org-ql/org-node index org files only, so they are optional: the PKM has
 ;; to keep working once the corpus is markdown and these are uninstalled.
 (require 'org-ql nil t)
@@ -257,10 +258,18 @@ path is computed against FROM's directory -- empty when FROM is TARGET
 itself, leaving a bare #fragment link.  With FROM nil (the destination
 is not yet known), assume it will be a note in one of the PKM's
 subdirectories -- journals/, pages/ -- where \"../\" plus TARGET's
-root-relative path resolves correctly."
-  (cond ((and from (file-equal-p target from)) "")
-        (from (file-relative-name target (file-name-directory from)))
-        (t (concat "../" (file-relative-name target gco-pkm-directory)))))
+root-relative path resolves correctly.  Spaces are written as %20, as
+the PKM server writes them, since a bare space ends a link target."
+  (string-replace
+   " " "%20"
+   (cond ((and from (file-equal-p target from)) "")
+         (from (file-relative-name target (file-name-directory from)))
+         (t (concat "../" (file-relative-name target gco-pkm-directory))))))
+
+(defun gco-pkm--md-link-decode (path)
+  "Return markdown link PATH with its %XX escapes decoded, as a file name."
+  (decode-coding-string (url-unhex-string (encode-coding-string path 'utf-8))
+                        'utf-8))
 
 ;;;###autoload
 (defun gco-pkm-create-block-reference ()
@@ -381,7 +390,8 @@ of this one, when the path part is empty) after it."
                (file (if (string-empty-p path)
                          (buffer-file-name)
                        (expand-file-name
-                        path (file-name-directory (buffer-file-name))))))
+                        (gco-pkm--md-link-decode path)
+                        (file-name-directory (buffer-file-name))))))
           (when (and file (file-exists-p file) (eq (gco-pkm-format-of file) 'md))
             (let ((anchors (gco-pkm--md-heading-anchors file)))
               (list (+ tstart hash 1) end

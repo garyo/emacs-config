@@ -634,9 +634,10 @@ killed again afterwards."
 ;; from the heading as displayed: `# [OpenFX](../pages/openfx.md) TSC
 ;; meeting' is `#openfx-tsc-meeting', as `gco-pkm-create-block-reference'
 ;; also has it.  markdown-ts-mode slugs the raw markup instead, so it can't
-;; find those anchors, and it visits `note.md#anchor' as a file of that
-;; name.  Two guarded advices fix both; should either internal function go
-;; away or change its contract, they quietly stand aside.
+;; find those anchors, and it visits `note.md#anchor' -- or `Long%20Now.md',
+;; escapes and all -- as a file of that name.  Two guarded advices fix
+;; both; should either internal function go away or change its contract,
+;; they quietly stand aside.
 
 (defun gco-pkm-query--heading-anchors ()
   "Return a hash table from this buffer's heading anchors to their positions.
@@ -687,15 +688,19 @@ back untouched unless it is the table of positions this was written for."
     (message "No heading for #%s in %s" anchor (file-name-nondirectory file))))
 
 (defun gco-pkm-query--anchor-link-button (beg end url &rest _)
-  "Make the link button from BEG to END land on URL's heading in its note.
+  "Make the link button from BEG to END visit URL's note, at its heading.
 After advice for `markdown-ts--make-link-button', which follows a bare
-`#anchor' itself but visits `note.md#anchor' as a file of that name."
+`#anchor' itself but visits `note.md#anchor' or `Long%20Now.md' as a
+file of that very name."
   (when (and (stringp url)
-             (string-match "\\`<?\\([^#:<>]+\\)#\\([^#>]+\\)>?\\'" url))
-    (let ((file (match-string 1 url))
+             (string-match "\\`<?\\([^#:<>]+\\)\\(?:#\\([^#>]+\\)\\)?>?\\'" url))
+    (let ((file (gco-pkm--md-link-decode (match-string 1 url)))
           (anchor (match-string 2 url)))
       (put-text-property beg end 'action
-                         (lambda (_button) (gco-pkm-query--visit-anchor file anchor))))))
+                         (lambda (_button)
+                           (if anchor
+                               (gco-pkm-query--visit-anchor file anchor)
+                             (find-file file)))))))
 
 (with-eval-after-load 'markdown-ts-mode
   (when (fboundp 'markdown-ts--build-heading-ids)
