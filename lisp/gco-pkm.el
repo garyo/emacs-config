@@ -31,6 +31,7 @@
 
 (declare-function org-node-create "org-node")
 (declare-function consult-ripgrep "consult")
+(declare-function gco-pkm-insert-query "gco-pkm-query")
 
 (use-package org-transclusion)
 
@@ -58,6 +59,17 @@
 (defun gco-pkm-journal-dir ()
   "Effective journal directory (absolute), ensured to exist."
   (let ((dir (expand-file-name gco-pkm-journal-subdir gco-pkm-directory)))
+    (unless (file-directory-p dir) (make-directory dir t))
+    dir))
+
+(defcustom gco-pkm-pages-subdir "pages"
+  "Subdirectory, relative to `gco-pkm-directory`, for topic pages."
+  :type 'string
+  :group 'gco-pkm)
+
+(defun gco-pkm-pages-dir ()
+  "Effective pages directory (absolute), ensured to exist."
+  (let ((dir (expand-file-name gco-pkm-pages-subdir gco-pkm-directory)))
     (unless (file-directory-p dir) (make-directory dir t))
     dir))
 
@@ -200,24 +212,17 @@ N defaults to 7. Each file may contribute multiple top-level entries."
 
 ;;;###autoload
 (defun gco-pkm-create-tag-page (tag)
-  "Create a dynamic tag page for TAG."
+  "Open the page for TAG, creating it with a query block for #TAG.
+Query blocks are a markdown feature, so a tag page is always markdown."
   (interactive "sTag: ")
-  (let* ((fmt (gco-pkm-format-for-dir gco-pkm-directory))
-         (filename (expand-file-name
-                    (format "tag-%s.%s" tag (gco-pkm-format-extension fmt))
-                    gco-pkm-directory)))
-    (find-file filename)
+  (let ((tag (string-trim (string-trim tag) "#+")))
+    (when (string-empty-p tag)
+      (user-error "Empty tag"))
+    (find-file (expand-file-name (format "tag-%s.md" tag) (gco-pkm-pages-dir)))
     (when (= (buffer-size) 0)
-      (if (eq fmt 'md)
-          ;; No dblock equivalent in markdown; the tag itself is the query,
-          ;; and `gco-pkm-search-tag' lists live hits.
-          (insert (format "---\ntitle: \"#%s\"\nid: %s\n---\n\nNotes tagged #%s. Use `gco-pkm-search-tag' for the live list.\n\n"
-                          tag (upcase (org-id-new)) tag))
-        (insert (format "#+title: #%s\n\n" tag))
-        (when (fboundp 'org-ql)
-          (insert (format "#+BEGIN: org-ql :query (tags \"%s\")\n\n#+END:\n\n" tag))
-          (insert "Press C-c C-c on the block above to refresh.\n"))
-        (gco-pkm-format-ensure-file-id))
+      (insert (format "---\ntitle: \"#%s\"\nid: %s\n---\n"
+                      tag (upcase (org-id-new))))
+      (gco-pkm-insert-query (concat "#" tag))
       (save-buffer))))
 
 ;;;###autoload
@@ -480,24 +485,45 @@ newest first.  If the input matches no existing page, create one."
 
 ;;;###autoload
 (defun gco-pkm-create-page (title)
-  "Create a new page called TITLE, in the PKM's current format."
+  "Create a new page called TITLE under the pages directory.
+Slashes in TITLE separate namespaces, which become subdirectories:
+\"DSS/projects/Foo Bar\" creates DSS/projects/foo-bar with title
+\"Foo Bar\".  Each namespace reuses an existing directory that differs
+only in case, so the page lands beside its siblings even on a
+case-sensitive filesystem."
   (interactive "sPage title: ")
-  (let* ((fmt (gco-pkm-format-for-dir gco-pkm-directory))
-         (slug (replace-regexp-in-string
-                "[^[:alnum:]]+" "-" (downcase (string-trim title))))
-         (file (expand-file-name
-                (format "%s.%s" (string-trim slug "-" "-")
-                        (gco-pkm-format-extension fmt))
-                gco-pkm-directory)))
-    (find-file file)
+  (let* ((parts (split-string title "/" t "[[:space:]]+"))
+         (name (car (last parts)))
+         (dir (gco-pkm-pages-dir))
+         (fmt (gco-pkm-format-for-dir dir))
+         (slug (string-trim (replace-regexp-in-string
+                             "[^[:alnum:]]+" "-" (downcase (or name "")))
+                            "-" "-")))
+    (when (string-empty-p slug)
+      (user-error "Page title %S has no usable name" title))
+    (dolist (ns (butlast parts))
+      (setq dir (expand-file-name (gco-pkm--existing-subdir dir ns) dir)))
+    (make-directory dir t)
+    (find-file (expand-file-name
+                (format "%s.%s" slug (gco-pkm-format-extension fmt))
+                dir))
     (when (= (buffer-size) 0)
       (if (eq fmt 'md)
           (insert (format "---\ntitle: \"%s\"\nid: %s\n---\n\n"
-                          title (upcase (org-id-new))))
-        (insert (format "#+title: %s\n\n" title))
+                          name (upcase (org-id-new))))
+        (insert (format "#+title: %s\n\n" name))
         (gco-pkm-format-ensure-file-id))
       (save-buffer))
     (goto-char (point-max))))
+
+(defun gco-pkm--existing-subdir (dir name)
+  "Return the subdirectory of DIR matching NAME ignoring case, else NAME."
+  (or (seq-find (lambda (d)
+                  (and (eq t (compare-strings d nil nil name nil nil t))
+                       (file-directory-p (expand-file-name d dir))))
+                (and (file-directory-p dir)
+                     (directory-files dir nil directory-files-no-dot-files-regexp t)))
+      name))
 
 ;;;###autoload
 (defun gco-pkm-search-todos ()
