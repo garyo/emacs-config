@@ -572,11 +572,10 @@ formats, so a ripgrep over them covers everything.  Falls back to
 (defun gco-pkm-ensure-file-id ()
   "Give the current note file a file-level ID if it has none.
 For `before-save-hook': makes every note saved under
-`gco-pkm-directory' a full org-node citizen (findable, linkable,
-backlink-capable).  Journal files are skipped since their IDs
-belong on day headings."
-  (when (and (derived-mode-p 'org-mode)
-             buffer-file-name
+`gco-pkm-directory', in either format, findable, linkable and
+backlink-capable.  A markdown note without frontmatter gets some.
+Journal files are skipped since their IDs belong on day headings."
+  (when (and (gco-pkm-format-of buffer-file-name)
              (file-in-directory-p buffer-file-name gco-pkm-directory)
              (not (file-in-directory-p buffer-file-name (gco-pkm-journal-dir))))
     (org-with-wide-buffer

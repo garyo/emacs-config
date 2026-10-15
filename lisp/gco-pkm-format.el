@@ -157,19 +157,20 @@ END is the position just after the closing delimiter line."
 (defun gco-pkm-format-ensure-file-id ()
   "Ensure the current buffer has a file-level ID; return it.
 In org this defers to `org-id-get-create'.  In markdown the id lives in
-frontmatter, which is created if the buffer has none."
+frontmatter, which is created if the buffer has none, titled after the
+note's first heading or else its file name."
   (if (eq (gco-pkm-format-current) 'md)
       (or (gco-pkm-format-file-id)
-          (let ((id (upcase (org-id-new))))
+          (let ((id (upcase (org-id-new)))
+                (title (or (gco-pkm-format-buffer-title)
+                           (file-name-base (or (buffer-file-name) "untitled")))))
             (save-excursion
               (if-let* ((bounds (gco-pkm-format--frontmatter-bounds)))
                   (progn (goto-char (cdr bounds))
                          (forward-line -1)
                          (insert (format "id: %s\n" id)))
                 (goto-char (point-min))
-                (insert (format "---\ntitle: \"%s\"\nid: %s\n---\n\n"
-                                (file-name-base (or (buffer-file-name) "untitled"))
-                                id))))
+                (insert (format "---\ntitle: \"%s\"\nid: %s\n---\n\n" title id))))
             id))
     (save-excursion
       (goto-char (point-min))
