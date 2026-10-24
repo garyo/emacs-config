@@ -48,6 +48,9 @@
                           (if script
                               (concat "run --with-requirements " script " python")
                             "run python"))
+              ;; Prompt detection runs `uv -i', which uv rejects; uv's
+              ;; CPython uses the default prompts anyway
+              (setq-local python-shell-prompt-detect-enabled nil)
               (setq-local pytest-global-name "uv run pytest")
               ;; M-x compile type-checks with the lockfile-pinned ty
               (setq-local compile-command
