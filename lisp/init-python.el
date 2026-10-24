@@ -17,8 +17,10 @@
 ;;; rassumfrassum: LSP multiplexer by eglot's author (João Távora).
 ;;; Runs both ty (type checker) and ruff (linter) as a single
 ;;; multiplexed LSP server for eglot.  Zero-install via uvx --with.
-;;; useUv "scripts" has ty ask uv for each PEP 723 script's environment
-;;; (needs uv >= 0.12.3); rass passes the option to ruff too, which ignores it.
+;;; useUv "on" has ty ask uv for each PEP 723 script's environment and
+;;; read project dependencies from uv, which the missing-direct-dependency
+;;; rule needs (enabled in ~/.config/ty/ty.toml).  Needs uv >= 0.12.3;
+;;; rass passes the option to ruff too, which ignores it.
 (with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs
                '((python-mode python-ts-mode)
@@ -26,7 +28,7 @@
                     "--with" "ty" "--with" "ruff"
                     "rass" "python"
                     :initializationOptions
-                    (:experimental (:useUv "scripts"))))))
+                    (:experimental (:useUv "on"))))))
 
 (defun my-python-pep723-script-p ()
   "Return non-nil if this buffer has PEP 723 inline script metadata."
