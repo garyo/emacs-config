@@ -32,9 +32,9 @@ gco-inline-tags.el      - Inline #tag fontification and search
 - **org-node** / **org-mem** - Node management, backlinking, fast indexing
 - **org-ql** - Query DSL for searching org files
 - **consult** - Interactive navigation with live preview
-- **org-transclusion** - Block embedding across files
 
 ### Optional but Recommended
+- **org-transclusion** - Renders the `#+transclude:` blocks that `gco-pkm-embed-block` inserts
 - **ripgrep** (`rg`) - Fast text/tag search
 - **magick** or **sips** - Image optimization on attach
 

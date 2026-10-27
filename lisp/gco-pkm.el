@@ -34,9 +34,6 @@
 (declare-function consult-ripgrep "consult")
 (declare-function gco-pkm-insert-query "gco-pkm-query")
 
-(use-package org-transclusion)
-
-
 ;; Prevent warnings when running org-ql sexp queries
 (with-eval-after-load 'org-ql (setq org-ql-ask-unsafe-queries nil))
 
