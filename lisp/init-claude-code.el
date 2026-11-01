@@ -35,7 +35,11 @@ an editor open in this Emacs."
   (add-hook 'claude-code-process-environment-functions
             #'monet-start-server-function)
   (monet-mode 1)
-  (claude-code-mode 1))
+  (claude-code-mode 1)
+  ;; Session states in the mode line, and a session list on C-c C l.
+  (require 'claude-code-status)
+  (claude-code-status-mode 1)
+  (keymap-set claude-code-command-map "l" #'claude-code-status-list))
 
 (declare-function claude-code--directory "claude-code")
 (declare-function claude-code--find-claude-buffers-for-directory "claude-code")
