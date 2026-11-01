@@ -113,7 +113,18 @@ Return the errors parsed with the error patterns of CHECKER."
     ;; `eldoc-mouse-mode' (and the eglot it pulls in) loads only on first real
     ;; use, when the display is fully initialized.
     (use-package eldoc-mouse
-      :defer t)
+      :defer t
+      :config
+      ;; With `eldoc-help-at-pt' on, eldoc also reports the text's
+      ;; help-echo, which the mouse tooltip already shows; without this,
+      ;; hovering over a link or button pops up the same help twice.
+      (defun gco-eldoc-mouse-skip-help-at-pt (orig)
+        "Call ORIG without `eldoc-show-help-at-pt' among eldoc's sources."
+        (let ((eldoc-documentation-functions
+               (remq #'eldoc-show-help-at-pt eldoc-documentation-functions)))
+          (funcall orig)))
+      (advice-add 'eldoc-mouse--eldoc-documentation-functions :around
+                  #'gco-eldoc-mouse-skip-help-at-pt))
     (add-hook 'emacs-startup-hook
               (lambda () (add-hook 'eldoc-mode-hook #'eldoc-mouse-mode))))
 
