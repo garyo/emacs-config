@@ -40,17 +40,38 @@ an editor open in this Emacs."
 (declare-function claude-code--directory "claude-code")
 (declare-function claude-code--find-claude-buffers-for-directory "claude-code")
 
+(defun gco-claude-code--has-conversation-p (directory)
+  "Return non-nil if DIRECTORY has a Claude conversation to continue.
+`claude --continue' exits when DIRECTORY has no transcript from an
+interactive session; Claude Code keeps transcripts in a folder under
+~/.claude/projects named after the path, and marks interactive ones
+with entrypoint \"cli\"."
+  (let ((folder (expand-file-name
+                 (replace-regexp-in-string
+                  "[^A-Za-z0-9]" "-" (directory-file-name (expand-file-name directory)))
+                 (expand-file-name "projects" (or (getenv "CLAUDE_CONFIG_DIR") "~/.claude")))))
+    (and (file-directory-p folder)
+         (seq-some (lambda (file)
+                     (with-temp-buffer
+                       (insert-file-contents file)
+                       (search-forward "\"entrypoint\":\"cli\"" nil t)))
+                   (sort (directory-files folder t "\\.jsonl\\'")
+                         :key (lambda (file) (file-attribute-modification-time
+                                              (file-attributes file)))
+                         :reverse t)))))
+
 (defun gco-claude-code-project ()
   "Show the current project's Claude session, starting one if none runs.
-A new session continues the project's latest conversation, or starts
-fresh if there is none.  From \\[project-switch-project] this acts on
-the chosen project."
+A new session continues the project's latest conversation, if it has
+one.  From \\[project-switch-project] this acts on the chosen project."
   (interactive)
   (require 'claude-code)
-  (if-let* ((buffer (car (claude-code--find-claude-buffers-for-directory
-                          (claude-code--directory)))))
-      (pop-to-buffer buffer)
-    (claude-code-continue '(4))))
+  (let ((directory (claude-code--directory)))
+    (if-let* ((buffer (car (claude-code--find-claude-buffers-for-directory directory))))
+        (pop-to-buffer buffer)
+      (if (gco-claude-code--has-conversation-p directory)
+          (claude-code-continue '(4))
+        (claude-code '(4))))))
 
 (with-eval-after-load 'project
   (keymap-set project-prefix-map "C" #'gco-claude-code-project)
