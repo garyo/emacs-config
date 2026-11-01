@@ -122,6 +122,10 @@ Claude Code hooks call this through emacsclient."
     (claude-code-status--refresh))
   nil)
 
+(defun claude-code-status--tracked-p (buffer)
+  "Return non-nil if BUFFER's session was started with tracking on."
+  (seq-contains-p (hash-table-values claude-code-status--sessions) (buffer-name buffer)))
+
 (defun claude-code-status--session-buffers ()
   "Return claude-code.el session buffers, most urgent state first."
   (let ((rank (lambda (buffer)
@@ -201,7 +205,10 @@ claude-code.el names session buffers *claude:DIRECTORY:INSTANCE*."
                         (since (buffer-local-value 'claude-code-status--since buffer))
                         (`(,session . ,directory) (claude-code-status--describe buffer)))
              (list buffer
-                   (vector (if state (propertize label 'face face) "")
+                   (vector (cond (state (propertize label 'face face))
+                                 ((claude-code-status--tracked-p buffer) "")
+                                 (t (propertize "untracked" 'face 'shadow
+                                                'help-echo "Started before claude-code-status-mode; restart the session to track it")))
                            (if since (format-time-string "%H:%M" since) "")
                            (propertize session 'help-echo directory)))))
          (claude-code-status--session-buffers))))
