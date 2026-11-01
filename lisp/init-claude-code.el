@@ -13,6 +13,14 @@
 (use-package monet
   :ensure (:host github :repo "stevemolitor/monet"))
 
+(defun gco-claude-code-environment (_buffer-name _directory)
+  "Return environment settings for Claude sessions run inside Emacs.
+The classic renderer leaves the whole conversation in ghostel's
+scrollback, where copy mode and isearch reach it; the fullscreen one
+holds only the visible screen.  Prompts and transcripts Claude opens in
+an editor open in this Emacs."
+  '("CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1" "EDITOR=emacsclient"))
+
 (use-package claude-code
   :ensure (:host github :repo "stevemolitor/claude-code.el")
   :bind-keymap ("C-c C" . claude-code-command-map)
@@ -22,6 +30,8 @@
   :custom
   (claude-code-terminal-backend 'ghostel)
   :config
+  (add-hook 'claude-code-process-environment-functions
+            #'gco-claude-code-environment)
   (add-hook 'claude-code-process-environment-functions
             #'monet-start-server-function)
   (monet-mode 1)
