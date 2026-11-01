@@ -38,6 +38,9 @@ an editor open in this Emacs."
   (claude-code-mode 1)
   ;; Session states in the mode line, and a session list on C-c C l.
   (require 'claude-code-status)
+  (setopt claude-code-status-remember-sessions t
+          claude-code-status-sessions-file
+          (no-littering-expand-var-file-name "claude-code-status-sessions.eld"))
   (claude-code-status-mode 1)
   (keymap-set claude-code-command-map "l" #'claude-code-status-list))
 

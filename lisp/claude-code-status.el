@@ -1,7 +1,7 @@
 ;;; claude-code-status.el --- See which Claude Code sessions are waiting for you  -*- lexical-binding: t -*-
 
 ;; Author: Gary Oberbrunner <garyo@oberbrunner.com>
-;; Version: 0.2
+;; Version: 0.3
 ;; Package-Requires: ((emacs "30.1") (claude-code "0.4"))
 ;; Keywords: tools, convenience
 
@@ -9,10 +9,10 @@
 
 ;; Tracks the state of each claude-code.el session -- working, waiting
 ;; for you, or needing input: a permission decision, a question dialog,
-;; or a finished reply that ends with a question -- and shows
-;; it in a session list and in the mode line.  Each session in the list
-;; also shows a line or two of context: what Claude is asking, the tool
-;; it last ran, or the end of its last reply.  It works with any
+;; or a finished reply that ends with a question -- and shows it in a
+;; session list and in the mode line.  Each session in the list also
+;; shows a line or two of context: what Claude is asking, the tool it
+;; last ran, or the end of its last reply.  It works with any
 ;; claude-code.el terminal backend.
 ;;
 ;; Claude Code reports state changes through its hooks, which save the
@@ -30,15 +30,21 @@
 ;; RET visits one, k kills it, r renames it, n and p move between them.
 ;; The mode line summarizes sessions that need you; click it to open the
 ;; list.
+;;
+;; With `claude-code-status-remember-sessions' on, sessions still
+;; running when Emacs exits stay in the list, greyed out, after a
+;; restart; RET resumes one's conversation and k forgets it.
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'json)
 (require 'seq)
 (require 'server)
 
 (defvar claude-code-process-environment-functions)
 (declare-function claude-code--kill-buffer "claude-code")
+(declare-function claude-code--start "claude-code")
 
 (defgroup claude-code-status nil
   "Show which Claude Code sessions are waiting for you."
@@ -58,9 +64,10 @@
   "Face for the context line under each session in the list.")
 
 (defcustom claude-code-status-icons
-  '((input . "▶") (waiting . "○") (working . "●") (untracked . "?"))
+  '((input . "▶") (waiting . "○") (working . "●") (untracked . "?") (ended . "◌"))
   "Icon for each session state in the list and the mode line.
-`untracked' is for sessions started before `claude-code-status-mode'."
+`untracked' is for sessions started before `claude-code-status-mode',
+and `ended' for remembered sessions from an earlier Emacs."
   :type '(alist :key-type symbol :value-type string))
 
 (defcustom claude-code-status-detail-lines 2
@@ -70,6 +77,18 @@
 (defcustom claude-code-status-mode-line t
   "Whether `claude-code-status-mode' summarizes sessions in the mode line."
   :type 'boolean)
+
+(defcustom claude-code-status-remember-sessions nil
+  "Whether to remember sessions across Emacs restarts.
+When non-nil, sessions still running when Emacs exits appear in the
+session list after a restart, and RET resumes one's conversation.
+Sessions you end yourself are forgotten."
+  :type 'boolean)
+
+(defcustom claude-code-status-sessions-file
+  (locate-user-emacs-file "claude-code-status-sessions.eld")
+  "File where `claude-code-status-remember-sessions' keeps sessions."
+  :type 'file)
 
 (defcustom claude-code-status-display-action
   '(display-buffer-in-side-window (side . right) (window-width . 40))
@@ -104,6 +123,14 @@
 
 (defvar claude-code-status--last-id 0)
 
+(defvar claude-code-status--remembered nil
+  "Sessions from an earlier Emacs, as plists; see `claude-code-status--record'.")
+
+(defvar claude-code-status--save-timer nil)
+
+(defvar claude-code-status--exiting nil
+  "Non-nil once Emacs is exiting, so dying sessions are still remembered.")
+
 (defvar claude-code-status--mode-line-string nil
   "Mode-line summary, recomputed whenever a session's state changes.")
 (put 'claude-code-status--mode-line-string 'risky-local-variable t)
@@ -119,6 +146,12 @@
 
 (defvar-local claude-code-status--detail-from-end nil
   "Non-nil if the end of `claude-code-status--detail' matters most.")
+
+(defvar-local claude-code-status--session-id nil
+  "Claude Code's id for this buffer's conversation, for resuming it.")
+
+(defvar-local claude-code-status--transcript nil
+  "File where Claude Code keeps this buffer's conversation.")
 
 ;;; Session state
 
@@ -220,8 +253,8 @@ input to the session's payload file."
   (when-let* ((entry (gethash id claude-code-status--sessions))
               (buffer (get-buffer (car entry)))
               ((assq state claude-code-status--states)))
-    (let ((described (claude-code-status--describe-event
-                      (claude-code-status--read-payload (cdr entry)))))
+    (let* ((payload (claude-code-status--read-payload (cdr entry)))
+           (described (claude-code-status--describe-event payload)))
       ;; A finished turn that ends by asking something needs you as much
       ;; as a permission prompt does.
       (when (and (eq state 'waiting) (cdr described)
@@ -233,19 +266,25 @@ input to the session's payload file."
         (when described
           (setq claude-code-status--detail (car described)
                 claude-code-status--detail-from-end (cdr described)))
+        (when-let* ((session-id (alist-get 'session_id payload)))
+          (setq claude-code-status--session-id session-id
+                claude-code-status--transcript (alist-get 'transcript_path payload)))
         (add-hook 'kill-buffer-hook #'claude-code-status--forget-buffer nil t)))
-    (claude-code-status--refresh))
+    (claude-code-status--refresh)
+    (claude-code-status--schedule-save))
   nil)
 
 (defun claude-code-status--forget-buffer ()
   "Drop the current buffer's session, for `kill-buffer-hook'."
-  (let ((name (buffer-name)))
-    (maphash (lambda (id entry)
-               (when (equal (car entry) name)
-                 (ignore-errors (delete-file (cdr entry)))
-                 (remhash id claude-code-status--sessions)))
-             claude-code-status--sessions))
-  (run-at-time 0 nil #'claude-code-status--refresh))
+  (unless claude-code-status--exiting
+    (let ((name (buffer-name)))
+      (maphash (lambda (id entry)
+                 (when (equal (car entry) name)
+                   (ignore-errors (delete-file (cdr entry)))
+                   (remhash id claude-code-status--sessions)))
+               claude-code-status--sessions))
+    (claude-code-status--schedule-save)
+    (run-at-time 0 nil #'claude-code-status--refresh)))
 
 (defun claude-code-status--delete-payload-files ()
   "Delete every session's payload file, for `kill-emacs-hook'."
@@ -281,13 +320,19 @@ claude-code.el names session buffers *claude:DIRECTORY:INSTANCE*."
     (when (string-match "\\`\\*claude:\\(.*\\):\\([^:]*\\)\\*\\'" name)
       (cons (match-string 1 name) (match-string 2 name)))))
 
-(defun claude-code-status--label (buffer)
-  "Return a short name for the session in BUFFER: its project, and instance."
-  (pcase (claude-code-status--parse-name buffer)
-    (`(,directory . ,instance)
-     (concat (file-name-nondirectory (directory-file-name directory))
-             (unless (equal instance "default") (concat ":" instance))))
-    (_ (buffer-name buffer))))
+(defun claude-code-status--format-label (directory instance)
+  "Return a short session name from its DIRECTORY and INSTANCE."
+  (concat (file-name-nondirectory (directory-file-name directory))
+          (unless (equal instance "default") (concat ":" instance))))
+
+(defun claude-code-status--label (session)
+  "Return a short name for SESSION, a session buffer or remembered plist."
+  (if (bufferp session)
+      (pcase (claude-code-status--parse-name session)
+        (`(,directory . ,instance) (claude-code-status--format-label directory instance))
+        (_ (buffer-name session)))
+    (claude-code-status--format-label (plist-get session :directory)
+                                      (plist-get session :instance))))
 
 (defun claude-code-status--icon (state)
   "Return STATE's icon, in its face, with its label as help."
@@ -297,6 +342,7 @@ claude-code.el names session buffers *claude:DIRECTORY:INSTANCE*."
                 'help-echo (cond (spec (car spec))
                                  ((eq state 'untracked)
                                   "Started before tracking; restart the session to track it")
+                                 ((eq state 'ended) "Ended with Emacs; RET resumes it")
                                  (t "starting")))))
 
 (defun claude-code-status--refresh ()
@@ -306,6 +352,95 @@ claude-code.el names session buffers *claude:DIRECTORY:INSTANCE*."
   (when-let* ((buffer (get-buffer claude-code-status--list-buffer)))
     (with-current-buffer buffer
       (claude-code-status--render))))
+
+;;; Remembering sessions
+
+(defun claude-code-status--record (buffer)
+  "Return a plist describing BUFFER's session, or nil if it can't be resumed."
+  (with-current-buffer buffer
+    (when-let* ((session-id claude-code-status--session-id)
+                (name (claude-code-status--parse-name buffer)))
+      (list :directory (car name) :instance (cdr name)
+            :session-id session-id :transcript claude-code-status--transcript
+            :state claude-code-status--state :since claude-code-status--since
+            :detail claude-code-status--detail
+            :detail-from-end claude-code-status--detail-from-end))))
+
+(defun claude-code-status--save ()
+  "Write the running and remembered sessions to the sessions file."
+  (when claude-code-status-remember-sessions
+    (let ((records (append (delq nil (mapcar #'claude-code-status--record
+                                             (claude-code-status--session-buffers)))
+                           claude-code-status--remembered))
+          (file claude-code-status-sessions-file))
+      (make-directory (file-name-directory file) t)
+      (with-temp-file file
+        (insert ";; -*- lisp-data -*-  Sessions for claude-code-status.el\n")
+        (let ((print-length nil) (print-level nil))
+          (prin1 records (current-buffer)))
+        (insert "\n")))))
+
+(defun claude-code-status--schedule-save ()
+  "Save sessions once Emacs is idle, coalescing bursts of changes."
+  (when (and claude-code-status-remember-sessions
+             (not claude-code-status--exiting)
+             (not claude-code-status--save-timer))
+    (setq claude-code-status--save-timer
+          (run-with-idle-timer 2 nil (lambda ()
+                                       (setq claude-code-status--save-timer nil)
+                                       (claude-code-status--save))))))
+
+(defun claude-code-status--save-on-exit ()
+  "Remember the running sessions before Emacs exits and they die."
+  (unless claude-code-status--exiting
+    (setq claude-code-status--exiting t)
+    (claude-code-status--save)))
+
+(defun claude-code-status--load ()
+  "Read remembered sessions, leaving out any that are running now."
+  (let ((file claude-code-status-sessions-file)
+        (running (delq nil (mapcar (lambda (buffer)
+                                     (buffer-local-value 'claude-code-status--session-id buffer))
+                                   (claude-code-status--session-buffers)))))
+    (setq claude-code-status--remembered
+          (and (file-readable-p file)
+               (seq-filter (lambda (record)
+                             (and (plistp record)
+                                  (stringp (plist-get record :session-id))
+                                  (stringp (plist-get record :directory))
+                                  (not (member (plist-get record :session-id) running))))
+                           (ignore-errors
+                             (with-temp-buffer
+                               (insert-file-contents file)
+                               (read (current-buffer)))))))))
+
+(defun claude-code-status--resume (record)
+  "Start a session that resumes remembered session RECORD's conversation."
+  (let* ((directory (expand-file-name (plist-get record :directory)))
+         (transcript (plist-get record :transcript))
+         (taken (mapcar #'cdr
+                        (seq-filter (lambda (name)
+                                      (and name (file-equal-p (car name) directory)))
+                                    (mapcar #'claude-code-status--parse-name
+                                            (claude-code-status--session-buffers)))))
+         (base (plist-get record :instance))
+         (instance base))
+    (unless (file-directory-p directory)
+      (user-error "%s no longer exists" directory))
+    (when (and transcript (not (file-exists-p transcript)))
+      (user-error "Claude no longer has this conversation"))
+    (cl-loop for n from 2 while (member instance taken)
+             do (setq instance (format "%s-%d" base n)))
+    (require 'claude-code)
+    ;; Start through claude-code.el's own path, in the remembered
+    ;; directory and under the remembered instance name.
+    (cl-letf (((symbol-function 'claude-code--directory) (lambda () directory))
+              ((symbol-function 'claude-code--prompt-for-instance-name)
+               (lambda (&rest _) instance)))
+      (claude-code--start '(4) (list "--resume" (plist-get record :session-id))))
+    (setq claude-code-status--remembered (delq record claude-code-status--remembered))
+    (claude-code-status--schedule-save)
+    (claude-code-status--refresh)))
 
 ;;; Mode line
 
@@ -374,26 +509,44 @@ When it's longer, keep the end if FROM-END is non-nil, else the start."
           (t (let ((kept (take lines filled)))
                (append (butlast kept) (list (concat (car (last kept)) "…"))))))))
 
-(defun claude-code-status--insert-entry (buffer width)
-  "Insert BUFFER's session into the list, filling context lines to WIDTH."
+(defun claude-code-status--format-time (time)
+  "Return TIME as a clock time if it's today, else as a date."
+  (cond ((null time) "")
+        ((equal (format-time-string "%F" time) (format-time-string "%F"))
+         (format-time-string "%H:%M" time))
+        (t (format-time-string "%b %e" time))))
+
+(defun claude-code-status--insert-entry (session width)
+  "Insert SESSION into the list, filling context lines to WIDTH.
+SESSION is a session buffer or a remembered session's plist."
   (let* ((start (point))
-         (state (claude-code-status--display-state buffer))
-         (since (buffer-local-value 'claude-code-status--since buffer))
-         (time (if since (format-time-string "%H:%M" since) ""))
-         (detail (buffer-local-value 'claude-code-status--detail buffer)))
-    (insert (claude-code-status--icon state) " "
-            (propertize (claude-code-status--label buffer)
-                        'help-echo (car (claude-code-status--parse-name buffer))
+         (live (bufferp session))
+         (get (lambda (var key)
+                (if live (buffer-local-value var session) (plist-get session key))))
+         (time (claude-code-status--format-time
+                (funcall get 'claude-code-status--since :since)))
+         (detail (funcall get 'claude-code-status--detail :detail))
+         (from-end (funcall get 'claude-code-status--detail-from-end :detail-from-end))
+         (label (claude-code-status--label session)))
+    (insert (claude-code-status--icon
+             (if live (claude-code-status--display-state session) 'ended))
+            " "
+            (propertize label
+                        'face (unless live 'shadow)
+                        'help-echo (if live
+                                       (car (claude-code-status--parse-name session))
+                                     (format "%s\nEnded with Emacs; RET resumes it, k forgets it"
+                                             (plist-get session :directory)))
                         'mouse-face 'highlight
                         'follow-link t)
             (propertize " " 'display `(space :align-to (- right ,(1+ (length time)))))
-            time "\n")
+            (propertize time 'face (unless live 'shadow))
+            "\n")
     (when (and detail (> claude-code-status-detail-lines 0))
       (dolist (line (claude-code-status--fit
-                     detail (- width 3) claude-code-status-detail-lines
-                     (buffer-local-value 'claude-code-status--detail-from-end buffer)))
+                     detail (- width 3) claude-code-status-detail-lines from-end))
         (insert "  " (propertize line 'face 'claude-code-status-detail) "\n")))
-    (put-text-property start (point) 'claude-code-status-session buffer)))
+    (put-text-property start (point) 'claude-code-status-session session)))
 
 (defun claude-code-status--render ()
   "Redraw the session list in the current buffer, keeping point's session."
@@ -401,11 +554,17 @@ When it's longer, keep the end if FROM-END is non-nil, else the start."
          (window (get-buffer-window (current-buffer) t))
          (width (if window (window-body-width window) 40))
          (here (get-text-property (point) 'claude-code-status-session))
-         (sessions (claude-code-status--session-buffers)))
+         (sessions (append (claude-code-status--session-buffers)
+                           (sort (copy-sequence claude-code-status--remembered)
+                                 :key (lambda (record)
+                                        (if-let* ((since (plist-get record :since)))
+                                            (float-time since)
+                                          0))
+                                 :reverse t))))
     (erase-buffer)
     (if sessions
-        (dolist (buffer sessions)
-          (claude-code-status--insert-entry buffer width))
+        (dolist (session sessions)
+          (claude-code-status--insert-entry session width))
       (insert (propertize "No Claude sessions" 'face 'shadow)))
     (goto-char (or (and here (text-property-any (point-min) (point-max)
                                                 'claude-code-status-session here))
@@ -413,7 +572,8 @@ When it's longer, keep the end if FROM-END is non-nil, else the start."
     (when window (set-window-point window (point)))))
 
 (defun claude-code-status--session-at-point (&optional event)
-  "Return the session buffer at point, or at mouse EVENT's position."
+  "Return the session at point, or at mouse EVENT's position.
+That's a session buffer, or a remembered session's plist."
   (let ((pos (if event (posn-point (event-start event)) (point))))
     (get-text-property pos 'claude-code-status-session)))
 
@@ -429,33 +589,43 @@ When it's longer, keep the end if FROM-END is non-nil, else the start."
     (claude-code-status--render)))
 
 (defun claude-code-status-visit (&optional event)
-  "Switch to the session at point, or at mouse EVENT."
+  "Switch to the session at point, or at mouse EVENT.
+For a remembered session, start one that resumes its conversation."
   (interactive (list last-nonmenu-event))
-  (when-let* ((buffer (claude-code-status--session-at-point
-                       (and (mouse-event-p event) event)))
-              ((buffer-live-p buffer)))
-    (pop-to-buffer buffer)))
+  (let ((session (claude-code-status--session-at-point
+                  (and (mouse-event-p event) event))))
+    (cond ((bufferp session) (when (buffer-live-p session) (pop-to-buffer session)))
+          (session (claude-code-status--resume session)))))
 
 (defun claude-code-status-kill ()
-  "Kill the session at point, after confirming."
+  "Kill the session at point after confirming, or forget a remembered one."
   (interactive)
-  (when-let* ((buffer (claude-code-status--session-at-point))
-              ((y-or-n-p (format "Kill Claude session %s? "
-                                 (claude-code-status--label buffer)))))
-    (if (fboundp 'claude-code--kill-buffer)
-        (claude-code--kill-buffer buffer)
-      (kill-buffer buffer))
-    (claude-code-status--refresh)))
+  (let ((session (claude-code-status--session-at-point)))
+    (cond ((bufferp session)
+           (when (y-or-n-p (format "Kill Claude session %s? "
+                                   (claude-code-status--label session)))
+             (if (fboundp 'claude-code--kill-buffer)
+                 (claude-code--kill-buffer session)
+               (kill-buffer session))
+             (claude-code-status--refresh)))
+          (session
+           (when (y-or-n-p (format "Forget session %s? (Claude keeps its history) "
+                                   (claude-code-status--label session)))
+             (setq claude-code-status--remembered
+                   (delq session claude-code-status--remembered))
+             (claude-code-status--schedule-save)
+             (claude-code-status--refresh))))))
 
 (defun claude-code-status-rename (name)
   "Rename the session at point to instance NAME.
 claude-code.el shows the instance name after the project, as in
 `project:NAME', and offers it when you choose among sessions."
   (interactive
-   (let ((buffer (or (claude-code-status--session-at-point)
-                     (user-error "No session here"))))
+   (let ((session (claude-code-status--session-at-point)))
+     (unless (bufferp session)
+       (user-error (if session "Resume the session to rename it" "No session here")))
      (list (read-string "Rename session to: "
-                        (cdr (claude-code-status--parse-name buffer))))))
+                        (cdr (claude-code-status--parse-name session))))))
   (let* ((buffer (claude-code-status--session-at-point))
          (old (buffer-name buffer))
          (new (format "*claude:%s:%s*" (car (claude-code-status--parse-name buffer)) name)))
@@ -467,6 +637,7 @@ claude-code.el shows the instance name after the project, as in
       (rename-buffer new))
     (maphash (lambda (_id entry) (when (equal (car entry) old) (setcar entry new)))
              claude-code-status--sessions)
+    (claude-code-status--schedule-save)
     (claude-code-status--refresh)))
 
 (defun claude-code-status--entry-start (pos)
@@ -509,6 +680,10 @@ the mode is enabled."
         (add-hook 'claude-code-process-environment-functions
                   #'claude-code-status--environment)
         (add-hook 'kill-emacs-hook #'claude-code-status--delete-payload-files)
+        ;; Ahead of other exit hooks, which may kill the sessions.
+        (add-hook 'kill-emacs-hook #'claude-code-status--save-on-exit -90)
+        (when claude-code-status-remember-sessions
+          (claude-code-status--load))
         (when claude-code-status-mode-line
           (add-to-list 'global-mode-string 'claude-code-status--mode-line-string t))
         (unless (server-running-p)
@@ -516,6 +691,7 @@ the mode is enabled."
                            "No Emacs server is running, so Claude hooks can't report session state; see `server-start'")))
     (remove-hook 'claude-code-process-environment-functions
                  #'claude-code-status--environment)
+    (remove-hook 'kill-emacs-hook #'claude-code-status--save-on-exit)
     (setq global-mode-string
           (delq 'claude-code-status--mode-line-string global-mode-string))))
 
