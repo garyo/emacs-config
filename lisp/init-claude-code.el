@@ -37,6 +37,25 @@ an editor open in this Emacs."
   (monet-mode 1)
   (claude-code-mode 1))
 
+(declare-function claude-code--directory "claude-code")
+(declare-function claude-code--find-claude-buffers-for-directory "claude-code")
+
+(defun gco-claude-code-project ()
+  "Show the current project's Claude session, starting one if none runs.
+A new session continues the project's latest conversation, or starts
+fresh if there is none.  From \\[project-switch-project] this acts on
+the chosen project."
+  (interactive)
+  (require 'claude-code)
+  (if-let* ((buffer (car (claude-code--find-claude-buffers-for-directory
+                          (claude-code--directory)))))
+      (pop-to-buffer buffer)
+    (claude-code-continue '(4))))
+
+(with-eval-after-load 'project
+  (keymap-set project-prefix-map "C" #'gco-claude-code-project)
+  (add-to-list 'project-switch-commands '(gco-claude-code-project "Claude") t))
+
 ;;; Ghostel backend fixes.  claude-code.el's ghostel support predates
 ;;; ghostel's native PTY and input-mode rework (0.22+), so replace the
 ;;; methods that broke.  Remove once upstream catches up; see
