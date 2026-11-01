@@ -124,11 +124,36 @@
 (use-package ghostel
   :ensure t
   :config
+  (keymap-set ghostel-mode-map "s-<mouse-1>" #'gco-ghostel-open-at-click)
   ;; Auto-install ghostel's xterm-ghostty terminfo on remote hosts on
   ;; first outbound ssh (cached per host).  Off by default because it's
   ;; gated behind ghostel-tramp-shell-integration (nil); set to t to
   ;; force it on so `ssh other-mac' doesn't arrive with an unknown TERM.
   (setq ghostel-ssh-install-terminfo t))
+
+;; Cmd-click, as in Ghostty: plain clicks already follow ghostel's
+;; detected file:line references and URLs; Cmd-click also opens git
+;; commit hashes, such as those Claude mentions, in Magit.
+(declare-function magit-rev-verify "magit-git")
+(declare-function magit-show-commit "magit-diff")
+(declare-function ghostel-open-link-at-click "ghostel-links")
+
+(defun gco-ghostel-open-at-click (event)
+  "Open the git commit or link under the mouse EVENT.
+A hash that identifies a commit in the buffer's repository opens in
+Magit; anything else gets ghostel's usual link handling."
+  (interactive "e")
+  (let ((posn (event-start event)))
+    (with-current-buffer (window-buffer (posn-window posn))
+      (let ((word (save-excursion
+                    (goto-char (posn-point posn))
+                    (thing-at-point 'word t))))
+        (if (and word
+                 (string-match-p "\\`[[:xdigit:]]\\{7,40\\}\\'" word)
+                 (require 'magit nil t)
+                 (magit-rev-verify word))
+            (magit-show-commit word)
+          (ghostel-open-link-at-click event))))))
 
 ;; Trackpad scrolling inside a mouse-tracking TUI (Claude Code, htop, less)
 ;; is far too fast: macOS emits a burst of wheel events per gesture and
