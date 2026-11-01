@@ -8,7 +8,8 @@
 ;;; Commentary:
 
 ;; Tracks the state of each claude-code.el session -- working, waiting
-;; for you, or needing input such as a permission decision -- and shows
+;; for you, or needing input: a permission decision, a question dialog,
+;; or a finished reply that ends with a question -- and shows
 ;; it in a session list and in the mode line.  Each session in the list
 ;; also shows a line or two of context: what Claude is asking, the tool
 ;; it last ran, or the end of its last reply.  It works with any
@@ -45,7 +46,7 @@
   :prefix "claude-code-status-")
 
 (defface claude-code-status-input '((t :inherit error))
-  "Face for sessions that need input, such as a permission decision.")
+  "Face for sessions that need input, such as a permission decision or an answer.")
 
 (defface claude-code-status-waiting '((t :inherit warning))
   "Face for sessions that have finished and are waiting for a prompt.")
@@ -183,6 +184,11 @@ TRANSCRIPT is a Claude Code session file with one JSON record per line."
   "Return the last non-blank paragraph of TEXT."
   (car (last (seq-remove #'string-blank-p (split-string text "\n[ \t]*\n")))))
 
+(defun claude-code-status--asks-p (text)
+  "Return non-nil if TEXT ends with a question.
+Ignores trailing Markdown emphasis, quotes and closing parentheses."
+  (and text (string-match-p "\\?[]*_`)\"'”’ \t\n]*\\'" text)))
+
 (defun claude-code-status--describe-event (payload)
   "Return (DETAIL . FROM-END) describing hook PAYLOAD for the session list.
 DETAIL is nil when the event says nothing new."
@@ -216,6 +222,11 @@ input to the session's payload file."
               ((assq state claude-code-status--states)))
     (let ((described (claude-code-status--describe-event
                       (claude-code-status--read-payload (cdr entry)))))
+      ;; A finished turn that ends by asking something needs you as much
+      ;; as a permission prompt does.
+      (when (and (eq state 'waiting) (cdr described)
+                 (claude-code-status--asks-p (car described)))
+        (setq state 'input))
       (with-current-buffer buffer
         (setq claude-code-status--state state
               claude-code-status--since (current-time))
