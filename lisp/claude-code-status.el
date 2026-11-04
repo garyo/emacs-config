@@ -1,23 +1,26 @@
 ;;; claude-code-status.el --- See which Claude Code sessions are waiting for you  -*- lexical-binding: t -*-
 
 ;; Author: Gary Oberbrunner <garyo@oberbrunner.com>
-;; Version: 0.3
+;; Version: 0.4
 ;; Package-Requires: ((emacs "30.1") (claude-code "0.4"))
 ;; Keywords: tools, convenience
 
 ;;; Commentary:
 
-;; Tracks the state of each claude-code.el session -- working, waiting
-;; for you, or needing input: a permission decision, a question dialog,
-;; or a finished reply that ends with a question -- and shows it in a
-;; session list and in the mode line.  Each session in the list also
-;; shows a line or two of context: what Claude is asking, the tool it
-;; last ran, or the end of its last reply.  It works with any
-;; claude-code.el terminal backend.
+;; Tracks the state of each claude-code.el session -- working, finished
+;; with a reply you haven't seen, waiting for you, or needing input: a
+;; permission decision, a question dialog, or a finished reply that ends
+;; with a question -- and shows it in a session list and in the mode
+;; line.  Each session in the list also shows a line or two of context:
+;; what Claude is asking, the tool it last ran, or the end of its last
+;; reply.  It works with any claude-code.el terminal backend.
 ;;
 ;; Claude Code reports state changes through its hooks, which save the
 ;; hook's JSON input to a per-session temporary file and call back into
-;; Emacs with emacsclient.  To set up:
+;; Emacs with emacsclient.  In ghostel terminals, Claude Code also
+;; reports its status directly (OSC 7501), which catches what hooks
+;; miss, such as compacting or waiting out a rate limit; there, that
+;; report decides the state and hooks supply the context.  To set up:
 ;;
 ;;   1. Run an Emacs server (`server-start').
 ;;   2. Enable `claude-code-status-mode'.  Sessions started from then on
@@ -43,6 +46,9 @@
 (require 'server)
 
 (defvar claude-code-process-environment-functions)
+(defvar claude-code-status-mode)
+(defvar ghostel-program-status)
+(defvar ghostel-program-status-functions)
 (declare-function claude-code--kill-buffer "claude-code")
 (declare-function claude-code--start "claude-code")
 
@@ -54,6 +60,9 @@
 (defface claude-code-status-input '((t :inherit error))
   "Face for sessions that need input, such as a permission decision or an answer.")
 
+(defface claude-code-status-done '((t :inherit (bold warning)))
+  "Face for sessions that have finished a reply you haven't seen yet.")
+
 (defface claude-code-status-waiting '((t :inherit warning))
   "Face for sessions that have finished and are waiting for a prompt.")
 
@@ -64,7 +73,8 @@
   "Face for the context line under each session in the list.")
 
 (defcustom claude-code-status-icons
-  '((input . "▶") (waiting . "○") (working . "●") (untracked . "?") (ended . "◌"))
+  '((input . "▶") (done . "✓") (waiting . "○") (working . "●")
+    (untracked . "?") (ended . "◌"))
   "Icon for each session state in the list and the mode line.
 `untracked' is for sessions started before `claude-code-status-mode',
 and `ended' for remembered sessions from an earlier Emacs."
@@ -101,9 +111,14 @@ Sessions you end yourself are forgotten."
 
 (defconst claude-code-status--states
   '((input   "needs input" claude-code-status-input)
+    (done    "finished"    claude-code-status-done)
     (waiting "waiting"     claude-code-status-waiting)
     (working "working"     claude-code-status-working))
   "Session states, most urgent first: (STATE LABEL FACE).")
+
+(defconst claude-code-status--program-states
+  '((working . working) (blocked . input) (error . input) (done . done) (idle . waiting))
+  "Session state for each state of Claude Code's own status report.")
 
 (defconst claude-code-status--hooks
   '(("SessionStart" nil waiting)
@@ -146,6 +161,9 @@ Sessions you end yourself are forgotten."
 
 (defvar-local claude-code-status--detail-from-end nil
   "Non-nil if the end of `claude-code-status--detail' matters most.")
+
+(defvar-local claude-code-status--reports-status nil
+  "Non-nil once this buffer's session has reported its own status.")
 
 (defvar-local claude-code-status--session-id nil
   "Claude Code's id for this buffer's conversation, for resuming it.")
@@ -255,24 +273,70 @@ input to the session's payload file."
               ((assq state claude-code-status--states)))
     (let* ((payload (claude-code-status--read-payload (cdr entry)))
            (described (claude-code-status--describe-event payload)))
-      ;; A finished turn that ends by asking something needs you as much
-      ;; as a permission prompt does.
-      (when (and (eq state 'waiting) (cdr described)
-                 (claude-code-status--asks-p (car described)))
-        (setq state 'input))
       (with-current-buffer buffer
-        (setq claude-code-status--state state
-              claude-code-status--since (current-time))
         (when described
           (setq claude-code-status--detail (car described)
                 claude-code-status--detail-from-end (cdr described)))
         (when-let* ((session-id (alist-get 'session_id payload)))
           (setq claude-code-status--session-id session-id
                 claude-code-status--transcript (alist-get 'transcript_path payload)))
-        (add-hook 'kill-buffer-hook #'claude-code-status--forget-buffer nil t)))
+        (claude-code-status--set-state
+         (if claude-code-status--reports-status claude-code-status--state state))))
     (claude-code-status--refresh)
     (claude-code-status--schedule-save))
   nil)
+
+(defun claude-code-status--set-state (state)
+  "Put the current buffer's session in STATE; return non-nil if it changed."
+  ;; A finished turn that ends by asking something needs you as much as
+  ;; a permission prompt does.
+  (when (and (memq state '(done waiting))
+             claude-code-status--detail-from-end
+             (claude-code-status--asks-p claude-code-status--detail))
+    (setq state 'input))
+  (add-hook 'kill-buffer-hook #'claude-code-status--forget-buffer nil t)
+  (unless (eq state claude-code-status--state)
+    (setq claude-code-status--state state
+          claude-code-status--since (current-time))))
+
+(defun claude-code-status--program-status (id old new)
+  "Follow a Claude session's own status report, from OLD record to NEW.
+Only the record with ID \"\", for the session itself, counts.  For
+`ghostel-program-status-functions', in the terminal's buffer."
+  (when (and (string-empty-p id)
+             (equal (plist-get (or new old) :app) "claude-code")
+             (claude-code-status--parse-name (current-buffer)))
+    (setq claude-code-status--reports-status t)
+    (when-let* ((state (if new
+                           (alist-get (plist-get new :state)
+                                      claude-code-status--program-states)
+                         ;; ghostel drops a finished record once you've seen it.
+                         (and (memq (plist-get old :state) '(done error)) 'waiting))))
+      (let* ((msg (plist-get new :msg))
+             (new-detail (and msg (not (equal msg claude-code-status--detail)))))
+        (when new-detail
+          (setq claude-code-status--detail msg
+                claude-code-status--detail-from-end nil))
+        ;; This runs on ghostel's output path; redraw only on a change.
+        (when (or (claude-code-status--set-state state) new-detail)
+          (claude-code-status--refresh)
+          (claude-code-status--schedule-save))))))
+
+(defun claude-code-status--follow-program-status (follow)
+  "Start following Claude's status reports in ghostel if FOLLOW, else stop.
+Picks up what running sessions have already reported."
+  (if (not follow)
+      (when (boundp 'ghostel-program-status-functions)
+        (remove-hook 'ghostel-program-status-functions
+                     #'claude-code-status--program-status))
+    (with-eval-after-load 'ghostel-status
+      (when claude-code-status-mode
+        (add-hook 'ghostel-program-status-functions
+                  #'claude-code-status--program-status)
+        (dolist (buffer (claude-code-status--session-buffers))
+          (with-current-buffer buffer
+            (when-let* ((record (cdr (assoc "" (bound-and-true-p ghostel-program-status)))))
+              (claude-code-status--program-status "" nil record))))))))
 
 (defun claude-code-status--forget-buffer ()
   "Drop the current buffer's session, for `kill-buffer-hook'."
@@ -679,6 +743,7 @@ the mode is enabled."
       (progn
         (add-hook 'claude-code-process-environment-functions
                   #'claude-code-status--environment)
+        (claude-code-status--follow-program-status t)
         (add-hook 'kill-emacs-hook #'claude-code-status--delete-payload-files)
         ;; Ahead of other exit hooks, which may kill the sessions.
         (add-hook 'kill-emacs-hook #'claude-code-status--save-on-exit -90)
@@ -691,6 +756,7 @@ the mode is enabled."
                            "No Emacs server is running, so Claude hooks can't report session state; see `server-start'")))
     (remove-hook 'claude-code-process-environment-functions
                  #'claude-code-status--environment)
+    (claude-code-status--follow-program-status nil)
     (remove-hook 'kill-emacs-hook #'claude-code-status--save-on-exit)
     (setq global-mode-string
           (delq 'claude-code-status--mode-line-string global-mode-string))))
