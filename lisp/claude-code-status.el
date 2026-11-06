@@ -30,7 +30,8 @@
 ;;      that Emacs didn't start.
 ;;
 ;; M-x claude-code-status-list shows the sessions, most urgent first:
-;; RET visits one, k kills it, r renames it, n and p move between them.
+;; RET visits one, k kills it, r renames it, n and p move between them,
+;; and s sorts them by status, time or name instead.
 ;; The mode line summarizes sessions that need you; click it to open the
 ;; list.
 ;;
@@ -99,6 +100,14 @@ Sessions you end yourself are forgotten."
   (locate-user-emacs-file "claude-code-status-sessions.eld")
   "File where `claude-code-status-remember-sessions' keeps sessions."
   :type 'file)
+
+(defcustom claude-code-status-sort 'status
+  "How the session list orders sessions.
+`status' puts the sessions that need you first, `time' the most
+recently changed, and `name' sorts by name.  Ties go to the most
+recently changed.  Sessions from an earlier Emacs always follow
+running ones.  \\<claude-code-status-list-mode-map>\\[claude-code-status-cycle-sort] in the list switches among these."
+  :type '(choice (const status) (const time) (const name)))
 
 (defcustom claude-code-status-display-action
   '(display-buffer-in-side-window (side . right) (window-width . 40))
@@ -368,14 +377,27 @@ Picks up what running sessions have already reported."
       (and (not (claude-code-status--tracked-p buffer)) 'untracked)))
 
 (defun claude-code-status--session-buffers ()
-  "Return claude-code.el session buffers, most urgent state first."
-  (let ((rank (lambda (buffer)
-                (or (seq-position (mapcar #'car claude-code-status--states)
-                                  (buffer-local-value 'claude-code-status--state buffer))
-                    (length claude-code-status--states)))))
-    (sort (seq-filter (lambda (buffer) (string-prefix-p "*claude:" (buffer-name buffer)))
-                      (buffer-list))
-          :key rank)))
+  "Return claude-code.el session buffers."
+  (seq-filter (lambda (buffer) (string-prefix-p "*claude:" (buffer-name buffer)))
+              (buffer-list)))
+
+(defun claude-code-status--get (session var key)
+  "Return SESSION's value of buffer-local VAR, or of KEY if it's remembered.
+SESSION is a session buffer or a remembered session's plist."
+  (if (bufferp session) (buffer-local-value var session) (plist-get session key)))
+
+(defun claude-code-status--sort-key (session)
+  "Return SESSION's sort key for `claude-code-status-sort', for `value<'."
+  (let* ((since (claude-code-status--get session 'claude-code-status--since :since))
+         (recent (- (if since (float-time since) 0))))
+    (pcase claude-code-status-sort
+      ('name (list (downcase (claude-code-status--label session)) recent))
+      ('time (list recent))
+      (_ (list (or (and (bufferp session)
+                        (seq-position (mapcar #'car claude-code-status--states)
+                                      (buffer-local-value 'claude-code-status--state session)))
+                   (length claude-code-status--states))
+               recent)))))
 
 (defun claude-code-status--parse-name (buffer)
   "Return (DIRECTORY . INSTANCE) from BUFFER's name, or nil.
@@ -543,6 +565,7 @@ claude-code.el names session buffers *claude:DIRECTORY:INSTANCE*."
   "<mouse-2>" #'claude-code-status-visit
   "k" #'claude-code-status-kill
   "r" #'claude-code-status-rename
+  "s" #'claude-code-status-cycle-sort
   "n" #'claude-code-status-next
   "p" #'claude-code-status-previous)
 
@@ -585,12 +608,11 @@ When it's longer, keep the end if FROM-END is non-nil, else the start."
 SESSION is a session buffer or a remembered session's plist."
   (let* ((start (point))
          (live (bufferp session))
-         (get (lambda (var key)
-                (if live (buffer-local-value var session) (plist-get session key))))
          (time (claude-code-status--format-time
-                (funcall get 'claude-code-status--since :since)))
-         (detail (funcall get 'claude-code-status--detail :detail))
-         (from-end (funcall get 'claude-code-status--detail-from-end :detail-from-end))
+                (claude-code-status--get session 'claude-code-status--since :since)))
+         (detail (claude-code-status--get session 'claude-code-status--detail :detail))
+         (from-end (claude-code-status--get session 'claude-code-status--detail-from-end
+                                            :detail-from-end))
          (label (claude-code-status--label session)))
     (insert (claude-code-status--icon
              (if live (claude-code-status--display-state session) 'ended))
@@ -618,13 +640,12 @@ SESSION is a session buffer or a remembered session's plist."
          (window (get-buffer-window (current-buffer) t))
          (width (if window (window-body-width window) 40))
          (here (get-text-property (point) 'claude-code-status-session))
-         (sessions (append (claude-code-status--session-buffers)
-                           (sort (copy-sequence claude-code-status--remembered)
-                                 :key (lambda (record)
-                                        (if-let* ((since (plist-get record :since)))
-                                            (float-time since)
-                                          0))
-                                 :reverse t))))
+         (sessions (append (sort (claude-code-status--session-buffers)
+                                 :key #'claude-code-status--sort-key)
+                           (sort claude-code-status--remembered
+                                 :key #'claude-code-status--sort-key))))
+    (setq mode-name (format "Claude Sessions by %s" claude-code-status-sort))
+    (force-mode-line-update)
     (erase-buffer)
     (if sessions
         (dolist (session sessions)
@@ -703,6 +724,16 @@ claude-code.el shows the instance name after the project, as in
              claude-code-status--sessions)
     (claude-code-status--schedule-save)
     (claude-code-status--refresh)))
+
+(defun claude-code-status-cycle-sort ()
+  "Sort the session list the next way: by status, time, or name.
+See `claude-code-status-sort'."
+  (interactive)
+  (let ((orders '(status time name)))
+    (setq claude-code-status-sort
+          (or (cadr (memq claude-code-status-sort orders)) (car orders))))
+  (claude-code-status--render)
+  (message "Sorted by %s" claude-code-status-sort))
 
 (defun claude-code-status--entry-start (pos)
   "Return where the session entry containing POS begins."
