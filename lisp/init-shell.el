@@ -129,7 +129,10 @@
   ;; first outbound ssh (cached per host).  Off by default because it's
   ;; gated behind ghostel-tramp-shell-integration (nil); set to t to
   ;; force it on so `ssh other-mac' doesn't arrive with an unknown TERM.
-  (setq ghostel-ssh-install-terminfo t))
+  (setq ghostel-ssh-install-terminfo t)
+  ;; A program's "done" report (such as a finished Claude reply) clears
+  ;; once its buffer has been looked at, not only after typing in it.
+  (setopt ghostel-status-auto-acknowledge 'seen))
 
 ;; Cmd-click, as in Ghostty: plain clicks already follow ghostel's
 ;; detected file:line references and URLs; Cmd-click also opens git
