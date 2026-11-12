@@ -65,6 +65,7 @@
 
 ;;; show keybindings following prefix in a popup
 (use-package which-key
+  :ensure nil                           ; built in since Emacs 30
   :diminish which-key-mode
   :config
   (which-key-mode)
