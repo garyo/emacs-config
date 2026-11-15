@@ -18,6 +18,55 @@
   (setq ediff-window-setup-function 'ediff-setup-windows-plain)
   )
 
+  ;;; Images: wheel scrolling and drag to pan a zoomed image.
+(defun gco-image-keep-point-on-image ()
+  "Move point back onto the image if something moved it off.
+The image commands on `i' act on the image at point, and fail with
+point past the image at the end of the buffer."
+  (unless (get-char-property (point) 'display)
+    (goto-char (point-min))))
+
+(defun gco-image-mode-setup ()
+  "Set up wheel scrolling and keep point on the image.
+`pixel-scroll-precision-mode' signals \"End of buffer\" instead of
+scrolling a zoomed image down, and the ordinary wheel handler's
+`scroll-up' jumps back to the top; image-mode's own scroll commands
+work."
+  (setq-local pixel-scroll-precision-mode nil
+              mwheel-scroll-up-function #'image-scroll-up
+              mwheel-scroll-down-function #'image-scroll-down)
+  (add-hook 'post-command-hook #'gco-image-keep-point-on-image nil t))
+
+(declare-function image-display-size "image-mode")
+(declare-function image-get-display-property "image-mode")
+(declare-function image-set-window-hscroll "image-mode")
+(declare-function image-set-window-vscroll "image-mode")
+
+(defun gco-image-drag-pan (event)
+  "Pan the image under mouse EVENT by dragging it."
+  (interactive "e")
+  (with-selected-window (posn-window (event-start event))
+    (let* ((origin (cdr (mouse-pixel-position)))
+           (vscroll (window-vscroll nil t))
+           (hscroll (window-hscroll))
+           (column (frame-char-width))
+           (size (image-display-size (image-get-display-property) t))
+           (max-vscroll (max 0 (- (ceiling (cdr size)) (window-body-height nil t))))
+           (max-hscroll (max 0 (ceiling (- (car size) (window-body-width nil t)) column))))
+      (track-mouse
+        (while (mouse-movement-p (read-event))
+          (pcase-let ((`(,x . ,y) (cdr (mouse-pixel-position))))
+            (when (and x y)
+              (image-set-window-vscroll
+               (min max-vscroll (max 0 (- vscroll (- y (cdr origin))))))
+              (image-set-window-hscroll
+               (min max-hscroll (max 0 (- hscroll (/ (- x (car origin)) column))))))))))))
+
+(use-package image-mode
+  :ensure nil
+  :hook (image-mode . gco-image-mode-setup)
+  :bind (:map image-mode-map ("<down-mouse-1>" . gco-image-drag-pan)))
+
 (use-package ztree)                     ; file tree browser
 
 ;; White space cleanup, without obtrusive white space removal.
